@@ -42,7 +42,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: Makalu/contracts/pnpm-lock.yaml
+          cache-dependency-path: Makalu/pnpm-lock.yaml
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile || pnpm install
@@ -77,7 +77,7 @@ jobs:
         with:
           node-version: 20
           cache: pnpm
-          cache-dependency-path: Makalu/contracts/pnpm-lock.yaml
+          cache-dependency-path: Makalu/pnpm-lock.yaml
 
       - name: Install — contracts
         working-directory: ./Makalu/contracts
