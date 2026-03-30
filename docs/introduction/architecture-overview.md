@@ -27,6 +27,8 @@ Potential applications include:
 
 ## Myriad Distributed Key Management (MDKM)
 
+> **Status**: MDKM is part of the Lithosphere protocol design and roadmap. The implementation is not yet available on the Makalu testnet. The current network uses standard Ethermint cross-chain primitives.
+
 ![MDKM Architecture](../diagrams/Figure_7.png)
 
 MDKM realizes the generation of public-private key pairs and addresses, and transaction signatures on the target blockchain in a distributed manner through several nodes according to digital signature algorithms adopted by the target blockchain. This enables the control and management of accounts and assets on the target blockchain in a distributed fashion.
@@ -47,6 +49,8 @@ Lithosphere is based on distributed key generation (DKG) in the field of cipher-
 Currently, over 80% of encrypted digital currencies adopt the same ECDSA signature algorithm as Bitcoin and Ethereum. MDKM first implements support for ECDSA, with planned support for Ed25519 (Stellar) and Schnorr signature algorithms.
 
 ## Threshold Signature
+
+> **Status**: Threshold signatures are part of the Lithosphere protocol design and roadmap. Not yet implemented on the Makalu testnet.
 
 The threshold signature technique addresses the issue of signatures created by departing nodes while improving the blockchain network's stability. Lithosphere selects appropriate nodes to join and refresh shared key parameters in extreme circumstances to assure the chain's successful functioning.
 

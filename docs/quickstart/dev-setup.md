@@ -78,7 +78,7 @@ This builds and launches **six services** via Docker Compose:
 
 | Service          | URL / Port                          | Description                        |
 | ---------------- | ----------------------------------- | ---------------------------------- |
-| **LithoVM (Anvil)** | `http://localhost:8545`          | Local EVM chain (Chain ID `777777`, 2 s block time) |
+| **LithoVM (Anvil)** | `http://localhost:8545`          | Local EVM chain (Chain ID `700777`, 2 s block time) |
 | **API (GraphQL)**    | `http://localhost:4000`          | Backend API with GraphQL playground |
 | **Indexer**          | `http://localhost:3001`          | Blockchain indexer (→ Postgres)    |
 | **Explorer**         | `http://localhost:3000`          | Block explorer UI                  |
@@ -120,7 +120,7 @@ Open MetaMask → **Settings → Networks → Add Network → Add a network manu
 | ------------------ | ---------------------------- |
 | Network Name       | `Lithosphere Devnet`         |
 | RPC URL            | `http://localhost:8545`      |
-| Chain ID           | `777777`                     |
+| Chain ID           | `700777`                     |
 | Currency Symbol    | `LITHO`                      |
 | Block Explorer URL | `http://localhost:3000`      |
 

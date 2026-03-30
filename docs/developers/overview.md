@@ -43,7 +43,7 @@ Each directory serves a distinct role in the development lifecycle, from smart c
 
 | Package | Description | Key Technologies |
 |---------|-------------|-----------------|
-| **@lithosphere/blockchain-core** | Core SDK providing a ledger abstraction layer, cryptographic utilities (MDKM, ring signatures), and consensus mechanism implementation | TypeScript-first API |
+| **@lithosphere/blockchain-core** | Core SDK providing a ledger abstraction layer and consensus mechanism implementation. *Cryptographic utilities (MDKM, ring signatures) are planned but not yet implemented.* | TypeScript-first API |
 | **create-litho-app** | CLI tool for scaffolding new Lithosphere projects with template selection and automatic dependency setup | tsup |
 | **@lithosphere/docs** | Comprehensive documentation including the whitepaper, LEP100 token standard guide, architecture docs, and smart contract development guides | Markdown |
 
@@ -63,7 +63,7 @@ Lithosphere was built around three core design objectives derived from research 
 
 - Allow trading parties to choose whether or not to execute transactions privately.
 - Provide privacy protection for digital asset transfers and exchanges.
-- Provide holders of digital assets with anonymous protection through ring signatures and one-time accounts.
+- Provide holders of digital assets with anonymous protection through ring signatures and one-time accounts. *(Planned — ring signature and one-time account modules are on the development roadmap.)*
 
 ### Functional Extensibility
 

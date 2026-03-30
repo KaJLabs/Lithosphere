@@ -80,7 +80,7 @@ lithod init <moniker> --chain-id <chain-id>
 | Parameter      | Description                                                    |
 |----------------|----------------------------------------------------------------|
 | `<moniker>`    | A human-readable name for your node (e.g., `my-node-01`).     |
-| `--chain-id`   | The identifier of the target chain (e.g., `lithosphere-1`).   |
+| `--chain-id`   | The identifier of the target chain (e.g., `lithosphere_700777-1`).   |
 
 This command creates the default directory structure at `~/.lithod/`, including configuration files (`app.toml`, `config.toml`, `genesis.json`), the data directory, and the keyring.
 

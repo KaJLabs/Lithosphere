@@ -207,7 +207,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_RPC_URL: ${NEXT_PUBLIC_RPC_URL:-https://rpc.litho.ai}
-        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-lithosphere_777777-1}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-lithosphere_700777-1}
         NEXT_PUBLIC_CHAIN_NAME: ${CHAIN_NAME:-Lithosphere}
     restart: unless-stopped
     ports:
@@ -215,7 +215,7 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-production}
       - NEXT_PUBLIC_RPC_URL=${NEXT_PUBLIC_RPC_URL:-https://rpc.litho.ai}
-      - NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID:-lithosphere_777777-1}
+      - NEXT_PUBLIC_CHAIN_ID=${CHAIN_ID:-lithosphere_700777-1}
       - NEXT_PUBLIC_CHAIN_NAME=${CHAIN_NAME:-Lithosphere}
     env_file:
       - .env

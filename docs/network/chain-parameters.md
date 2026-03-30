@@ -41,8 +41,8 @@ Lithosphere is built on the following technology stack:
 | **Framework** | Cosmos-SDK |
 | **Consensus Engine** | CometBFT |
 | **Virtual Machine** | LithoVM (EVM-compatible) |
-| **Chain ID** | `lithosphere-1` |
-| **LITHO_CHAIN_ID** | `61` |
+| **Chain ID** | `lithosphere_700777-1` |
+| **EVM Chain ID** | `700777` |
 | **Block Time** | ~3 seconds |
 
 The Cosmos-SDK foundation provides modular architecture and proven interoperability primitives, while CometBFT handles networking and consensus. LithoVM delivers full EVM compatibility, allowing developers to deploy Solidity smart contracts and use familiar Ethereum tooling.
@@ -67,3 +67,43 @@ Lithosphere handles cross-chain assets through an automated registration process
 - **Registered assets**: For assets that have already been registered, equal tokens are issued within the existing smart contract, maintaining a consistent token address and contract interface.
 
 This approach ensures that each external asset has a single canonical representation on Lithosphere, simplifying DeFi integrations and preventing token fragmentation.
+
+## Canonical Network Parameters
+
+A machine-readable JSON configuration bundle is available at [`network-parameters.json`](./network-parameters.json) for wallets, operators, and tooling to consume.
+
+| Parameter | Value |
+|-----------|-------|
+| Cosmos Chain ID | `lithosphere_700777-1` |
+| EVM Chain ID | `700777` (hex: `0xab169`) |
+| Bech32 Prefix | `litho` |
+| Native Denom | `ulitho` (display: `LITHO`, 18 decimals) |
+| Block Time | ~3 seconds |
+| Max Block Size | 21 MB |
+| Max Gas per Block | 100,000,000 |
+| Consensus | CometBFT (LinBFT) |
+| Framework | Cosmos-SDK (Ethermint fork) |
+
+## Rate Limits and Anti-Spam Controls
+
+### Public RPC Endpoints
+
+Public RPC endpoints (`rpc.litho.ai`, `api.litho.ai`) are rate-limited via Nginx/Cloudflare:
+
+- Rate-limited per IP
+- WebSocket connections are limited per client
+
+### Mempool and Transaction Parameters
+
+- **Minimum gas price**: Validators enforce a minimum gas price to prevent spam transactions
+- **Gas limit per block**: 100,000,000 gas units
+- **Max block size**: 21 MB
+- **Pruning**: Sentry nodes prune historical state; archive node guidance is available upon request
+
+### Faucet Rate Limits (Testnet)
+
+- 1 claim per wallet address per 24 hours
+- Maximum 10 requests per IP per 15 minutes
+- Claim amounts: 100 / 250 / 500 LITHO
+
+> **Note**: For archive node setup, seed node lists, and detailed sentry topology guidance, contact the Lithosphere validator team or consult the [validator documentation](../validators/node-deployment.md).

@@ -61,7 +61,7 @@ The `@lithosphere/blockchain-core` package is the core SDK for building applicat
 | Component | Directory | Description |
 |-----------|-----------|-------------|
 | **Ledger Abstraction Layer** | `src/chain/` | Unified interface for reading and writing blockchain state, block structures, transaction handling, and state management |
-| **Cryptographic Utilities** | `src/crypto/` | MDKM (Myriad Distributed Key Management), ring signatures, threshold signatures, and key pair generation |
+| **Cryptographic Utilities** | `src/crypto/` | *Planned:* MDKM (Myriad Distributed Key Management), ring signatures, threshold signatures, and key pair generation. Not yet implemented in the current SDK release. |
 | **Consensus Mechanism** | `src/consensus/` | Linear Communication BFT (LinBFT) implementation with per-block consensus, rotating leader, and dynamic participant sets |
 | **Smart Contracts** | `src/contracts/` | Contract type definitions, ABI handling, and deployment utilities |
 | **SDK** | `src/sdk/` | High-level developer tools for wallet integration, transaction builders, and blockchain client |

@@ -101,7 +101,7 @@ jobs:
             NEXT_PUBLIC_API_URL=https://makalu.litho.ai/api
             NEXT_PUBLIC_GRAPHQL_URL=https://makalu.litho.ai/api/graphql
             NEXT_PUBLIC_RPC_URL=https://rpc.litho.ai
-            NEXT_PUBLIC_CHAIN_ID=lithosphere_777777-1
+            NEXT_PUBLIC_CHAIN_ID=lithosphere_700777-1
             NEXT_PUBLIC_CHAIN_NAME=Lithosphere
             NEXT_PUBLIC_SITE_URL=https://makalu.litho.ai
           cache-from: type=gha

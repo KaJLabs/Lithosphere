@@ -28,7 +28,7 @@ All endpoints are live, HTTPS-secured, and verified:
 | Public REST API | https://api.litho.ai | Live — 200 OK, rate-limited |
 
 **Live chain stats (verified March 1, 2026):**
-- Network: `lithosphere_777777-1`
+- Network: `lithosphere_700777-1` (reset from `lithosphere_777777-1` on 2026-03-23)
 - Latest Block Height: `779,841`
 - Node: `sentry-01` (evmosd v20.0.0)
 - Sync Status: In sync (not catching up)
@@ -168,8 +168,8 @@ All services are configured for the correct Lithosphere mainnet parameters:
 
 | Parameter | Value |
 |-----------|-------|
-| Cosmos Chain ID | `lithosphere_777777-1` |
-| EVM Chain ID | `777777` |
+| Cosmos Chain ID | `lithosphere_700777-1` |
+| EVM Chain ID | `700777` |
 | Native Token | `LITHO` |
 | Base Denomination | `ulitho` |
 | Decimals | `18` |

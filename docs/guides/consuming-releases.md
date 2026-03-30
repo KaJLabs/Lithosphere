@@ -142,7 +142,7 @@ cosign verify-attestation \
 # 2. Check contract artifact commit
 tar xzf lithosphere-contracts-v1.2.3.tar.gz
 cat lithosphere-contracts-v1.2.3/manifest.json
-# Shows: {"version":"1.2.3","commit":"abc123...","chain":"lithosphere_777777-1"}
+# Shows: {"version":"1.2.3","commit":"abc123...","chain":"lithosphere_700777-1"}
 
 # 3. Verify checksum
 sha256sum -c lithosphere-contracts-v1.2.3.sha256

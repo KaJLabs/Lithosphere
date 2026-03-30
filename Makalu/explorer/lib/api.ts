@@ -33,13 +33,15 @@ interface UseApiResult<T> {
 
 export function useApi<T>(
   path: string | null,
-  options?: { pollInterval?: number }
+  options?: { pollInterval?: number; initialData?: T }
 ): UseApiResult<T> {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<T | null>(options?.initialData ?? null);
+  const [loading, setLoading] = useState(options?.initialData === undefined);
   const [error, setError] = useState<string | null>(null);
   const pathRef = useRef(path);
   pathRef.current = path;
+  // Skip setting loading=true on the first fetch when SSR data is already present
+  const skipFirstLoading = useRef(options?.initialData !== undefined);
 
   const doFetch = useCallback(async () => {
     if (!pathRef.current) return;
@@ -59,7 +61,10 @@ export function useApi<T>(
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!skipFirstLoading.current) {
+      setLoading(true);
+    }
+    skipFirstLoading.current = false;
     doFetch();
   }, [path, doFetch]);
 

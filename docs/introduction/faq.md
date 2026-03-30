@@ -10,9 +10,9 @@ Lithosphere is a next-generation Layer 1 blockchain platform designed for cross-
 
 ### What makes Lithosphere different from other blockchains?
 
-- **Cross-chain interoperability**: Lithosphere connects all blockchains through Myriad Distributed Key Management (MDKM), enabling tokens from any supported chain to interact
-- **Intelligent smart contracts**: First blockchain to integrate Deep Neural Networks (DNNs) into smart contracts
-- **High throughput**: Capable of processing up to 1,000,000 TPS using LinBFT consensus
+- **Cross-chain interoperability**: Lithosphere connects blockchains through Myriad Distributed Key Management (MDKM), enabling tokens from supported chains to interact *(MDKM is on the roadmap; Makalu testnet uses standard Ethermint cross-chain primitives)*
+- **Intelligent smart contracts**: Integration of Deep Neural Networks (DNNs) into smart contracts *(planned — not yet available on Makalu)*
+- **High throughput**: LinBFT consensus targets up to 1,000,000 TPS at full protocol maturity *(current Makalu testnet throughput is determined by the active validator set and block parameters)*
 - **Multi-token standard**: LEP100 supports both fungible and non-fungible tokens in a single contract with cross-chain compatibility
 
 ### What is the LITHO token?

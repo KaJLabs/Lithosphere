@@ -41,7 +41,7 @@ Lithosphere is a multi-currency distributed platform that combines many banking 
 
 ### Transaction and Exchange
 
-After currencies are linked with Lithosphere, exchanges and intermediaries may use smart contracts to enable multi-currency auction trading and one-to-one transactions. Lithosphere can handle up to 1,000,000 transactions per second (TPS).
+After currencies are linked with Lithosphere, exchanges and intermediaries may use smart contracts to enable multi-currency auction trading and one-to-one transactions. Lithosphere targets up to 1,000,000 transactions per second (TPS) at full protocol maturity. Current testnet (Makalu) throughput is determined by the active validator set and block parameters.
 
 ### Investment and Financing
 

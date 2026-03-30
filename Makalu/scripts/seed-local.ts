@@ -25,7 +25,7 @@ import { foundry } from "viem/chains";
 // ---------------------------------------------------------------------------
 
 const RPC_URL = process.env.RPC_URL ?? "http://127.0.0.1:8545";
-const CHAIN_ID = Number(process.env.CHAIN_ID ?? 777777);
+const CHAIN_ID = Number(process.env.CHAIN_ID ?? 700777);
 
 // ---------------------------------------------------------------------------
 // Private keys are loaded from environment variables.

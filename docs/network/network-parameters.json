@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schemastore.org/chain-registry",
+  "chainName": "lithosphere",
+  "status": "live",
+  "networkType": "testnet",
+  "prettyName": "Lithosphere Makalu",
+  "chainId": "lithosphere_700777-1",
+  "evmChainId": 700777,
+  "evmChainIdHex": "0xab169",
+  "bech32Prefix": "litho",
+  "slip44": 60,
+  "nativeDenom": "ulitho",
+  "displayDenom": "LITHO",
+  "decimals": 18,
+  "blockTime": "~3s",
+  "consensus": "CometBFT (LinBFT)",
+  "framework": "Cosmos-SDK (Ethermint/Evmos fork)",
+  "vmCompatibility": "EVM (Solidity, LithoVM)",
+  "apis": {
+    "rpc": [
+      {
+        "address": "https://rpc.litho.ai",
+        "provider": "Lithosphere Foundation"
+      }
+    ],
+    "rest": [
+      {
+        "address": "https://api.litho.ai",
+        "provider": "Lithosphere Foundation"
+      }
+    ],
+    "grpc": [
+      {
+        "address": "grpc.litho.ai:9090",
+        "provider": "Lithosphere Foundation"
+      }
+    ],
+    "evmJsonRpc": [
+      {
+        "address": "https://rpc.litho.ai",
+        "provider": "Lithosphere Foundation"
+      }
+    ]
+  },
+  "explorers": [
+    {
+      "name": "Lithosphere Makalu Explorer",
+      "url": "https://makalu.litho.ai",
+      "txPage": "https://makalu.litho.ai/txs/${txHash}",
+      "blockPage": "https://makalu.litho.ai/blocks/${blockHeight}",
+      "addressPage": "https://makalu.litho.ai/address/${address}"
+    }
+  ],
+  "walletConfig": {
+    "chainId": "0xab169",
+    "chainName": "Lithosphere Makalu",
+    "rpcUrls": ["https://rpc.litho.ai"],
+    "nativeCurrency": {
+      "name": "LITHO",
+      "symbol": "LITHO",
+      "decimals": 18
+    },
+    "blockExplorerUrls": ["https://makalu.litho.ai"]
+  },
+  "faucet": {
+    "url": "https://makalu.litho.ai/faucet",
+    "amounts": ["100", "250", "500"],
+    "cooldownHours": 24
+  },
+  "updatedAt": "2026-03-30"
+}

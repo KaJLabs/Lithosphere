@@ -372,7 +372,7 @@ jobs:
           cat > "${BUNDLE_DIR}/manifest.json" << MANIFEST_EOF
           {
             "version": "${VERSION}",
-            "chain": "lithosphere_777777-1",
+            "chain": "lithosphere_700777-1",
             "compiler": "solc",
             "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
             "commit": "${{ github.sha }}"

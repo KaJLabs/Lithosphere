@@ -1,5 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
+import type { GetServerSideProps } from 'next';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, timeAgo, truncateHash, formatValue, formatSupply } from '@/lib/format';
@@ -20,7 +21,12 @@ const MAKALU_CHAIN = {
 
 const MAKALU_CHAIN_ID = parseInt(MAKALU_CHAIN.chainId, 16); // 700777
 
-export default function Home() {
+interface HomeProps {
+  initialStats: StatsSummary | null;
+  initialValidators: ApiValidator[] | null;
+}
+
+export default function Home({ initialStats, initialValidators }: HomeProps) {
   const { open } = useWeb3Modal();
   const { address, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
@@ -81,6 +87,7 @@ export default function Home() {
 
   const { data: stats, loading: statsLoading } = useApi<StatsSummary>('/stats/summary', {
     pollInterval: POLL_INTERVAL,
+    initialData: initialStats ?? undefined,
   });
   const { data: blocks, loading: blocksLoading } = useApi<ApiBlock[]>('/blocks?limit=4', {
     pollInterval: POLL_INTERVAL,
@@ -89,7 +96,9 @@ export default function Home() {
     pollInterval: POLL_INTERVAL,
   });
   const txs = txsData?.txs ?? [];
-  const { data: validators } = useApi<ApiValidator[]>('/validators');
+  const { data: validators } = useApi<ApiValidator[]>('/validators', {
+    initialData: initialValidators ?? undefined,
+  });
 
   const { data: tokensData, loading: tokensLoading } = useApi<ApiTokenDetail[]>('/tokens', {
     pollInterval: POLL_INTERVAL,
@@ -533,3 +542,19 @@ export default function Home() {
     </>
   );
 }
+
+export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
+  const apiBase = process.env.API_INTERNAL_URL ?? 'http://api:4000';
+
+  const [statsResult, validatorsResult] = await Promise.allSettled([
+    fetch(`${apiBase}/api/stats/summary`).then((r) => r.json() as Promise<StatsSummary>),
+    fetch(`${apiBase}/api/validators`).then((r) => r.json() as Promise<ApiValidator[]>),
+  ]);
+
+  return {
+    props: {
+      initialStats: statsResult.status === 'fulfilled' ? statsResult.value : null,
+      initialValidators: validatorsResult.status === 'fulfilled' ? validatorsResult.value : null,
+    },
+  };
+};

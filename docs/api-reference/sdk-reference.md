@@ -9,7 +9,7 @@ The `@lithosphere/blockchain-core` package provides a TypeScript-first API for i
 ## Features
 
 - **Ledger abstraction layer** -- Unified interface for reading and writing blockchain state.
-- **Cryptographic utilities** -- MDKM (Multi-Dimensional Key Management), ring signatures, and additional crypto primitives.
+- **Cryptographic utilities** -- *Planned:* MDKM (Multi-Dimensional Key Management), ring signatures, and additional crypto primitives. These modules are on the development roadmap and not yet available.
 - **Consensus mechanism implementation** -- Pluggable consensus support built into the core SDK.
 - **TypeScript-first API** -- Full type definitions and IntelliSense support out of the box.
 
@@ -54,7 +54,7 @@ console.log(result);
 | `sdk`       | High-level SDK utilities and client configuration. |
 | `chain`     | Chain state queries, block and transaction retrieval. |
 | `consensus` | Consensus mechanism interfaces and validation logic. |
-| `crypto`    | Cryptographic primitives including MDKM and ring signatures. |
+| `crypto`    | Cryptographic primitives including MDKM and ring signatures. *(Planned — not yet implemented)* |
 
 ## Project Scaffolding
 

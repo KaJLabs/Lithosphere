@@ -28,16 +28,16 @@ Key terms and definitions used throughout the Lithosphere documentation.
 | **LithoVM** | Lithosphere's EVM-compatible virtual machine runtime. |
 | **Lock-in** | The process of establishing distributed control over a digital asset from another blockchain via MDKM. |
 | **Lock-out** | The reversal of Lock-in, returning control of a digital asset to its owner. |
-| **MDKM** | Myriad Distributed Key Management -- Lithosphere's system for distributed control and management of accounts and assets across blockchains. |
+| **MDKM** | Myriad Distributed Key Management -- Lithosphere's system for distributed control and management of accounts and assets across blockchains. *(Roadmap — not yet on Makalu)* |
 | **NFT** | Non-Fungible Token -- a unit of data stored on a blockchain that certifies a unique digital asset. |
 | **Pegged Coins** | LEP100 tokens pegged to external assets (e.g., BTCL is BTC pegged to LEP100). |
 | **PoS** | Proof of Stake -- a consensus mechanism where validators stake tokens to participate in block production. |
-| **Ring Signature** | A cryptographic signature scheme that provides anonymity by combining the transaction sender with a group of decoy signers. |
-| **Threshold Signature** | A signature scheme requiring a minimum number (k) of participants out of a total (n) to produce a valid signature. |
+| **Ring Signature** | A cryptographic signature scheme that provides anonymity by combining the transaction sender with a group of decoy signers. *(Roadmap — not yet on Makalu)* |
+| **Threshold Signature** | A signature scheme requiring a minimum number (k) of participants out of a total (n) to produce a valid signature. *(Roadmap — not yet on Makalu)* |
 | **Time Slicing** | A LEP100 feature that adds start and end time attributes to tokens, enabling time-limited token utility. |
 | **Token** | A set of rules encoded in smart contracts. Each token belongs to a blockchain address and represents a digital asset stored on the blockchain. |
 | **Traction** | Drawing or pulling rate in a business context. |
 | **Usufruct** | The right to use and derive benefit from a digital asset without holding ownership, enabled by Lithosphere smart contracts. |
 | **Validator** | A node with positive voting power that participates in the consensus protocol by broadcasting cryptographic signatures to agree upon the next block. |
-| **VSS** | Variable (Verifiable) Secret Sharing -- a cryptographic technique used in MDKM for distributing private key shares. |
+| **VSS** | Variable (Verifiable) Secret Sharing -- a cryptographic technique used in MDKM for distributing private key shares. *(Roadmap — not yet on Makalu)* |
 | **White Paper** | A guide about a specific topic and the problems that surround it, meant to educate readers. |

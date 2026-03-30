@@ -118,7 +118,9 @@ All cryptographic operations in the Lithosphere network use elliptic curve crypt
 
 ### Ring Signatures
 
-Ring signatures are used within the Lithosphere network to provide **transaction anonymity**. A ring signature allows a member of a group to sign a message on behalf of the group without revealing which specific member produced the signature. This provides:
+> **Status**: Ring signatures are part of the Lithosphere protocol design and roadmap. Not yet implemented on the Makalu testnet.
+
+Ring signatures are designed for the Lithosphere network to provide **transaction anonymity**. A ring signature allows a member of a group to sign a message on behalf of the group without revealing which specific member produced the signature. This provides:
 
 - **Signer anonymity** -- The actual signer is indistinguishable from other members of the ring.
 - **No coordination required** -- Ring signatures do not require setup or cooperation from other ring members.

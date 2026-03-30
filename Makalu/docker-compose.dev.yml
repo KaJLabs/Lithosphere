@@ -32,7 +32,7 @@ services:
     command:
       - "--host=0.0.0.0"
       - "--port=8545"
-      - "--chain-id=${CHAIN_ID:-777777}"
+      - "--chain-id=${CHAIN_ID:-700777}"
       - "--block-time=${BLOCK_TIME:-2}"
       - "--accounts=${PREFUNDED_ACCOUNTS:-10}"
       - "--balance=${ACCOUNT_BALANCE:-10000}"
@@ -167,7 +167,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}
       LITHO_RPC_URL: http://lithovm:8545
       LITHO_WS_URL: ws://lithovm:8545
-      LITHO_CHAIN_ID: ${CHAIN_ID:-777777}
+      LITHO_CHAIN_ID: ${CHAIN_ID:-700777}
       INDEXER_PORT: 3001
       INDEXER_START_BLOCK: ${INDEXER_START_BLOCK:-0}
       INDEXER_BATCH_SIZE: ${INDEXER_BATCH_SIZE:-50}
@@ -220,7 +220,7 @@ services:
       API_HOST: 0.0.0.0
       DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}
       LITHO_RPC_URL: http://lithovm:8545
-      LITHO_CHAIN_ID: ${CHAIN_ID:-777777}
+      LITHO_CHAIN_ID: ${CHAIN_ID:-700777}
       REDIS_URL: redis://redis:6379
       GRAPHQL_PLAYGROUND: "true"
       PROMETHEUS_ENABLED: "true"
@@ -268,7 +268,7 @@ services:
         NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-4000}
         NEXT_PUBLIC_GRAPHQL_URL: http://localhost:${API_PORT:-4000}/graphql
         NEXT_PUBLIC_RPC_URL: http://localhost:${RPC_PORT:-8545}
-        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-777777}
+        NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-700777}
         NEXT_PUBLIC_CHAIN_NAME: ${CHAIN_NAME:-Litho Devnet}
     restart: unless-stopped
     ports:
@@ -279,7 +279,7 @@ services:
       NEXT_PUBLIC_GRAPHQL_URL: http://localhost:${API_PORT:-4000}/graphql
       NEXT_PUBLIC_RPC_URL: http://localhost:${RPC_PORT:-8545}
       NEXT_PUBLIC_WS_URL: ws://localhost:${RPC_PORT:-8545}
-      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-777777}
+      NEXT_PUBLIC_CHAIN_ID: ${CHAIN_ID:-700777}
       NEXT_PUBLIC_CHAIN_NAME: ${CHAIN_NAME:-Litho Devnet}
       NEXT_PUBLIC_EXPLORER_TITLE: ${EXPLORER_TITLE:-Lithosphere Devnet Explorer}
     env_file:
@@ -324,7 +324,7 @@ services:
     environment:
       NODE_ENV: development
       FAUCET_RPC_URL: http://lithovm:8545
-      FAUCET_CHAIN_ID: ${CHAIN_ID:-777777}
+      FAUCET_CHAIN_ID: ${CHAIN_ID:-700777}
       FAUCET_PRIVATE_KEY: ${FAUCET_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
       FAUCET_DRIP_AMOUNT: ${FAUCET_DRIP_AMOUNT:-1}
       FAUCET_COOLDOWN_HOURS: ${FAUCET_COOLDOWN_HOURS:-1}

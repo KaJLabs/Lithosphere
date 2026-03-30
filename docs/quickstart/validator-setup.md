@@ -50,7 +50,7 @@ lithod version
 Initialize a new node with a chosen moniker (human-readable node name) and the target chain ID:
 
 ```bash
-lithod init <moniker> --chain-id lithosphere-1
+lithod init <moniker> --chain-id lithosphere_700777-1
 ```
 
 Replace `<moniker>` with a name that identifies your node (e.g., `my-validator-01`).
