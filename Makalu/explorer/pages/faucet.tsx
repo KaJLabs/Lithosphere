@@ -1,7 +1,7 @@
 import Head from 'next/head';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useWeb3Modal } from '@web3modal/ethers/react';
-import { useWeb3ModalAccount } from '@web3modal/ethers/react';
+import { useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { EXPLORER_TITLE } from '@/lib/constants';
 
 type WalletType = 'WEB3' | 'COSMOS';
@@ -25,6 +25,16 @@ const NETWORK = {
   decimals: 18,
 };
 
+const MAKALU_CHAIN = {
+  chainId: '0xab169',
+  chainName: 'Lithosphere Makalu',
+  rpcUrls: ['https://rpc.litho.ai'],
+  nativeCurrency: { name: 'LITHO', symbol: 'LITHO', decimals: 18 },
+  blockExplorerUrls: ['https://makalu.litho.ai'],
+};
+
+const MAKALU_CHAIN_ID = parseInt(MAKALU_CHAIN.chainId, 16); // 700777
+
 function shortenAddress(value: string) {
   if (!value) return '';
   if (value.length < 12) return value;
@@ -33,7 +43,8 @@ function shortenAddress(value: string) {
 
 export default function FaucetPage() {
   const { open } = useWeb3Modal();
-  const { address: walletAddress, isConnected } = useWeb3ModalAccount();
+  const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
   const [walletType, setWalletType] = useState<WalletType>('COSMOS');
   const [amount, setAmount] = useState('10 LITHO');
@@ -45,6 +56,8 @@ export default function FaucetPage() {
   const [txHash, setTxHash] = useState<string>('');
   const [cooldown, setCooldown] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isAddingNetwork, setIsAddingNetwork] = useState(false);
+  const pendingNetworkAdd = useRef(false);
 
   // Sync Web3Modal connection state
   useEffect(() => {
@@ -55,6 +68,48 @@ export default function FaucetPage() {
       setWalletType('WEB3');
     }
   }, [isConnected, walletAddress]);
+
+  // After wallet connects, auto-add Makalu network if user had clicked the button
+  useEffect(() => {
+    if (isConnected && pendingNetworkAdd.current) {
+      pendingNetworkAdd.current = false;
+      promptNetworkAdd();
+    }
+  }, [isConnected]);
+
+  async function promptNetworkAdd() {
+    const provider = walletProvider ?? (window.ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined);
+    if (!provider) return;
+    if (chainId === MAKALU_CHAIN_ID) return;
+    setIsAddingNetwork(true);
+    try {
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: MAKALU_CHAIN.chainId }],
+      });
+    } catch (switchError: any) {
+      if (switchError?.code === 4902) {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [MAKALU_CHAIN],
+        });
+      } else if (switchError?.code !== 4001) {
+        console.error('Network switch error:', switchError);
+      }
+    } finally {
+      setIsAddingNetwork(false);
+    }
+  }
+
+  async function addOrSwitchMakalu() {
+    if (chainId === MAKALU_CHAIN_ID) return;
+    if (!isConnected) {
+      pendingNetworkAdd.current = true;
+      await open({ view: 'Connect' });
+      return;
+    }
+    await promptNetworkAdd();
+  }
 
   const explorerTxUrl = useMemo(() => {
     if (!txHash) return '';
@@ -334,10 +389,17 @@ export default function FaucetPage() {
 
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
-                  onClick={() => open()}
-                  className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+                  onClick={addOrSwitchMakalu}
+                  disabled={isAddingNetwork || chainId === MAKALU_CHAIN_ID}
+                  className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  Connect Wallet
+                  {isAddingNetwork
+                    ? 'Adding...'
+                    : chainId === MAKALU_CHAIN_ID
+                      ? 'Makalu Connected'
+                      : isConnected
+                        ? 'Switch to Makalu'
+                        : 'Add Makalu Network'}
                 </button>
                 <a
                   href={NETWORK.explorer}
@@ -354,12 +416,58 @@ export default function FaucetPage() {
                 <ul className="mt-3 space-y-2 text-sm text-white/65">
                   <li>• Desktop users: Use your browser wallet extension</li>
                   <li>• Mobile users: Use WalletConnect to scan the QR code with your mobile wallet</li>
-                  <li>• Click &quot;Connect&quot; to get started</li>
+                  <li>• Click &quot;Add Makalu Network&quot; to auto-add the chain to your wallet</li>
                   <li>• One claim per wallet every 24 hours</li>
                 </ul>
               </div>
             </section>
           </div>
+
+          {/* Informational sections */}
+          <div className="mt-10 grid gap-6 lg:grid-cols-3">
+            {/* What You Can Do */}
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <h2 className="text-xl font-semibold mb-4">What You Can Do</h2>
+              <ul className="space-y-3 text-sm text-white/75">
+                <li className="flex gap-2"><span>🛠️</span><span>Run a validator node and participate in consensus</span></li>
+                <li className="flex gap-2"><span>🔗</span><span>Deploy and test EVM smart contracts</span></li>
+                <li className="flex gap-2"><span>💸</span><span>Interact with the network using test tokens</span></li>
+                <li className="flex gap-2"><span>🧪</span><span>Stress-test infrastructure and dApps</span></li>
+              </ul>
+            </section>
+
+            {/* Validator Participation */}
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <h2 className="text-xl font-semibold mb-4">Validator Participation</h2>
+              <p className="text-sm text-white/75 mb-4">
+                We invite node operators to join the network:
+              </p>
+              <ul className="space-y-2 text-sm text-white/75 mb-4">
+                <li>• Set up a full node using the official binaries</li>
+                <li>• Stake tokens to become a validator</li>
+                <li>• Help secure and decentralize the network</li>
+              </ul>
+              <a
+                href="https://github.com/KaJLabs/litho-makalu-validators"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-emerald-300 transition hover:bg-white/10"
+              >
+                Validator Setup Guide &rarr;
+              </a>
+            </section>
+
+            {/* Important Notes */}
+            <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
+              <h2 className="text-xl font-semibold mb-4">Important Notes</h2>
+              <ul className="space-y-3 text-sm text-white/75">
+                <li className="flex gap-2"><span>⚠️</span><span>This is a test environment — tokens have no monetary value</span></li>
+                <li className="flex gap-2"><span>⚠️</span><span>Network parameters may change</span></li>
+                <li className="flex gap-2"><span>⚠️</span><span>Expect upgrades, resets, and instability during testing</span></li>
+              </ul>
+            </section>
+          </div>
+
         </div>
       </div>
     </>
