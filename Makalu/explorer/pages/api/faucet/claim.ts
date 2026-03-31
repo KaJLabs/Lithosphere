@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
 
-type WalletType = 'EVM' | 'COSMOS';
+type WalletType = 'EVM' | 'COSMOS' | 'WEB3';
 
 type ClaimBody = {
   address?: string;
@@ -22,7 +22,7 @@ const COOLDOWN_SECONDS = 60 * 60; // 1 hour
 const MAX_REQUESTS_PER_IP_WINDOW = 10;
 const IP_WINDOW_SECONDS = 60 * 15; // 15 min
 const MAX_REASON_LENGTH = 500;
-const ALLOWED_AMOUNTS = new Set(['100 LITHO', '250 LITHO', '500 LITHO']);
+const ALLOWED_AMOUNTS = new Set(['10 LITHO', '25 LITHO', '50 LITHO']);
 
 // In-memory stores (demo only — replace with Redis in production)
 const addressCooldownStore = new Map<string, number>();
@@ -119,7 +119,7 @@ function validateBody(
   const signature = (body.signature || '').trim();
 
   if (!address) return { ok: false, message: 'Wallet address is required.' };
-  if (walletType !== 'EVM' && walletType !== 'COSMOS') {
+  if (walletType !== 'EVM' && walletType !== 'COSMOS' && walletType !== 'WEB3') {
     return { ok: false, message: 'Invalid wallet type.' };
   }
   if (!ALLOWED_AMOUNTS.has(amount)) {
@@ -128,7 +128,7 @@ function validateBody(
   if (reason.length > MAX_REASON_LENGTH) {
     return { ok: false, message: 'Reason is too long.' };
   }
-  if (walletType === 'EVM' && !isLikelyEvmAddress(address)) {
+  if ((walletType === 'EVM' || walletType === 'WEB3') && !isLikelyEvmAddress(address)) {
     return { ok: false, message: 'Invalid EVM wallet address.' };
   }
   if (walletType === 'COSMOS' && !isLikelyCosmosAddress(address)) {
@@ -174,7 +174,7 @@ export default async function handler(
       });
     }
 
-    if (walletType === 'EVM') {
+    if (walletType === 'EVM' || walletType === 'WEB3') {
       const signatureOk = await verifyEvmSignature({ address, amount, signature });
       if (!signatureOk) {
         return res.status(401).json({ ok: false, message: 'Signature verification failed.' });

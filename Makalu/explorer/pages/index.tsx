@@ -118,7 +118,11 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
       label: 'Latest Block',
       value: statsLoading ? '—' : `#${formatNumber(stats?.tipHeight ?? 0)}`,
     },
-    { label: 'TPS', value: statsLoading ? '—' : String((stats?.tps1m || stats?.tps5m) ?? 0) },
+    {
+      label: 'TPS',
+      value: statsLoading ? '—' : String((stats?.tps1m || stats?.tps5m) ?? 0),
+      subtitle: '1M+ TPS Full Capacity',
+    },
     {
       label: 'Validators',
       value: Array.isArray(validators) ? String(validators.length) : '—',
@@ -215,6 +219,9 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                 >
                   <div className="text-sm text-white/55">{item.label}</div>
                   <div className="mt-2 text-2xl font-semibold">{item.value}</div>
+                  {item.subtitle && (
+                    <div className="mt-1 text-xs text-white/45">{item.subtitle}</div>
+                  )}
                 </div>
               ))}
             </div>

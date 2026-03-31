@@ -448,7 +448,7 @@ export default function FaucetPage() {
                 <li>• Help secure and decentralize the network</li>
               </ul>
               <a
-                href="https://github.com/KaJLabs/litho-makalu-validators"
+                href="https://github.com/lithoagent/litho-makalu-validators"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-medium text-emerald-300 transition hover:bg-white/10"
