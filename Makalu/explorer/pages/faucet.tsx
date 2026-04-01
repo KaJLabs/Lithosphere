@@ -46,7 +46,7 @@ export default function FaucetPage() {
   const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
-  const [walletType, setWalletType] = useState<WalletType>('COSMOS');
+  const [walletType, setWalletType] = useState<WalletType>('WEB3');
   const [amount, setAmount] = useState('10 LITHO');
   const [reason, setReason] = useState('');
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
@@ -103,12 +103,33 @@ export default function FaucetPage() {
 
   async function addOrSwitchMakalu() {
     if (chainId === MAKALU_CHAIN_ID) return;
-    if (!isConnected) {
-      pendingNetworkAdd.current = true;
-      await open({ view: 'Connect' });
+
+    // If already connected via Web3Modal, use the walletProvider
+    if (isConnected) {
+      await promptNetworkAdd();
       return;
     }
-    await promptNetworkAdd();
+
+    // Try window.ethereum directly for a 1-click experience (MetaMask, Brave, etc.)
+    const injected = (window as any).ethereum as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined;
+    if (injected?.request) {
+      setIsAddingNetwork(true);
+      try {
+        await injected.request({
+          method: 'wallet_addEthereumChain',
+          params: [MAKALU_CHAIN],
+        });
+      } catch (err: any) {
+        if (err?.code !== 4001) console.error('Add network error:', err);
+      } finally {
+        setIsAddingNetwork(false);
+      }
+      return;
+    }
+
+    // No injected wallet — fall back to Web3Modal connect flow
+    pendingNetworkAdd.current = true;
+    await open({ view: 'Connect' });
   }
 
   const explorerTxUrl = useMemo(() => {
@@ -154,12 +175,19 @@ export default function FaucetPage() {
         body: JSON.stringify({ address, walletType, amount, reason, signature }),
       });
 
-      const data: ClaimResponse = await res.json();
+      let data: ClaimResponse;
+      const text = await res.text();
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        // If it's not JSON, it's likely a 502 Bad Gateway from Next.js proxy when backend is down
+        throw new Error(res.status >= 500 ? 'Faucet service is currently offline. Please try again later.' : 'Unexpected response from faucet service.');
+      }
 
       if (!res.ok || !data.ok) {
         showStatus(data.message || 'Faucet claim failed.', 'error');
         if (typeof data.cooldownSeconds === 'number') {
-          setCooldown(data.cooldownSeconds);
+           setCooldown(data.cooldownSeconds);
         }
         return;
       }
@@ -277,7 +305,13 @@ export default function FaucetPage() {
                   <input
                     type="text"
                     value={address}
-                    onChange={(e) => setAddress(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setAddress(val);
+                      // Auto-detect wallet type from address format
+                      if (val.startsWith('0x')) setWalletType('WEB3');
+                      else if (val.startsWith('litho1')) setWalletType('COSMOS');
+                    }}
                     placeholder="0x... or litho1... wallet address"
                     className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
                   />
@@ -290,9 +324,10 @@ export default function FaucetPage() {
                       value={walletType}
                       onChange={(e) => setWalletType(e.target.value as WalletType)}
                       className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-white/25"
+                      title="Auto-detected from your address"
                     >
-                      <option value="COSMOS">Wallet</option>
-                      <option value="EVM">Web3 Wallet</option>
+                      <option value="WEB3">Web3 Wallet (0x)</option>
+                      <option value="COSMOS">Cosmos Wallet (litho1)</option>
                     </select>
                   </div>
                   <div>

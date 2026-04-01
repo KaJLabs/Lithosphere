@@ -70,19 +70,37 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
     }
   }
 
-  /** Main button handler: connect wallet → then add network */
+  /** Main button handler: try direct MetaMask prompt first, then fall back to Web3Modal */
   async function addOrSwitchMakalu() {
     if (chainId === MAKALU_CHAIN_ID) return; // already done
 
-    if (!isConnected) {
-      // Mark that we want to add network after connection completes
-      pendingNetworkAdd.current = true;
-      await open({ view: 'Connect' });
+    // If already connected via Web3Modal, use the walletProvider
+    if (isConnected) {
+      await promptNetworkAdd();
       return;
     }
 
-    // Already connected — go straight to network prompt
-    await promptNetworkAdd();
+    // Try window.ethereum directly for a 1-click experience (MetaMask, Brave, etc.)
+    const injected = (window as any).ethereum as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined;
+    if (injected?.request) {
+      setIsAddingNetwork(true);
+      try {
+        await injected.request({
+          method: 'wallet_addEthereumChain',
+          params: [MAKALU_CHAIN],
+        });
+      } catch (err: any) {
+        // User rejected or chain already exists — either way, not an error
+        if (err?.code !== 4001) console.error('Add network error:', err);
+      } finally {
+        setIsAddingNetwork(false);
+      }
+      return;
+    }
+
+    // No injected wallet — fall back to Web3Modal connect flow
+    pendingNetworkAdd.current = true;
+    await open({ view: 'Connect' });
   }
 
   const { data: stats, loading: statsLoading } = useApi<StatsSummary>('/stats/summary', {

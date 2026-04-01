@@ -1434,10 +1434,33 @@ export function explorerRouter(): Router {
 
   r.post('/faucet/claim', async (req: Request, res: Response) => {
     try {
-      const { address, amount } = req.body ?? {};
+      const { address, amount, walletType } = req.body ?? {};
 
       if (!address) {
         res.status(400).json({ ok: false, message: 'Wallet address is required.' });
+        return;
+      }
+
+      // Validate address format
+      const isEvm = typeof address === 'string' && /^0x[a-fA-F0-9]{40}$/.test(address);
+      const isCosmos = typeof address === 'string' && address.startsWith('litho1');
+      if (!isEvm && !isCosmos) {
+        res.status(400).json({ ok: false, message: 'Invalid wallet address. Use a 0x... or litho1... address.' });
+        return;
+      }
+
+      // Extract numeric amount from strings like "10 LITHO" or "10"
+      const numericAmount = typeof amount === 'string' ? amount.replace(/[^0-9.]/g, '') : '10';
+      const allowedAmounts = ['10', '25', '50'];
+      if (!allowedAmounts.includes(numericAmount)) {
+        res.status(400).json({ ok: false, message: `Invalid amount. Allowed: ${allowedAmounts.join(', ')} LITHO` });
+        return;
+      }
+
+      // The faucet service only accepts EVM (0x) addresses
+      // If cosmos address provided, we can't forward to the EVM faucet
+      if (!isEvm) {
+        res.status(400).json({ ok: false, message: 'The faucet currently supports EVM (0x) addresses only. Please use your 0x address.' });
         return;
       }
 
@@ -1445,7 +1468,8 @@ export function explorerRouter(): Router {
       const upstream = await fetch(`${faucetUrl}/drip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, amount }),
+        body: JSON.stringify({ address, amount: numericAmount }),
+        signal: AbortSignal.timeout(30_000),
       });
 
       const data = await upstream.json() as Record<string, unknown>;
@@ -1453,7 +1477,7 @@ export function explorerRouter(): Router {
       if (!upstream.ok) {
         res.status(upstream.status).json({
           ok: false,
-          message: (data.message as string) || 'Faucet request failed.',
+          message: (data.message as string) || (data.error as string) || 'Faucet request failed.',
           cooldownSeconds: data.retryAfterSeconds ?? null,
         });
         return;
@@ -1462,7 +1486,7 @@ export function explorerRouter(): Router {
       res.json({
         ok: true,
         txHash: data.txHash ?? null,
-        message: `Sent ${data.amount ?? amount} to ${address}`,
+        message: `Sent ${data.amount ?? numericAmount} LITHO to ${address}`,
         cooldownSeconds: ((data.cooldownHours as number) ?? 24) * 3600,
       });
     } catch (err) {
