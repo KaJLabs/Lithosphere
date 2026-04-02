@@ -104,32 +104,13 @@ export default function FaucetPage() {
   async function addOrSwitchMakalu() {
     if (chainId === MAKALU_CHAIN_ID) return;
 
-    // If already connected via Web3Modal, use the walletProvider
-    if (isConnected) {
-      await promptNetworkAdd();
+    if (!isConnected) {
+      pendingNetworkAdd.current = true;
+      await open({ view: 'Connect' });
       return;
     }
 
-    // Try window.ethereum directly for a 1-click experience (MetaMask, Brave, etc.)
-    const injected = (window as any).ethereum as { request?: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined;
-    if (injected?.request) {
-      setIsAddingNetwork(true);
-      try {
-        await injected.request({
-          method: 'wallet_addEthereumChain',
-          params: [MAKALU_CHAIN],
-        });
-      } catch (err: any) {
-        if (err?.code !== 4001) console.error('Add network error:', err);
-      } finally {
-        setIsAddingNetwork(false);
-      }
-      return;
-    }
-
-    // No injected wallet — fall back to Web3Modal connect flow
-    pendingNetworkAdd.current = true;
-    await open({ view: 'Connect' });
+    await promptNetworkAdd();
   }
 
   const explorerTxUrl = useMemo(() => {
@@ -327,7 +308,7 @@ export default function FaucetPage() {
                       title="Auto-detected from your address"
                     >
                       <option value="WEB3">Web3 Wallet (0x)</option>
-                      <option value="COSMOS">Cosmos Wallet (litho1)</option>
+                      <option value="COSMOS">Lithosphere (Lithosphere Wallet)</option>
                     </select>
                   </div>
                   <div>

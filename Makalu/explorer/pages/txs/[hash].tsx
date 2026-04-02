@@ -33,9 +33,9 @@ function CopyBtn({ text }: { text: string }) {
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-3.5 border-b border-white/5 last:border-0">
+    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-3.5 border-b border-white/5 last:border-0 min-w-0">
       <div className="sm:w-40 shrink-0 text-sm text-white/45">{label}</div>
-      <div className="flex-1 text-sm text-white break-all">{children}</div>
+      <div className="flex-1 min-w-0 text-sm text-white break-all break-words">{children}</div>
     </div>
   );
 }

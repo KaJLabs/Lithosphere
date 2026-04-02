@@ -419,11 +419,13 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
         <div className="px-5 py-3 border-b border-white/10 text-sm font-medium text-white/60">Contract Overview</div>
         <div className="divide-y divide-white/5">
-          <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
+          <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4 min-w-0">
             <div className="sm:w-44 shrink-0 text-sm text-white/45">Contract Address</div>
-            <div className="flex-1 text-sm text-white font-mono break-all">
+            <div className="flex-1 min-w-0 text-sm text-white font-mono break-all break-words">
               {addr}
-              <CopyBtn text={addr} />
+              <span className="inline-block ml-2 align-middle">
+                <CopyBtn text={addr} />
+              </span>
             </div>
           </div>
           {tokenDetail?.creator && (
@@ -678,13 +680,14 @@ function TokenContractLayout({
         </div>
       </div>
 
-      {/* ── Contract info card ───────────────────────────────────────── */}
       <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-2">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4 border-b border-white/5">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4 border-b border-white/5 min-w-0">
           <div className="sm:w-40 shrink-0 text-sm text-white/45">Contract Address</div>
-          <div className="flex-1 text-sm text-white font-mono break-all">
+          <div className="flex-1 min-w-0 text-sm text-white font-mono break-all break-words">
             {account.address}
-            <CopyBtn text={account.address} />
+            <span className="inline-block ml-2 align-middle">
+              <CopyBtn text={account.address} />
+            </span>
           </div>
         </div>
         {tokenDetail?.creator && (
@@ -791,8 +794,8 @@ function WalletLayout({
           <span className="text-white/70">Address</span>
         </div>
 
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <h1 className="text-2xl font-semibold break-all">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0">
+          <h1 className="flex-1 min-w-0 text-2xl font-semibold break-all break-words">
             <span className="font-mono">{account.address}</span>
           </h1>
           <div className="flex items-center gap-2 shrink-0">
