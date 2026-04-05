@@ -207,7 +207,7 @@ export default function Header() {
       <div
         ref={walletMenuRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-[640px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0b0f16] shadow-2xl shadow-black/70"
+        className="w-full max-w-[360px] overflow-hidden rounded-[24px] border border-white/10 bg-[#0b0f16] shadow-2xl shadow-black/70"
       >
         <div className="p-5">
           <div className="mb-4 flex items-center justify-between">
@@ -233,10 +233,10 @@ export default function Header() {
             </button>
           </div>
 
-          <div className="mx-auto max-w-md rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+          <div className="mx-auto mt-2 w-fit max-w-full rounded-[100px] border border-white/5 bg-white/[0.03] px-3 py-1.5 transition hover:bg-white/[0.05]">
             <div className="flex items-center gap-3">
-              <span className="h-12 w-12 rounded-full bg-gradient-to-br from-violet-200 to-violet-500 shadow-[0_0_24px_rgba(168,85,247,0.35)]" />
-              <span className="font-semibold text-4xl tracking-tight text-white/95" style={{ fontSize: '44px', lineHeight: 1.1 }}>
+              <span className="h-8 w-8 rounded-full bg-gradient-to-br from-violet-200 to-violet-500 shadow-[0_0_24px_rgba(168,85,247,0.35)]" />
+              <span className="font-semibold text-lg tracking-tight text-white/90">
                 {shortenAddress(address)}
               </span>
               <button
@@ -259,70 +259,66 @@ export default function Header() {
             </div>
           </div>
 
-          <div className="mt-6 text-center text-[44px] leading-none text-white/75">{balanceDisplay}</div>
+          <div className="mt-5 text-center text-4xl font-semibold text-white/90 tracking-tight">{balanceDisplay}</div>
 
           <Link
             href={`/address/${address}`}
             onClick={() => setWalletMenuOpen(false)}
-            className="mx-auto mt-6 flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/[0.02] px-6 py-2.5 text-[34px] text-white/90 transition hover:bg-white/[0.06]"
-            style={{ fontSize: '34px', lineHeight: 1.1 }}
+            className="mx-auto mt-4 flex w-fit items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.02] px-3 py-1 text-xs font-medium text-white/60 transition hover:bg-white/[0.06] hover:text-white"
           >
-            <span className="grid h-8 w-8 place-items-center rounded-full border border-white/30">
-              <span className="h-3 w-3 rounded-full bg-white/90" />
+            <span className="grid h-5 w-5 place-items-center rounded-full border border-white/30">
+              <span className="h-1.5 w-1.5 rounded-full bg-white/80" />
             </span>
             Block Explorer
             <span className="text-white/70">↗</span>
           </Link>
 
-          <div className="mt-8 space-y-3">
+          <div className="mt-5 space-y-1.5">
             <button
               type="button"
-              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/90 transition hover:bg-white/[0.08]"
-              style={{ fontSize: '48px', lineHeight: 1.05 }}
+              className="flex w-full items-center justify-between rounded-2xl bg-white/[0.02] px-4 py-3 text-left text-[15px] font-medium text-white/90 transition hover:bg-white/[0.06]"
             >
-              <span className="flex items-center gap-4">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <span className="flex items-center gap-3">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <rect x="4" y="6" width="16" height="12" rx="2" />
                     <path d="M8 12h.01" />
                   </svg>
                 </span>
                 Buy crypto
               </span>
-              <span className="text-white/45">›</span>
+              <span className="text-white/45 text-xl leading-none">›</span>
             </button>
 
             <button
               type="button"
-              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/90 transition hover:bg-white/[0.08]"
-              style={{ fontSize: '48px', lineHeight: 1.05 }}
+              className="flex w-full items-center justify-between rounded-2xl bg-white/[0.02] px-4 py-3 text-left text-[15px] font-medium text-white/90 transition hover:bg-white/[0.06]"
             >
-              <span className="flex items-center gap-4">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <span className="flex items-center gap-3">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M4 7h11l-3-3m8 13H9l3 3" />
                   </svg>
                 </span>
                 Swap
               </span>
-              <span className="text-white/45">›</span>
+              <span className="text-white/45 text-xl leading-none">›</span>
             </button>
 
             <button
               type="button"
-              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/90 transition hover:bg-white/[0.08]"
-              style={{ fontSize: '48px', lineHeight: 1.05 }}
+              className="flex w-full items-center justify-between rounded-2xl bg-white/[0.02] px-4 py-3 text-left text-[15px] font-medium text-white/90 transition hover:bg-white/[0.06]"
             >
-              <span className="flex items-center gap-4">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <span className="flex items-center gap-3">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <circle cx="12" cy="12" r="8" />
                     <path d="M12 8v4l2 2" />
                   </svg>
                 </span>
                 Activity
               </span>
-              <span className="text-white/45">›</span>
+              <span className="text-white/45 text-xl leading-none">›</span>
             </button>
 
             <button
@@ -331,12 +327,11 @@ export default function Header() {
                 setWalletMenuOpen(false);
                 await disconnect();
               }}
-              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/50 transition hover:bg-white/[0.08] hover:text-white/85"
-              style={{ fontSize: '48px', lineHeight: 1.05 }}
+              className="flex w-full items-center justify-between rounded-2xl bg-white/[0.02] px-4 py-3 text-left text-[15px] font-medium text-white/50 transition hover:bg-white/[0.06] hover:text-white/85"
             >
-              <span className="flex items-center gap-4">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 text-white/50">
-                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <span className="flex items-center gap-3">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-white/10 text-white/50">
+                  <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                     <path d="M10 17l5-5-5-5" />
                     <path d="M15 12H3" />
                     <path d="M13 5h6v14h-6" />
