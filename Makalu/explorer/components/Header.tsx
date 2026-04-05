@@ -48,6 +48,8 @@ export default function Header() {
   const moreRef = useRef<HTMLDivElement>(null);
   const { address, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
+  const isOnMakalu = chainId === MAKALU_CHAIN_ID;
+  const balanceText = balanceLoading ? 'Refreshing...' : (lithoBalance ?? 'Unavailable');
 
   const isActive = (href: string) => {
     if (href === '/') return router.pathname === '/';
@@ -233,8 +235,23 @@ export default function Header() {
             </div>
 
             {isConnected && (
-              <div className="hidden md:flex items-center rounded-lg border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                {balanceLoading ? 'Fetching LITHO...' : `Balance: ${lithoBalance ?? 'Unavailable'}`}
+              <div className="hidden xl:flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs whitespace-nowrap">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
+                    isOnMakalu
+                      ? 'bg-emerald-400/15 text-emerald-300'
+                      : 'bg-amber-400/15 text-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
+                    }`}
+                  />
+                  {isOnMakalu ? 'Makalu Testnet' : 'Wrong Network'}
+                </span>
+                <span className="text-white/50">Balance</span>
+                <span className="font-semibold text-white">{balanceText}</span>
               </div>
             )}
 
@@ -300,8 +317,25 @@ export default function Header() {
             <div className="pt-2 pb-1 px-3">
               <w3m-button balance="show" label="Connect" />
               {isConnected && (
-                <div className="mt-2 rounded-lg border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
-                  {balanceLoading ? 'Fetching LITHO...' : `Balance: ${lithoBalance ?? 'Unavailable'}`}
+                <div className="mt-2 rounded-xl border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span
+                      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
+                        isOnMakalu
+                          ? 'bg-emerald-400/15 text-emerald-300'
+                          : 'bg-amber-400/15 text-amber-300'
+                      }`}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full ${
+                          isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
+                        }`}
+                      />
+                      {isOnMakalu ? 'Makalu Testnet' : 'Switch to Makalu'}
+                    </span>
+                    <span className="text-white/40">LITHO</span>
+                  </div>
+                  <div className="mt-1 text-sm font-semibold text-white">{balanceText}</div>
                 </div>
               )}
             </div>

@@ -6,6 +6,11 @@ import { EXPLORER_TITLE } from '@/lib/constants';
 
 type WalletType = 'WEB3' | 'COSMOS';
 
+type SelectOption = {
+  value: string;
+  label: string;
+};
+
 type ClaimResponse = {
   ok: boolean;
   txHash?: string;
@@ -35,10 +40,110 @@ const MAKALU_CHAIN = {
 
 const MAKALU_CHAIN_ID = parseInt(MAKALU_CHAIN.chainId, 16); // 700777
 
+const WALLET_OPTIONS: SelectOption[] = [
+  { value: 'WEB3', label: 'Web3 Wallet (0x)' },
+  { value: 'COSMOS', label: 'Lithosphere Wallet (Litho1)' },
+];
+
+const AMOUNT_OPTIONS: SelectOption[] = [
+  { value: '10 LITHO', label: '10 LITHO' },
+  { value: '25 LITHO', label: '25 LITHO' },
+  { value: '50 LITHO', label: '50 LITHO' },
+];
+
 function shortenAddress(value: string) {
   if (!value) return '';
   if (value.length < 12) return value;
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function ThemedSelect({
+  value,
+  onChange,
+  options,
+  title,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+  title?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
+
+  const selected = options.find((opt) => opt.value === value) ?? options[0];
+
+  return (
+    <div ref={rootRef} className="relative" title={title}>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-left text-sm text-white outline-none transition hover:border-white/20 focus:border-emerald-400/50"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{selected?.label ?? value}</span>
+        <svg
+          className={`pointer-events-none absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 text-white/60 transition-transform ${open ? 'rotate-180' : ''}`}
+          viewBox="0 0 20 20"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          className="absolute z-40 mt-2 w-full overflow-hidden rounded-2xl border border-emerald-400/25 bg-[#071120] shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
+        >
+          {options.map((opt) => {
+            const isSelected = opt.value === value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between px-4 py-3 text-sm transition ${
+                  isSelected
+                    ? 'bg-emerald-500/20 text-emerald-100'
+                    : 'text-white/85 hover:bg-white/10'
+                }`}
+              >
+                <span>{opt.label}</span>
+                {isSelected && <span className="text-xs text-emerald-300">Selected</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function FaucetPage() {
@@ -301,27 +406,20 @@ export default function FaucetPage() {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm text-white/70">Wallet Type</label>
-                    <select
+                    <ThemedSelect
                       value={walletType}
-                      onChange={(e) => setWalletType(e.target.value as WalletType)}
-                      className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-white/25"
+                      onChange={(next) => setWalletType(next as WalletType)}
+                      options={WALLET_OPTIONS}
                       title="Auto-detected from your address"
-                    >
-                      <option value="WEB3">Web3 Wallet (0x)</option>
-                      <option value="COSMOS">Lithosphere Wallet (Litho1)</option>
-                    </select>
+                    />
                   </div>
                   <div>
                     <label className="mb-2 block text-sm text-white/70">Amount</label>
-                    <select
+                    <ThemedSelect
                       value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none focus:border-white/25"
-                    >
-                      <option>10 LITHO</option>
-                      <option>25 LITHO</option>
-                      <option>50 LITHO</option>
-                    </select>
+                      onChange={setAmount}
+                      options={AMOUNT_OPTIONS}
+                    />
                   </div>
                 </div>
 
