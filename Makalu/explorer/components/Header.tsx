@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useRef, useEffect } from 'react';
-import { useWeb3ModalAccount } from '@web3modal/ethers/react';
-import { useWeb3ModalProvider } from '@web3modal/ethers/react';
+import {
+  useWeb3Modal,
+  useWeb3ModalAccount,
+  useWeb3ModalProvider,
+  useDisconnect,
+} from '@web3modal/ethers/react';
 import SearchBar from './SearchBar';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatValue } from '@/lib/format';
@@ -39,13 +43,23 @@ const MORE_ITEMS: NavItem[] = [
   { label: 'Status', href: 'https://status.litho.ai', external: true },
 ];
 
+function shortenAddress(value: string | null | undefined): string {
+  if (!value) return '';
+  if (value.length < 12) return value;
+  return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
 export default function Header() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [lithoBalance, setLithoBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const walletMenuRef = useRef<HTMLDivElement>(null);
+  const { open } = useWeb3Modal();
+  const { disconnect } = useDisconnect();
   const { address, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
   const isOnMakalu = chainId === MAKALU_CHAIN_ID;
@@ -62,10 +76,20 @@ export default function Header() {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
       }
+      if (walletMenuRef.current && !walletMenuRef.current.contains(e.target as Node)) {
+        setWalletMenuOpen(false);
+      }
     }
     if (moreOpen) document.addEventListener('mousedown', handleClickOutside);
+    if (walletMenuOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [moreOpen]);
+  }, [moreOpen, walletMenuOpen]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      setWalletMenuOpen(false);
+    }
+  }, [isConnected]);
 
   // Auto-fetch native LITHO balance for the connected account and keep it fresh.
   useEffect(() => {
@@ -160,9 +184,9 @@ export default function Header() {
   }, [address, chainId, isConnected, walletProvider]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 overflow-x-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3 shrink-0">
             <img
@@ -229,13 +253,13 @@ export default function Header() {
           </nav>
 
           {/* Search + Wallet + Mobile menu */}
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <div className="hidden md:block">
               <SearchBar />
             </div>
 
             {isConnected && (
-              <div className="hidden xl:flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs whitespace-nowrap">
+              <div className="hidden 2xl:flex max-w-[220px] items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs">
                 <span
                   className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
                     isOnMakalu
@@ -248,16 +272,100 @@ export default function Header() {
                       isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
                     }`}
                   />
-                  {isOnMakalu ? 'Makalu Testnet' : 'Wrong Network'}
+                  {isOnMakalu ? 'Makalu' : 'Network'}
                 </span>
-                <span className="text-white/50">Balance</span>
-                <span className="font-semibold text-white">{balanceText}</span>
+                <span className="truncate font-semibold text-white">{balanceText}</span>
               </div>
             )}
 
-            {/* Connect Wallet button */}
-            <div className="hidden sm:block">
-              <w3m-button balance="show" label="Connect" />
+            {/* Wallet button + menu */}
+            <div ref={walletMenuRef} className="relative hidden sm:block">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!isConnected) {
+                    void open({ view: 'Connect' });
+                    return;
+                  }
+                  setWalletMenuOpen((prev) => !prev);
+                }}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/30 px-3 py-2 text-sm text-white transition hover:border-white/20 hover:bg-black/40"
+              >
+                {isConnected && (
+                  <span
+                    className={`h-2 w-2 rounded-full ${
+                      isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
+                    }`}
+                  />
+                )}
+                <span className="font-medium">
+                  {isConnected ? shortenAddress(address) : 'Connect Wallet'}
+                </span>
+                {isConnected && (
+                  <span className="max-w-[96px] truncate text-xs text-white/60">
+                    {balanceText}
+                  </span>
+                )}
+              </button>
+
+              {walletMenuOpen && isConnected && address && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/10 bg-[var(--color-bg-secondary)] shadow-2xl shadow-black/50">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <div className="text-[11px] uppercase tracking-wide text-white/45">Connected Wallet</div>
+                    <div className="mt-1 font-mono text-sm text-white/85 break-all">{address}</div>
+                    <div className="mt-3 flex items-center justify-between text-xs">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
+                          isOnMakalu
+                            ? 'bg-emerald-400/15 text-emerald-300'
+                            : 'bg-amber-400/15 text-amber-300'
+                        }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
+                          }`}
+                        />
+                        {isOnMakalu ? 'Makalu Testnet' : 'Switch Network'}
+                      </span>
+                      <span className="font-semibold text-white">{balanceText}</span>
+                    </div>
+                  </div>
+
+                  <div className="p-2">
+                    <Link
+                      href={`/address/${address}`}
+                      onClick={() => setWalletMenuOpen(false)}
+                      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
+                    >
+                      View on Explorer
+                      <span className="text-white/40">↗</span>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWalletMenuOpen(false);
+                        void open({ view: 'Networks' });
+                      }}
+                      className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
+                    >
+                      Networks
+                      <span className="text-white/40">→</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setWalletMenuOpen(false);
+                        await disconnect();
+                      }}
+                      className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-red-300 transition hover:bg-red-400/10 hover:text-red-200"
+                    >
+                      Disconnect
+                      <span className="text-red-300/70">×</span>
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mobile menu button */}
@@ -315,27 +423,56 @@ export default function Header() {
             </div>
             {/* Mobile wallet connect */}
             <div className="pt-2 pb-1 px-3">
-              <w3m-button balance="show" label="Connect" />
-              {isConnected && (
-                <div className="mt-2 rounded-xl border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-                        isOnMakalu
-                          ? 'bg-emerald-400/15 text-emerald-300'
-                          : 'bg-amber-400/15 text-amber-300'
-                      }`}
-                    >
-                      <span
-                        className={`h-1.5 w-1.5 rounded-full ${
-                          isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
-                        }`}
-                      />
-                      {isOnMakalu ? 'Makalu Testnet' : 'Switch to Makalu'}
-                    </span>
-                    <span className="text-white/40">LITHO</span>
+              {!isConnected ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void open({ view: 'Connect' });
+                  }}
+                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm font-medium text-white transition hover:border-white/20"
+                >
+                  Connect Wallet
+                </button>
+              ) : (
+                <div className="space-y-2">
+                  <div className="rounded-xl border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono text-white/70">{shortenAddress(address)}</span>
+                      <span className="text-white/40">LITHO</span>
+                    </div>
+                    <div className="mt-1 text-sm font-semibold text-white">{balanceText}</div>
                   </div>
-                  <div className="mt-1 text-sm font-semibold text-white">{balanceText}</div>
+                  {address && (
+                    <Link
+                      href={`/address/${address}`}
+                      onClick={() => setMenuOpen(false)}
+                      className="block w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-center text-sm text-white/85 transition hover:border-white/20"
+                    >
+                      View Wallet
+                    </Link>
+                  )}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        void open({ view: 'Networks' });
+                      }}
+                      className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/85 transition hover:border-white/20"
+                    >
+                      Networks
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setMenuOpen(false);
+                        await disconnect();
+                      }}
+                      className="rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-2 text-sm text-red-300 transition hover:bg-red-400/10"
+                    >
+                      Disconnect
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

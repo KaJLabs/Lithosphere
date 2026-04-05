@@ -38,7 +38,7 @@ export default function SearchBar() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by block, tx hash, or address..."
-          className="w-full sm:w-72 lg:w-80 px-4 py-2 pr-10 text-sm rounded-lg
+          className="w-full sm:w-64 lg:w-72 xl:w-80 px-4 py-2 pr-10 text-sm rounded-lg
             bg-[var(--color-bg-primary)] border border-[var(--color-border)]
             text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)]
             focus:outline-none focus:border-litho-400 focus:ring-1 focus:ring-litho-400
