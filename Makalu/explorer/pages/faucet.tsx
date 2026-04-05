@@ -329,7 +329,13 @@ export default function FaucetPage() {
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
-                  onClick={() => open()}
+                  onClick={() => {
+                    if (isConnected) {
+                      window.dispatchEvent(new CustomEvent('open-wallet-menu'));
+                    } else {
+                      void open({ view: 'Connect' });
+                    }
+                  }}
                   className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
                 >
                   {isConnected && connectedAddress
@@ -433,7 +439,13 @@ export default function FaucetPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => open()}
+                    onClick={() => {
+                      if (isConnected) {
+                        window.dispatchEvent(new CustomEvent('open-wallet-menu'));
+                      } else {
+                        void open({ view: 'Connect' });
+                      }
+                    }}
                     className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
                   >
                     {isConnected && connectedAddress ? `${shortenAddress(connectedAddress)}` : 'Connect Wallet'}

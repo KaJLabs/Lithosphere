@@ -71,6 +71,13 @@ export default function Header() {
     return router.pathname.startsWith(href);
   };
 
+  // Global listener for wallet menu
+  useEffect(() => {
+    const handleOpenWalletMenu = () => setWalletMenuOpen(true);
+    window.addEventListener('open-wallet-menu', handleOpenWalletMenu);
+    return () => window.removeEventListener('open-wallet-menu', handleOpenWalletMenu);
+  }, []);
+
   // Close "More" dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
