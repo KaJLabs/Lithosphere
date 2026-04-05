@@ -76,14 +76,23 @@ export default function Header() {
       if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
         setMoreOpen(false);
       }
-      if (walletMenuRef.current && !walletMenuRef.current.contains(e.target as Node)) {
+    }
+    if (moreOpen) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!walletMenuOpen) return;
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
         setWalletMenuOpen(false);
       }
     }
-    if (moreOpen) document.addEventListener('mousedown', handleClickOutside);
-    if (walletMenuOpen) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [moreOpen, walletMenuOpen]);
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [walletMenuOpen]);
 
   useEffect(() => {
     if (!isConnected) {
@@ -279,7 +288,7 @@ export default function Header() {
             )}
 
             {/* Wallet button + menu */}
-            <div ref={walletMenuRef} className="relative hidden sm:block">
+            <div className="hidden sm:block">
               <button
                 type="button"
                 onClick={() => {
@@ -307,65 +316,6 @@ export default function Header() {
                   </span>
                 )}
               </button>
-
-              {walletMenuOpen && isConnected && address && (
-                <div className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-white/10 bg-[var(--color-bg-secondary)] shadow-2xl shadow-black/50">
-                  <div className="border-b border-white/10 px-4 py-3">
-                    <div className="text-[11px] uppercase tracking-wide text-white/45">Connected Wallet</div>
-                    <div className="mt-1 font-mono text-sm text-white/85 break-all">{address}</div>
-                    <div className="mt-3 flex items-center justify-between text-xs">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-                          isOnMakalu
-                            ? 'bg-emerald-400/15 text-emerald-300'
-                            : 'bg-amber-400/15 text-amber-300'
-                        }`}
-                      >
-                        <span
-                          className={`h-1.5 w-1.5 rounded-full ${
-                            isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
-                          }`}
-                        />
-                        {isOnMakalu ? 'Makalu Testnet' : 'Switch Network'}
-                      </span>
-                      <span className="font-semibold text-white">{balanceText}</span>
-                    </div>
-                  </div>
-
-                  <div className="p-2">
-                    <Link
-                      href={`/address/${address}`}
-                      onClick={() => setWalletMenuOpen(false)}
-                      className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
-                    >
-                      View on Explorer
-                      <span className="text-white/40">↗</span>
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWalletMenuOpen(false);
-                        void open({ view: 'Networks' });
-                      }}
-                      className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/80 transition hover:bg-white/10 hover:text-white"
-                    >
-                      Networks
-                      <span className="text-white/40">→</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setWalletMenuOpen(false);
-                        await disconnect();
-                      }}
-                      className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-red-300 transition hover:bg-red-400/10 hover:text-red-200"
-                    >
-                      Disconnect
-                      <span className="text-red-300/70">×</span>
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Mobile menu button */}
@@ -479,6 +429,91 @@ export default function Header() {
           </div>
         )}
       </div>
+
+      {walletMenuOpen && isConnected && address && (
+        <div
+          className="fixed inset-0 z-[80] flex items-start justify-center bg-black/60 p-4 pt-24 backdrop-blur-[1px]"
+          onClick={() => setWalletMenuOpen(false)}
+        >
+          <div
+            ref={walletMenuRef}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[var(--color-bg-secondary)] shadow-2xl shadow-black/60"
+          >
+            <div className="border-b border-white/10 px-5 py-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-white/45">Connected Wallet</div>
+                  <div className="mt-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 font-mono text-lg text-white/90">
+                    {shortenAddress(address)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWalletMenuOpen(false)}
+                  className="rounded-lg p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
+                  aria-label="Close wallet menu"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between text-sm">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
+                    isOnMakalu
+                      ? 'bg-emerald-400/15 text-emerald-300'
+                      : 'bg-amber-400/15 text-amber-300'
+                  }`}
+                >
+                  <span
+                    className={`h-1.5 w-1.5 rounded-full ${
+                      isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
+                    }`}
+                  />
+                  {isOnMakalu ? 'Makalu Testnet' : 'Switch Network'}
+                </span>
+                <span className="font-semibold text-white">{balanceText}</span>
+              </div>
+            </div>
+
+            <div className="p-3">
+              <Link
+                href={`/address/${address}`}
+                onClick={() => setWalletMenuOpen(false)}
+                className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
+              >
+                View on Explorer
+                <span className="text-white/40">↗</span>
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setWalletMenuOpen(false);
+                  void open({ view: 'Networks' });
+                }}
+                className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
+              >
+                Networks
+                <span className="text-white/40">→</span>
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setWalletMenuOpen(false);
+                  await disconnect();
+                }}
+                className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-red-300 transition hover:bg-red-400/10 hover:text-red-200"
+              >
+                Disconnect
+                <span className="text-red-300/70">×</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }
