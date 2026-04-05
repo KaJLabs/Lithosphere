@@ -193,23 +193,33 @@ export default function Header() {
     };
   }, [address, chainId, isConnected, walletProvider]);
 
+  const balanceDisplay = balanceLoading
+    ? '...'
+    : lithoBalance
+      ? lithoBalance.replace(/\s*LITHO$/, '')
+      : '0.000';
+
   const walletOverlay = walletMenuOpen && isConnected && address ? (
     <div
-      className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 p-4 pt-24 backdrop-blur-[1px]"
+      className="fixed inset-0 z-[120] flex items-start justify-center bg-black/60 p-4 pt-16 backdrop-blur-[1px]"
       onClick={() => setWalletMenuOpen(false)}
     >
       <div
         ref={walletMenuRef}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md overflow-hidden rounded-3xl border border-white/10 bg-[var(--color-bg-secondary)] shadow-2xl shadow-black/60"
+        className="w-full max-w-[640px] overflow-hidden rounded-[32px] border border-white/10 bg-[#0b0f16] shadow-2xl shadow-black/70"
       >
-        <div className="border-b border-white/10 px-5 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-[11px] uppercase tracking-wide text-white/45">Connected Wallet</div>
-              <div className="mt-2 rounded-full border border-white/10 bg-black/30 px-4 py-2 font-mono text-lg text-white/90">
-                {shortenAddress(address)}
-              </div>
+        <div className="p-5">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-white/65">
+              <span className="grid h-7 w-7 place-items-center rounded-full bg-white/10">
+                <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 5l7 4-7 4-7-4 7-4zm0 7l7 4-7 4-7-4 7-4z" />
+                </svg>
+              </span>
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+              </svg>
             </div>
             <button
               type="button"
@@ -217,62 +227,125 @@ export default function Header() {
               className="rounded-lg p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
               aria-label="Close wallet menu"
             >
-              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
           </div>
 
-          <div className="mt-4 flex items-center justify-between text-sm">
-            <span
-              className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-                isOnMakalu
-                  ? 'bg-emerald-400/15 text-emerald-300'
-                  : 'bg-amber-400/15 text-amber-300'
-              }`}
-            >
-              <span
-                className={`h-1.5 w-1.5 rounded-full ${
-                  isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
-                }`}
-              />
-              {isOnMakalu ? 'Makalu Testnet' : 'Switch Network'}
-            </span>
-            <span className="font-semibold text-white">{balanceText}</span>
+          <div className="mx-auto max-w-md rounded-full border border-white/10 bg-white/[0.04] px-4 py-2">
+            <div className="flex items-center gap-3">
+              <span className="h-12 w-12 rounded-full bg-gradient-to-br from-violet-200 to-violet-500 shadow-[0_0_24px_rgba(168,85,247,0.35)]" />
+              <span className="font-semibold text-4xl tracking-tight text-white/95" style={{ fontSize: '44px', lineHeight: 1.1 }}>
+                {shortenAddress(address)}
+              </span>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(address);
+                  } catch {
+                    // no-op
+                  }
+                }}
+                className="ml-auto rounded p-1 text-white/55 transition hover:bg-white/10 hover:text-white"
+                aria-label="Copy address"
+              >
+                <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                  <rect x="9" y="9" width="11" height="11" rx="2" />
+                  <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                </svg>
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="p-3">
+          <div className="mt-6 text-center text-[44px] leading-none text-white/75">{balanceDisplay}</div>
+
           <Link
             href={`/address/${address}`}
             onClick={() => setWalletMenuOpen(false)}
-            className="flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
+            className="mx-auto mt-6 flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/[0.02] px-6 py-2.5 text-[34px] text-white/90 transition hover:bg-white/[0.06]"
+            style={{ fontSize: '34px', lineHeight: 1.1 }}
           >
-            View on Explorer
-            <span className="text-white/40">↗</span>
+            <span className="grid h-8 w-8 place-items-center rounded-full border border-white/30">
+              <span className="h-3 w-3 rounded-full bg-white/90" />
+            </span>
+            Block Explorer
+            <span className="text-white/70">↗</span>
           </Link>
-          <button
-            type="button"
-            onClick={() => {
-              setWalletMenuOpen(false);
-              void open({ view: 'Networks' });
-            }}
-            className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-white/85 transition hover:bg-white/10 hover:text-white"
-          >
-            Networks
-            <span className="text-white/40">→</span>
-          </button>
-          <button
-            type="button"
-            onClick={async () => {
-              setWalletMenuOpen(false);
-              await disconnect();
-            }}
-            className="mt-1 flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm text-red-300 transition hover:bg-red-400/10 hover:text-red-200"
-          >
-            Disconnect
-            <span className="text-red-300/70">×</span>
-          </button>
+
+          <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/90 transition hover:bg-white/[0.08]"
+              style={{ fontSize: '48px', lineHeight: 1.05 }}
+            >
+              <span className="flex items-center gap-4">
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <rect x="4" y="6" width="16" height="12" rx="2" />
+                    <path d="M8 12h.01" />
+                  </svg>
+                </span>
+                Buy crypto
+              </span>
+              <span className="text-white/45">›</span>
+            </button>
+
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/90 transition hover:bg-white/[0.08]"
+              style={{ fontSize: '48px', lineHeight: 1.05 }}
+            >
+              <span className="flex items-center gap-4">
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M4 7h11l-3-3m8 13H9l3 3" />
+                  </svg>
+                </span>
+                Swap
+              </span>
+              <span className="text-white/45">›</span>
+            </button>
+
+            <button
+              type="button"
+              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/90 transition hover:bg-white/[0.08]"
+              style={{ fontSize: '48px', lineHeight: 1.05 }}
+            >
+              <span className="flex items-center gap-4">
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-emerald-500/20 text-emerald-300">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <circle cx="12" cy="12" r="8" />
+                    <path d="M12 8v4l2 2" />
+                  </svg>
+                </span>
+                Activity
+              </span>
+              <span className="text-white/45">›</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={async () => {
+                setWalletMenuOpen(false);
+                await disconnect();
+              }}
+              className="flex w-full items-center justify-between rounded-3xl bg-white/[0.03] px-5 py-4 text-left text-[48px] text-white/50 transition hover:bg-white/[0.08] hover:text-white/85"
+              style={{ fontSize: '48px', lineHeight: 1.05 }}
+            >
+              <span className="flex items-center gap-4">
+                <span className="grid h-12 w-12 place-items-center rounded-full bg-white/10 text-white/50">
+                  <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                    <path d="M10 17l5-5-5-5" />
+                    <path d="M15 12H3" />
+                    <path d="M13 5h6v14h-6" />
+                  </svg>
+                </span>
+                Disconnect
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
