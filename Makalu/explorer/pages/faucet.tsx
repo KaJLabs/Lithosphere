@@ -14,7 +14,7 @@ type ClaimResponse = {
 };
 
 const NETWORK = {
-  networkName: 'Lithosphere Makalu',
+  networkName: 'Lithosphere Makalu Testnet',
   rpcUrl: 'https://rpc.litho.ai',
   evmRpcUrl: 'https://rpc.litho.ai',
   cosmosChainId: 'lithosphere_700777-1',
@@ -27,7 +27,7 @@ const NETWORK = {
 
 const MAKALU_CHAIN = {
   chainId: '0xab169',
-  chainName: 'Lithosphere Makalu',
+  chainName: 'Lithosphere Makalu Testnet',
   rpcUrls: ['https://rpc.litho.ai'],
   nativeCurrency: { name: 'LITHO', symbol: 'LITHO', decimals: 18 },
   blockExplorerUrls: ['https://makalu.litho.ai'],
@@ -219,7 +219,7 @@ export default function FaucetPage() {
                 Claim LITHO testnet coins on Makalu
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-white/70">
-                Connect your wallet, switch to Lithosphere Makalu, and request LITHO for app
+                Connect your wallet, switch to Lithosphere Makalu Testnet, and request LITHO for app
                 development, contract deployment, and network testing.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
@@ -308,7 +308,7 @@ export default function FaucetPage() {
                       title="Auto-detected from your address"
                     >
                       <option value="WEB3">Web3 Wallet (0x)</option>
-                      <option value="COSMOS">Lithosphere (Lithosphere Wallet)</option>
+                      <option value="COSMOS">Lithosphere Wallet (Litho1)</option>
                     </select>
                   </div>
                   <div>
@@ -370,7 +370,7 @@ export default function FaucetPage() {
                 <div className="text-sm font-medium text-white/80">Network Setup</div>
                 <h2 className="mt-2 text-2xl font-semibold">Connect to Makalu testnet</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Add Lithosphere Makalu to your Web3 Wallet or use the chain identifiers for
+                  Add Lithosphere Makalu Testnet to your Web3 Wallet or use the chain identifiers for
                   native tooling.
                 </p>
               </div>

@@ -1,10 +1,18 @@
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useRef, useEffect } from 'react';
-import { useWeb3Modal } from '@web3modal/ethers/react';
 import { useWeb3ModalAccount } from '@web3modal/ethers/react';
+import { useWeb3ModalProvider } from '@web3modal/ethers/react';
 import SearchBar from './SearchBar';
 import { EXPLORER_TITLE } from '@/lib/constants';
+import { formatValue } from '@/lib/format';
+
+type EthereumRequestProvider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
+
+const MAKALU_CHAIN_ID = 700777;
+const BALANCE_POLL_INTERVAL_MS = 15000;
 
 interface NavItem {
   label: string;
@@ -31,17 +39,15 @@ const MORE_ITEMS: NavItem[] = [
   { label: 'Status', href: 'https://status.litho.ai', external: true },
 ];
 
-function shortenAddr(addr: string): string {
-  return addr.slice(0, 6) + '...' + addr.slice(-4);
-}
-
 export default function Header() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [lithoBalance, setLithoBalance] = useState<string | null>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  const { open } = useWeb3Modal();
-  const { address, isConnected } = useWeb3ModalAccount();
+  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
 
   const isActive = (href: string) => {
     if (href === '/') return router.pathname === '/';
@@ -58,6 +64,98 @@ export default function Header() {
     if (moreOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [moreOpen]);
+
+  // Auto-fetch native LITHO balance for the connected account and keep it fresh.
+  useEffect(() => {
+    if (!isConnected || !address) {
+      setLithoBalance(null);
+      setBalanceLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+
+    const fetchBalance = async (showLoader: boolean) => {
+      if (showLoader && !cancelled) {
+        setBalanceLoading(true);
+      }
+
+      try {
+        let hexBalance: string | null = null;
+
+        const injectedProvider =
+          typeof window !== 'undefined'
+            ? (window as Window & { ethereum?: EthereumRequestProvider }).ethereum
+            : undefined;
+
+        const provider =
+          (walletProvider as EthereumRequestProvider | undefined) ?? injectedProvider;
+
+        if (provider?.request && chainId === MAKALU_CHAIN_ID) {
+          const result = await provider.request({
+            method: 'eth_getBalance',
+            params: [address, 'latest'],
+          });
+          if (typeof result === 'string') {
+            hexBalance = result;
+          }
+        }
+
+        // Fallback to public RPC to keep balance visible even when wallet is on another chain.
+        if (!hexBalance) {
+          const response = await fetch('https://rpc.litho.ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'eth_getBalance',
+              params: [address, 'latest'],
+              id: 1,
+            }),
+          });
+
+          if (response.ok) {
+            const data: { result?: unknown } = await response.json();
+            if (typeof data.result === 'string') {
+              hexBalance = data.result;
+            }
+          }
+        }
+
+        if (!hexBalance) {
+          throw new Error('Balance unavailable');
+        }
+
+        const normalizedHex = hexBalance.startsWith('0x') ? hexBalance : `0x${hexBalance}`;
+        const wei = BigInt(normalizedHex);
+        const formattedBalance = formatValue(wei.toString());
+
+        if (!cancelled) {
+          setLithoBalance(formattedBalance);
+        }
+      } catch (error) {
+        console.error('Failed to fetch LITHO balance:', error);
+        if (!cancelled) {
+          setLithoBalance(null);
+        }
+      } finally {
+        if (showLoader && !cancelled) {
+          setBalanceLoading(false);
+        }
+      }
+    };
+
+    void fetchBalance(true);
+
+    const intervalId = setInterval(() => {
+      void fetchBalance(false);
+    }, BALANCE_POLL_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
+  }, [address, chainId, isConnected, walletProvider]);
 
   return (
     <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
@@ -134,9 +232,15 @@ export default function Header() {
               <SearchBar />
             </div>
 
+            {isConnected && (
+              <div className="hidden md:flex items-center rounded-lg border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                {balanceLoading ? 'Fetching LITHO...' : `Balance: ${lithoBalance ?? 'Unavailable'}`}
+              </div>
+            )}
+
             {/* Connect Wallet button */}
             <div className="hidden sm:block">
-              <w3m-button balance="hide" label="Connect" />
+              <w3m-button balance="show" label="Connect" />
             </div>
 
             {/* Mobile menu button */}
@@ -194,7 +298,12 @@ export default function Header() {
             </div>
             {/* Mobile wallet connect */}
             <div className="pt-2 pb-1 px-3">
-              <w3m-button balance="hide" label="Connect" />
+              <w3m-button balance="show" label="Connect" />
+              {isConnected && (
+                <div className="mt-2 rounded-lg border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2 text-xs text-[var(--color-text-secondary)]">
+                  {balanceLoading ? 'Fetching LITHO...' : `Balance: ${lithoBalance ?? 'Unavailable'}`}
+                </div>
+              )}
             </div>
           </div>
         )}

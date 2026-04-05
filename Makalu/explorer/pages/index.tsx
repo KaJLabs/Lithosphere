@@ -13,7 +13,7 @@ import { FormattedValueElement } from '@/components/FormattedValueElement';
 
 const MAKALU_CHAIN = {
   chainId: '0xab169',
-  chainName: 'Lithosphere Makalu',
+  chainName: 'Lithosphere Makalu Testnet',
   rpcUrls: ['https://rpc.litho.ai'],
   nativeCurrency: { name: 'LITHO', symbol: 'LITHO', decimals: 18 },
   blockExplorerUrls: ['https://makalu.litho.ai'],
