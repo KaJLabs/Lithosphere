@@ -46,10 +46,12 @@ const WALLET_OPTIONS: SelectOption[] = [
 ];
 
 const AMOUNT_OPTIONS: SelectOption[] = [
-  { value: '10 LITHO', label: '10 LITHO' },
-  { value: '25 LITHO', label: '25 LITHO' },
-  { value: '50 LITHO', label: '50 LITHO' },
+  { value: '1 LITHO', label: '1 LITHO' },
+  { value: '2 LITHO', label: '2 LITHO' },
 ];
+
+const PRIMARY_CTA_CLASSES =
+  'rounded-2xl border border-sky-300/20 bg-gradient-to-r from-[#1cc7ff] via-[#227dff] to-[#3157ff] px-5 py-3 text-sm font-medium text-white shadow-[0_18px_40px_rgba(37,99,235,0.35)] transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_54px_rgba(34,197,255,0.28)] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0';
 
 function shortenAddress(value: string) {
   if (!value) return '';
@@ -99,7 +101,7 @@ function ThemedSelect({
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
-        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-left text-sm text-white outline-none transition hover:border-white/20 focus:border-emerald-400/50"
+        className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-left text-sm text-white outline-none transition hover:border-white/20 focus:border-sky-400/50"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -117,7 +119,7 @@ function ThemedSelect({
       {open && (
         <div
           role="listbox"
-          className="absolute z-40 mt-2 w-full overflow-hidden rounded-2xl border border-emerald-400/25 bg-[#071120] shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
+          className="absolute z-40 mt-2 w-full overflow-hidden rounded-2xl border border-sky-400/25 bg-[#071120] shadow-[0_18px_40px_rgba(0,0,0,0.55)]"
         >
           {options.map((opt) => {
             const isSelected = opt.value === value;
@@ -131,12 +133,12 @@ function ThemedSelect({
                 }}
                 className={`flex w-full items-center justify-between px-4 py-3 text-sm transition ${
                   isSelected
-                    ? 'bg-emerald-500/20 text-emerald-100'
+                    ? 'bg-blue-500/20 text-blue-100'
                     : 'text-white/85 hover:bg-white/10'
                 }`}
               >
                 <span>{opt.label}</span>
-                {isSelected && <span className="text-xs text-emerald-300">Selected</span>}
+                {isSelected && <span className="text-xs text-sky-300">Selected</span>}
               </button>
             );
           })}
@@ -152,7 +154,7 @@ export default function FaucetPage() {
   const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
   const [walletType, setWalletType] = useState<WalletType>('WEB3');
-  const [amount, setAmount] = useState('10 LITHO');
+  const [amount, setAmount] = useState('1 LITHO');
   const [reason, setReason] = useState('');
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -324,8 +326,8 @@ export default function FaucetPage() {
                 Claim LITHO testnet coins on Makalu
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-white/70">
-                Connect your wallet, switch to Lithosphere Makalu Testnet, and request LITHO for app
-                development, contract deployment, and network testing.
+                Connect your wallet, switch to Lithosphere Makalu Testnet, and request 1 or 2 LITHO
+                every 24 hours for app development, contract deployment, and network testing.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
@@ -336,7 +338,7 @@ export default function FaucetPage() {
                       void open({ view: 'Connect' });
                     }
                   }}
-                  className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+                  className={PRIMARY_CTA_CLASSES}
                 >
                   {isConnected && connectedAddress
                     ? `Connected: ${shortenAddress(connectedAddress)}`
@@ -387,7 +389,7 @@ export default function FaucetPage() {
                 <div className="text-sm font-medium text-white/80">Faucet</div>
                 <h2 className="mt-2 text-2xl font-semibold">Claim LITHO testnet coins</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Enter your wallet address and select an amount. Maximum one claim per wallet every 24 hours.
+                  Enter your wallet address and select 1 or 2 LITHO. Maximum one claim per wallet every 24 hours.
                 </p>
               </div>
 
@@ -433,7 +435,7 @@ export default function FaucetPage() {
                   <button
                     type="submit"
                     disabled={claiming || !address}
-                    className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className={PRIMARY_CTA_CLASSES}
                   >
                     {claiming ? 'Submitting...' : 'Claim Testnet LITHO'}
                   </button>
@@ -446,7 +448,7 @@ export default function FaucetPage() {
                         void open({ view: 'Connect' });
                       }
                     }}
-                    className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+                    className={PRIMARY_CTA_CLASSES}
                   >
                     {isConnected && connectedAddress ? `${shortenAddress(connectedAddress)}` : 'Connect Wallet'}
                   </button>
@@ -517,7 +519,7 @@ export default function FaucetPage() {
                 <button
                   onClick={addOrSwitchMakalu}
                   disabled={isAddingNetwork || chainId === MAKALU_CHAIN_ID}
-                  className="rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-medium text-white transition hover:bg-emerald-400 disabled:opacity-60 disabled:cursor-not-allowed"
+                  className={PRIMARY_CTA_CLASSES}
                 >
                   {isAddingNetwork
                     ? 'Adding...'
@@ -543,7 +545,7 @@ export default function FaucetPage() {
                   <li>• Desktop users: Use your browser wallet extension</li>
                   <li>• Mobile users: Use WalletConnect to scan the QR code with your mobile wallet</li>
                   <li>• Click &quot;Add Makalu Network&quot; to auto-add the chain to your wallet</li>
-                  <li>• One claim per wallet every 24 hours</li>
+                  <li>• Claim 1 or 2 LITHO once every 24 hours</li>
                 </ul>
               </div>
             </section>

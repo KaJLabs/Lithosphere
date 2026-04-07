@@ -4,7 +4,7 @@ import { drip } from '../services/wallet.js';
 import { checkCooldown, setCooldown } from '../services/rateLimit.js';
 import { config } from '../config.js';
 
-const ALLOWED_AMOUNTS = ['10', '25', '50'];
+const ALLOWED_AMOUNTS = ['1', '2'];
 
 interface DripBody {
   address: string;
@@ -25,7 +25,7 @@ export async function dripRoutes(app: FastifyInstance) {
     // Parse and validate amount (default to config drip amount)
     let dripAmount = config.dripAmount;
     if (requestedAmount) {
-      // Extract numeric part from strings like "10 LITHO" or "10"
+      // Extract numeric part from strings like "1 LITHO" or "2"
       const numeric = requestedAmount.replace(/[^0-9.]/g, '');
       if (ALLOWED_AMOUNTS.includes(numeric)) {
         dripAmount = numeric;

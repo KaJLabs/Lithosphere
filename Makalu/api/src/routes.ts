@@ -1449,9 +1449,9 @@ export function explorerRouter(): Router {
         return;
       }
 
-      // Extract numeric amount from strings like "10 LITHO" or "10"
-      const numericAmount = typeof amount === 'string' ? amount.replace(/[^0-9.]/g, '') : '10';
-      const allowedAmounts = ['10', '25', '50'];
+      // Extract numeric amount from strings like "1 LITHO" or "2"
+      const numericAmount = typeof amount === 'string' ? amount.replace(/[^0-9.]/g, '') : '1';
+      const allowedAmounts = ['1', '2'];
       if (!allowedAmounts.includes(numericAmount)) {
         res.status(400).json({ ok: false, message: `Invalid amount. Allowed: ${allowedAmounts.join(', ')} LITHO` });
         return;
@@ -1486,7 +1486,7 @@ export function explorerRouter(): Router {
       res.json({
         ok: true,
         txHash: data.txHash ?? null,
-        message: `Sent ${data.amount ?? numericAmount} LITHO to ${address}`,
+        message: `Sent ${data.amount ?? `${numericAmount} LITHO`} to ${address}`,
         cooldownSeconds: ((data.cooldownHours as number) ?? 24) * 3600,
       });
     } catch (err) {
