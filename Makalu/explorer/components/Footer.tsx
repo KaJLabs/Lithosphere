@@ -38,7 +38,7 @@ export default function Footer() {
             </a>
           </div>
         </div>
-        <div className="mt-8 border-t border-white/5 pt-6 text-center text-2xl font-medium tracking-tight text-white/55">
+        <div className="mt-8 border-t border-white/5 pt-6 text-center text-sm font-medium tracking-tight text-white/55 sm:text-base">
           Lithosphere Core Protocol • Operated by The LITHO Community
         </div>
       </div>

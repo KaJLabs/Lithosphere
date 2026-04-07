@@ -54,10 +54,12 @@ export default function Header() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [moreMenuPosition, setMoreMenuPosition] = useState<{ top: number; right: number } | null>(null);
   const [walletMenuOpen, setWalletMenuOpen] = useState(false);
   const [lithoBalance, setLithoBalance] = useState<string | null>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const walletMenuRef = useRef<HTMLDivElement>(null);
   const { open } = useWeb3Modal();
   const { disconnect } = useDisconnect();
@@ -81,12 +83,37 @@ export default function Header() {
   // Close "More" dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (moreRef.current && !moreRef.current.contains(e.target as Node)) {
-        setMoreOpen(false);
-      }
+      const target = e.target as Node;
+      if (moreRef.current?.contains(target)) return;
+      if (moreMenuRef.current?.contains(target)) return;
+      setMoreOpen(false);
     }
     if (moreOpen) document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [moreOpen]);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+
+    const updateMoreMenuPosition = () => {
+      const trigger = moreRef.current;
+      if (!trigger) return;
+
+      const rect = trigger.getBoundingClientRect();
+      setMoreMenuPosition({
+        top: rect.bottom + 8,
+        right: Math.max(16, window.innerWidth - rect.right),
+      });
+    };
+
+    updateMoreMenuPosition();
+    window.addEventListener('resize', updateMoreMenuPosition);
+    window.addEventListener('scroll', updateMoreMenuPosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updateMoreMenuPosition);
+      window.removeEventListener('scroll', updateMoreMenuPosition, true);
+    };
   }, [moreOpen]);
 
   useEffect(() => {
@@ -353,6 +380,31 @@ export default function Header() {
     </div>
   ) : null;
 
+  const moreMenu =
+    moreOpen && moreMenuPosition ? (
+      <div
+        ref={moreMenuRef}
+        className="fixed z-[130] w-48 rounded-xl border border-white/10 bg-[var(--color-bg-secondary)] py-1 shadow-xl shadow-black/40"
+        style={{ top: moreMenuPosition.top, right: moreMenuPosition.right }}
+      >
+        {MORE_ITEMS.map((item) => (
+          <a
+            key={item.href}
+            href={item.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => setMoreOpen(false)}
+            className="flex items-center justify-between px-4 py-2.5 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)]"
+          >
+            {item.label}
+            <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </a>
+        ))}
+      </div>
+    ) : null;
+
   return (
     <header className="sticky top-0 z-50 overflow-x-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4">
@@ -400,25 +452,6 @@ export default function Header() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
-              {moreOpen && (
-                <div className="absolute right-0 top-full mt-1 w-48 rounded-xl border border-white/10 bg-[var(--color-bg-secondary)] shadow-xl shadow-black/40 py-1 z-50">
-                  {MORE_ITEMS.map((item) => (
-                    <a
-                      key={item.href}
-                      href={item.href}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={() => setMoreOpen(false)}
-                      className="flex items-center justify-between px-4 py-2.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
-                    >
-                      {item.label}
-                      <svg className="w-3 h-3 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                      </svg>
-                    </a>
-                  ))}
-                </div>
-              )}
             </div>
           </nav>
 
@@ -591,6 +624,7 @@ export default function Header() {
         )}
       </div>
 
+      {moreMenu && typeof document !== 'undefined' ? createPortal(moreMenu, document.body) : null}
       {walletOverlay && typeof document !== 'undefined' ? createPortal(walletOverlay, document.body) : null}
     </header>
   );
