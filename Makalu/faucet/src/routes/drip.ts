@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { isAddress } from 'viem';
 import { drip } from '../services/wallet.js';
 import { checkCooldown, setCooldown } from '../services/rateLimit.js';
-import { config } from '../config.js';
+import { config, isAllowedAmount } from '../config.js';
 
 interface DripBody {
   address: string;
@@ -25,7 +25,7 @@ export async function dripRoutes(app: FastifyInstance) {
     if (requestedAmount) {
       // Extract numeric part from strings like "10 LITHO" or "25"
       const numeric = requestedAmount.replace(/[^0-9.]/g, '');
-      if (config.allowedAmounts.includes(numeric)) {
+      if (isAllowedAmount(numeric)) {
         dripAmount = numeric;
       } else {
         return reply.status(400).send({

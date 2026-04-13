@@ -1,9 +1,15 @@
 import 'dotenv/config';
 
 const ALLOWED_AMOUNTS = ['10', '25', '50'] as const;
+export type FaucetAmount = (typeof ALLOWED_AMOUNTS)[number];
+
+export function isAllowedAmount(value: string): value is FaucetAmount {
+  return (ALLOWED_AMOUNTS as readonly string[]).includes(value);
+}
+
 const configuredDripAmount = process.env.FAUCET_DRIP_AMOUNT?.trim();
 const dripAmount =
-  configuredDripAmount && ALLOWED_AMOUNTS.includes(configuredDripAmount as typeof ALLOWED_AMOUNTS[number])
+  configuredDripAmount && isAllowedAmount(configuredDripAmount)
     ? configuredDripAmount
     : ALLOWED_AMOUNTS[0];
 
