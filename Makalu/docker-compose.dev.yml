@@ -221,6 +221,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}
       LITHO_RPC_URL: http://lithovm:8545
       LITHO_CHAIN_ID: ${CHAIN_ID:-700777}
+      EXPLORER_INTERNAL_URL: http://explorer:3000
       FAUCET_INTERNAL_URL: http://faucet:8081
       REDIS_URL: redis://redis:6379
       GRAPHQL_PLAYGROUND: "true"

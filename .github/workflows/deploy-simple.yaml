@@ -335,6 +335,14 @@ jobs:
           curl -fsS http://localhost:8081/health
 
           echo ""
+          echo "Public Explorer via local TLS edge:"
+          curl -kfsS --resolve makalu.litho.ai:443:127.0.0.1 -o /dev/null -w "HTTP %{http_code}\n" https://makalu.litho.ai/
+
+          echo ""
+          echo "Public Faucet Route via local TLS edge:"
+          curl -kfsS --resolve makalu.litho.ai:443:127.0.0.1 -o /dev/null -w "HTTP %{http_code}\n" https://makalu.litho.ai/faucet
+
+          echo ""
           echo "── API Debug:"
           curl -fsS http://localhost:4000/api/debug | head -c 500
 

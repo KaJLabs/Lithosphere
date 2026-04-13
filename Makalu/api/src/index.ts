@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express from 'express';
+import express, { type NextFunction, type Request, type Response } from 'express';
 import cors from 'cors';
 import { ApolloServer } from 'apollo-server-express';
 import { typeDefs, resolvers } from './schema.js';
@@ -11,6 +11,68 @@ import { register, collectDefaultMetrics } from 'prom-client';
 collectDefaultMetrics({ prefix: 'litho_api_' });
 
 const app = express();
+const EXPLORER_INTERNAL_URL = process.env.EXPLORER_INTERNAL_URL || 'http://explorer:3000';
+const STRIPPED_PROXY_HEADERS = new Set([
+  'connection',
+  'content-encoding',
+  'content-length',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+]);
+
+function buildExplorerProxyHeaders(req: Request): Record<string, string> {
+  const headers: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(req.headers)) {
+    if (!value) continue;
+    headers[key] = Array.isArray(value) ? value.join(', ') : value;
+  }
+
+  const forwardedHost = typeof req.headers.host === 'string' ? req.headers.host : 'makalu.litho.ai';
+  const forwardedFor = req.headers['x-forwarded-for'];
+
+  headers['x-forwarded-host'] = forwardedHost;
+  headers['x-forwarded-proto'] = req.protocol;
+
+  if (req.ip) {
+    headers['x-forwarded-for'] =
+      typeof forwardedFor === 'string' && forwardedFor.length > 0
+        ? `${forwardedFor}, ${req.ip}`
+        : req.ip;
+  }
+
+  return headers;
+}
+
+async function proxyExplorerRequest(req: Request, res: Response) {
+  const target = new URL(req.originalUrl, EXPLORER_INTERNAL_URL);
+  const upstream = await fetch(target, {
+    method: req.method,
+    headers: buildExplorerProxyHeaders(req),
+    redirect: 'manual',
+  });
+
+  res.status(upstream.status);
+  upstream.headers.forEach((value, key) => {
+    if (!STRIPPED_PROXY_HEADERS.has(key.toLowerCase())) {
+      res.setHeader(key, value);
+    }
+  });
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return;
+  }
+
+  const body = Buffer.from(await upstream.arrayBuffer());
+  res.end(body);
+}
+
 app.use(cors());
 app.use(express.json());
 
@@ -54,6 +116,26 @@ async function start() {
   const server = new ApolloServer({ typeDefs, resolvers });
   await server.start();
   server.applyMiddleware({ app: app as any, path: '/graphql' });
+
+  // The public edge currently reaches the API for non-API routes.
+  // Proxy those GET/HEAD requests to the explorer so makalu.litho.ai still serves the site.
+  app.use(async (req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      next();
+      return;
+    }
+
+    try {
+      await proxyExplorerRequest(req, res);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      console.error(`[explorer-proxy] ${req.method} ${req.originalUrl} failed: ${message}`);
+      res.status(502).json({
+        error: 'Explorer unavailable',
+        message: 'Could not reach the explorer frontend.',
+      });
+    }
+  });
 
   const port = process.env.API_PORT || 4000;
   app.listen(port, () => console.log(`API running on :${port}`));

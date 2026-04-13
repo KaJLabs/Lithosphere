@@ -36,6 +36,7 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - LITHO_RPC_URL=${LITHO_RPC_URL}
       - LITHO_CHAIN_ID=${LITHO_CHAIN_ID:-700777}
+      - EXPLORER_INTERNAL_URL=http://explorer:3000
       - FAUCET_INTERNAL_URL=http://faucet:8081
       - GRAPHQL_PLAYGROUND=${GRAPHQL_PLAYGROUND:-false}
       - REDIS_URL=redis://redis:6379
@@ -287,7 +288,7 @@ services:
           - faucet
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.faucet.rule=Host(`faucet.litho.ai`) || PathPrefix(`/faucet`)"
+      - "traefik.http.routers.faucet.rule=Host(`faucet.litho.ai`)"
       - "traefik.http.services.faucet.loadbalancer.server.port=8081"
 
   # --------------------------------------------------------------------------
