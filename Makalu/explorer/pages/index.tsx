@@ -269,9 +269,9 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                   : (Array.isArray(blocks) ? blocks : []).map((block) => (
                       <div
                         key={block.height}
-                        className="grid gap-3 rounded-2xl border border-white/10 bg-black/25 p-4 md:grid-cols-4 md:items-center"
+                        className="grid gap-x-4 gap-y-3 rounded-2xl border border-white/10 bg-black/25 p-4 sm:grid-cols-2 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1fr)] lg:items-center"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <div className="text-xs text-white/45">Height</div>
                           <Link
                             href={`/blocks/${block.height}`}
@@ -280,17 +280,20 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                             #{formatNumber(block.height)}
                           </Link>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="text-xs text-white/45">Age</div>
                           <div className="mt-1 font-medium">{timeAgo(block.timestamp)}</div>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="text-xs text-white/45">Transactions</div>
                           <div className="mt-1 font-medium">{block.txCount}</div>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <div className="text-xs text-white/45">Hash</div>
-                          <div className="mt-1 font-mono text-sm text-white/70">
+                          <div
+                            className="mt-1 truncate font-mono text-xs text-white/70 sm:text-sm"
+                            title={block.hash ?? undefined}
+                          >
                             {block.hash ? truncateHash(block.hash) : '—'}
                           </div>
                         </div>
