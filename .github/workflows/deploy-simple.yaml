@@ -283,6 +283,46 @@ jobs:
           sudo docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "litho-|NAME"
 
           echo ""
+          echo "Waiting for critical containers to become healthy..."
+          deadline=$((SECONDS + 240))
+          containers=(litho-api litho-explorer litho-indexer litho-faucet)
+          while true; do
+            all_ready=true
+            for container in "${containers[@]}"; do
+              STATUS=$(sudo docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")
+              echo "  $container: $STATUS"
+              case "$STATUS" in
+                healthy|running) ;;
+                starting)
+                  all_ready=false
+                  ;;
+                *)
+                  echo "Container $container entered unhealthy state: $STATUS"
+                  sudo docker logs "$container" --tail 50 2>&1 || true
+                  exit 1
+                  ;;
+              esac
+            done
+
+            if [ "$all_ready" = true ]; then
+              break
+            fi
+
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "Timed out waiting for critical containers to become healthy"
+              for container in "${containers[@]}"; do
+                echo ""
+                echo "Logs for $container (last 50):"
+                sudo docker logs "$container" --tail 50 2>&1 || true
+              done
+              exit 1
+            fi
+
+            echo "Sleeping 10s before re-checking container health..."
+            sleep 10
+          done
+
+          echo ""
           echo "── API Health:"
           curl -fsS http://localhost:4000/health
 
@@ -324,7 +364,7 @@ jobs:
           jq -n --arg instance "$INSTANCE_ID" --arg script "$SCRIPT" '{
             InstanceIds: [$instance],
             DocumentName: "AWS-RunShellScript",
-            TimeoutSeconds: 120,
+            TimeoutSeconds: 300,
             Parameters: { commands: [$script] }
           }' > /tmp/ssm-health.json
 
