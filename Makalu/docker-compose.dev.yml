@@ -221,6 +221,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}
       LITHO_RPC_URL: http://lithovm:8545
       LITHO_CHAIN_ID: ${CHAIN_ID:-700777}
+      FAUCET_INTERNAL_URL: http://faucet:8081
       REDIS_URL: redis://redis:6379
       GRAPHQL_PLAYGROUND: "true"
       PROMETHEUS_ENABLED: "true"
@@ -326,7 +327,7 @@ services:
       FAUCET_RPC_URL: http://lithovm:8545
       FAUCET_CHAIN_ID: ${CHAIN_ID:-700777}
       FAUCET_PRIVATE_KEY: ${FAUCET_PRIVATE_KEY:-0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80}
-      FAUCET_DRIP_AMOUNT: ${FAUCET_DRIP_AMOUNT:-1}
+      FAUCET_DRIP_AMOUNT: ${FAUCET_DRIP_AMOUNT:-10}
       FAUCET_COOLDOWN_HOURS: ${FAUCET_COOLDOWN_HOURS:-1}
       REDIS_URL: redis://redis:6379
       FAUCET_PORT: 8081

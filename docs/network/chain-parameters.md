@@ -104,6 +104,6 @@ Public RPC endpoints (`rpc.litho.ai`, `api.litho.ai`) are rate-limited via Nginx
 
 - 1 claim per wallet address per 24 hours
 - Maximum 10 requests per IP per 15 minutes
-- Claim amounts: 100 / 250 / 500 LITHO
+- Claim amounts: 10 / 25 / 50 LITHO
 
 > **Note**: For archive node setup, seed node lists, and detailed sentry topology guidance, contact the Lithosphere validator team or consult the [validator documentation](../validators/node-deployment.md).

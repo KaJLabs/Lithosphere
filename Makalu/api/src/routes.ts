@@ -1449,9 +1449,9 @@ export function explorerRouter(): Router {
         return;
       }
 
-      // Extract numeric amount from strings like "1 LITHO" or "2"
-      const numericAmount = typeof amount === 'string' ? amount.replace(/[^0-9.]/g, '') : '1';
-      const allowedAmounts = ['1', '2'];
+      // Extract numeric amount from strings like "10 LITHO" or "25"
+      const allowedAmounts = ['10', '25', '50'];
+      const numericAmount = typeof amount === 'string' ? amount.replace(/[^0-9.]/g, '') : allowedAmounts[0];
       if (!allowedAmounts.includes(numericAmount)) {
         res.status(400).json({ ok: false, message: `Invalid amount. Allowed: ${allowedAmounts.join(', ')} LITHO` });
         return;

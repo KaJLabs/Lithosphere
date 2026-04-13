@@ -1,5 +1,12 @@
 import 'dotenv/config';
 
+const ALLOWED_AMOUNTS = ['10', '25', '50'] as const;
+const configuredDripAmount = process.env.FAUCET_DRIP_AMOUNT?.trim();
+const dripAmount =
+  configuredDripAmount && ALLOWED_AMOUNTS.includes(configuredDripAmount as typeof ALLOWED_AMOUNTS[number])
+    ? configuredDripAmount
+    : ALLOWED_AMOUNTS[0];
+
 export const config = {
   port: parseInt(process.env.FAUCET_PORT ?? '8081', 10),
   host: process.env.FAUCET_HOST ?? '0.0.0.0',
@@ -12,7 +19,8 @@ export const config = {
   privateKey: process.env.FAUCET_PRIVATE_KEY as `0x${string}` | undefined,
 
   // Drip settings
-  dripAmount: process.env.FAUCET_DRIP_AMOUNT ?? '1', // in LITHO (ether units)
+  allowedAmounts: [...ALLOWED_AMOUNTS],
+  dripAmount, // in LITHO (ether units)
   cooldownHours: parseInt(process.env.FAUCET_COOLDOWN_HOURS ?? '24', 10),
 
   // Redis (for rate limiting persistence)

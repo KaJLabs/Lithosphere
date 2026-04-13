@@ -87,12 +87,12 @@ FAUCET_PRIVATE_KEY=0x<your-64-char-hex-private-key>
 FAUCET_RPC_URL=http://localhost:8545
 
 # Optional overrides (defaults are fine)
-# FAUCET_DRIP_AMOUNT=10        # LITHO per claim (default: 1)
+# FAUCET_DRIP_AMOUNT=10        # Default LITHO per claim when amount is omitted
 # FAUCET_COOLDOWN_HOURS=24     # Hours between claims per address (default: 24)
 # FAUCET_CHAIN_ID=700777       # EVM chain ID (default: 700777)
 ```
 
-**Important:** Set `FAUCET_DRIP_AMOUNT=10` if you want the default claim to be 10 LITHO (matching the UI options of 10/25/50). The current default is 1 LITHO.
+The public faucet supports claims of **10 / 25 / 50 LITHO**. If no amount is supplied, the faucet defaults to **10 LITHO**.
 
 ---
 

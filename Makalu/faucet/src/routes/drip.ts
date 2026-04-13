@@ -4,8 +4,6 @@ import { drip } from '../services/wallet.js';
 import { checkCooldown, setCooldown } from '../services/rateLimit.js';
 import { config } from '../config.js';
 
-const ALLOWED_AMOUNTS = ['1', '2'];
-
 interface DripBody {
   address: string;
   amount?: string;
@@ -25,14 +23,14 @@ export async function dripRoutes(app: FastifyInstance) {
     // Parse and validate amount (default to config drip amount)
     let dripAmount = config.dripAmount;
     if (requestedAmount) {
-      // Extract numeric part from strings like "1 LITHO" or "2"
+      // Extract numeric part from strings like "10 LITHO" or "25"
       const numeric = requestedAmount.replace(/[^0-9.]/g, '');
-      if (ALLOWED_AMOUNTS.includes(numeric)) {
+      if (config.allowedAmounts.includes(numeric)) {
         dripAmount = numeric;
       } else {
         return reply.status(400).send({
           error: 'Invalid amount',
-          message: `Allowed amounts: ${ALLOWED_AMOUNTS.map(a => `${a} LITHO`).join(', ')}`,
+          message: `Allowed amounts: ${config.allowedAmounts.map((a) => `${a} LITHO`).join(', ')}`,
         });
       }
     }

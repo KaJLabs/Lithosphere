@@ -64,8 +64,8 @@
   },
   "faucet": {
     "url": "https://makalu.litho.ai/faucet",
-    "amounts": ["100", "250", "500"],
+    "amounts": ["10", "25", "50"],
     "cooldownHours": 24
   },
-  "updatedAt": "2026-03-30"
+  "updatedAt": "2026-04-13"
 }

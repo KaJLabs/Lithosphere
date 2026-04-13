@@ -278,24 +278,46 @@ jobs:
         run: |
           SCRIPT=$(cat << 'HEALTHCHECK'
           #!/bin/bash
+          set -euo pipefail
           echo "── Container Status:"
           sudo docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "litho-|NAME"
 
           echo ""
           echo "── API Health:"
-          curl -sf http://localhost:4000/health || echo "API health FAILED"
+          curl -fsS http://localhost:4000/health
 
           echo ""
           echo "── Explorer:"
-          curl -sf -o /dev/null -w "HTTP %{http_code}" http://localhost:3100 || echo "Explorer FAILED"
+          curl -fsS -o /dev/null -w "HTTP %{http_code}\n" http://localhost:3100
+
+          echo ""
+          echo "Faucet Health:"
+          curl -fsS http://localhost:8081/health
 
           echo ""
           echo "── API Debug:"
-          curl -sf http://localhost:4000/api/debug | head -c 500 || echo "Debug unavailable"
+          curl -fsS http://localhost:4000/api/debug | head -c 500
+
+          echo ""
+          echo "Critical Container Health:"
+          for container in litho-api litho-explorer litho-indexer litho-faucet; do
+            STATUS=$(sudo docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container")
+            echo "  $container: $STATUS"
+            case "$STATUS" in
+              healthy|running) ;;
+              *)
+                echo "Container $container is not healthy"
+                exit 1
+                ;;
+            esac
+          done
 
           echo ""
           echo "── Indexer Logs (last 15):"
           sudo docker logs litho-indexer --tail 15 2>&1
+          echo ""
+          echo "Faucet Logs (last 20):"
+          sudo docker logs litho-faucet --tail 20 2>&1
           HEALTHCHECK
           )
 
@@ -317,9 +339,14 @@ jobs:
           RESULT=$(aws ssm get-command-invocation \
             --command-id "$COMMAND_ID" \
             --instance-id "$INSTANCE_ID" \
-            --query "[Status,StandardOutputContent]" --output json)
+            --query "[Status,StandardOutputContent,StandardErrorContent]" --output json)
 
+          STATUS=$(echo "$RESULT" | jq -r '.[0]')
           echo "$(echo "$RESULT" | jq -r '.[1]')"
+          STDERR=$(echo "$RESULT" | jq -r '.[2]')
+          [ -n "$STDERR" ] && [ "$STDERR" != "null" ] && echo "STDERR:" && echo "$STDERR"
+
+          [ "$STATUS" = "Success" ] || { echo "Health checks failed: $STATUS"; exit 1; }
 
       - name: Deployment Summary
         if: always()

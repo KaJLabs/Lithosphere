@@ -46,8 +46,9 @@ const WALLET_OPTIONS: SelectOption[] = [
 ];
 
 const AMOUNT_OPTIONS: SelectOption[] = [
-  { value: '1 LITHO', label: '1 LITHO' },
-  { value: '2 LITHO', label: '2 LITHO' },
+  { value: '10 LITHO', label: '10 LITHO' },
+  { value: '25 LITHO', label: '25 LITHO' },
+  { value: '50 LITHO', label: '50 LITHO' },
 ];
 
 const PRIMARY_CTA_CLASSES =
@@ -154,7 +155,7 @@ export default function FaucetPage() {
   const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
   const [walletType, setWalletType] = useState<WalletType>('WEB3');
-  const [amount, setAmount] = useState('1 LITHO');
+  const [amount, setAmount] = useState('10 LITHO');
   const [reason, setReason] = useState('');
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -326,8 +327,9 @@ export default function FaucetPage() {
                 Claim LITHO testnet coins on Makalu
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-white/70">
-                Connect your wallet, switch to Lithosphere Makalu Testnet, and request 1 or 2 LITHO
-                every 24 hours for app development, contract deployment, and network testing.
+                Connect your wallet, switch to Lithosphere Makalu Testnet, and request 10, 25, or
+                50 LITHO every 24 hours for app development, contract deployment, and network
+                testing.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
@@ -389,7 +391,8 @@ export default function FaucetPage() {
                 <div className="text-sm font-medium text-white/80">Faucet</div>
                 <h2 className="mt-2 text-2xl font-semibold">Claim LITHO testnet coins</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Enter your wallet address and select 1 or 2 LITHO. Maximum one claim per wallet every 24 hours.
+                  Enter your wallet address and select 10, 25, or 50 LITHO. Maximum one claim per
+                  wallet every 24 hours.
                 </p>
               </div>
 
@@ -545,7 +548,7 @@ export default function FaucetPage() {
                   <li>• Desktop users: Use your browser wallet extension</li>
                   <li>• Mobile users: Use WalletConnect to scan the QR code with your mobile wallet</li>
                   <li>• Click &quot;Add Makalu Network&quot; to auto-add the chain to your wallet</li>
-                  <li>• Claim 1 or 2 LITHO once every 24 hours</li>
+                  <li>• Claim 10, 25, or 50 LITHO once every 24 hours</li>
                 </ul>
               </div>
             </section>
