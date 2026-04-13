@@ -15,6 +15,10 @@ const START_BLOCK = parseInt(process.env.START_BLOCK || process.env.INDEXER_STAR
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || process.env.INDEXER_BATCH_SIZE || '100');
 const POLL_MS = 6000;           // Wait between polls when caught up
 const CATCHUP_DELAY_MS = 100;   // Delay between batches during bulk sync
+const SYNCING_LAG_THRESHOLD = 1000;
+const CONSISTENCY_REPAIR_INTERVAL_MS = 300_000;
+const SYNC_SNAPSHOT_REFRESH_MS = 30_000;
+const CONSISTENCY_REPAIR_BATCH = 250;
 
 // ─── DB Pool ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +38,9 @@ pool.on('error', (err) => console.error('[db] Pool error:', err.message));
 collectDefaultMetrics({ prefix: 'litho_indexer_' });
 const gIndexed = new Gauge({ name: 'litho_indexer_last_indexed_block', help: 'Last indexed block height' });
 const gChain   = new Gauge({ name: 'litho_indexer_chain_height',       help: 'Chain tip height' });
+const gMaxTxBlock = new Gauge({ name: 'litho_indexer_max_transaction_block', help: 'Latest indexed transaction block height' });
+const gInconsistentBlocks = new Gauge({ name: 'litho_indexer_inconsistent_block_count', help: 'Indexed blocks whose transaction count does not match the transactions table' });
+const gLag = new Gauge({ name: 'litho_indexer_chain_lag_blocks', help: 'Block lag between the chain tip and the indexed blocks table tip' });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +91,55 @@ interface RpcStatus {
   node_info: { network: string };
   sync_info: { latest_block_height: string };
 }
+
+interface HeightWithTimeRow {
+  height: string;
+  timestamp?: Date | string | null;
+  block_time?: Date | string | null;
+}
+
+interface InconsistentHeightRow {
+  height: string;
+}
+
+interface IndexerSyncSnapshot {
+  chainTip: number;
+  lastIndexedBlock: number;
+  maxIndexedBlock: number;
+  maxTransactionBlock: number;
+  latestBlockTimestamp: string | null;
+  latestTransactionTimestamp: string | null;
+  inconsistentBlockCount: number;
+  lagBlocks: number;
+  isSyncing: boolean;
+  lastResetReason: string | null;
+  lastResetAt: string | null;
+  lastRepairAt: string | null;
+  lastRepairCount: number;
+  updatedAt: string;
+}
+
+interface IndexBlockOptions {
+  replaceExisting?: boolean;
+}
+
+let lastKnownChainTip = 0;
+let syncSnapshot: IndexerSyncSnapshot = {
+  chainTip: 0,
+  lastIndexedBlock: 0,
+  maxIndexedBlock: 0,
+  maxTransactionBlock: 0,
+  latestBlockTimestamp: null,
+  latestTransactionTimestamp: null,
+  inconsistentBlockCount: 0,
+  lagBlocks: 0,
+  isSyncing: false,
+  lastResetReason: null,
+  lastResetAt: null,
+  lastRepairAt: null,
+  lastRepairCount: 0,
+  updatedAt: new Date().toISOString(),
+};
 
 const GENESIS_ACCOUNTS: SeedAccount[] = [
   { address: 'litho1jqa20fhuxlceg7mwflpcxgfe4r2p2g2f0nrnj5', evmAddress: '0x903AA7a6fc37F1947B6e4fC3832139A8D4152149', balance: '190000000000000000000000000', accountNumber: 1 },
@@ -193,11 +249,150 @@ async function setIndexerState(key: string, value: string): Promise<void> {
   );
 }
 
+function parseIntSafe(value: string | number | null | undefined): number {
+  const parsed = typeof value === 'number' ? value : parseInt(value ?? '0', 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toIsoString(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+const INCONSISTENT_BLOCKS_CTE = `
+  WITH tx_counts AS (
+    SELECT block_height::bigint AS height, COUNT(*)::bigint AS tx_count
+    FROM transactions
+    GROUP BY block_height
+  ),
+  inconsistent_blocks AS (
+    SELECT b.height::bigint AS height
+    FROM blocks b
+    LEFT JOIN tx_counts t ON t.height = b.height::bigint
+    WHERE COALESCE(t.tx_count, 0) <> COALESCE(b.num_txs, 0)
+    UNION
+    SELECT t.height
+    FROM tx_counts t
+    LEFT JOIN blocks b ON b.height::bigint = t.height
+    WHERE b.height IS NULL
+  )
+`;
+
+async function getInconsistentBlockCount(): Promise<number> {
+  const rows = await pool.query<{ count: string }>(`
+    ${INCONSISTENT_BLOCKS_CTE}
+    SELECT COUNT(*) AS count FROM inconsistent_blocks
+  `);
+  return parseIntSafe(rows.rows[0]?.count);
+}
+
+async function findInconsistentBlockHeights(limit: number): Promise<number[]> {
+  const rows = await pool.query<InconsistentHeightRow>(`
+    ${INCONSISTENT_BLOCKS_CTE}
+    SELECT height::text AS height
+    FROM inconsistent_blocks
+    ORDER BY height ASC
+    LIMIT $1
+  `, [limit]);
+  return rows.rows
+    .map((row) => parseIntSafe(row.height))
+    .filter((height) => height > 0);
+}
+
+async function refreshSyncSnapshot(chainTip = lastKnownChainTip): Promise<IndexerSyncSnapshot> {
+  const [
+    lastIndexedBlock,
+    maxIndexedBlockRow,
+    maxTransactionBlockRow,
+    inconsistentBlockCount,
+    lastResetReason,
+    lastResetAt,
+    lastRepairAt,
+    lastRepairCount,
+  ] = await Promise.all([
+    getLastIndexedBlock().catch(() => 0),
+    pool.query<HeightWithTimeRow>(
+      'SELECT COALESCE(MAX(height), 0)::text AS height, MAX(block_time) AS block_time FROM blocks'
+    ).catch(() => ({ rows: [] as HeightWithTimeRow[] })),
+    pool.query<HeightWithTimeRow>(
+      'SELECT COALESCE(MAX(block_height), 0)::text AS height, MAX(timestamp) AS timestamp FROM transactions'
+    ).catch(() => ({ rows: [] as HeightWithTimeRow[] })),
+    getInconsistentBlockCount().catch(() => 0),
+    getIndexerState('last_reset_reason').catch(() => null),
+    getIndexerState('last_reset_at').catch(() => null),
+    getIndexerState('last_repair_at').catch(() => null),
+    getIndexerState('last_repair_count').catch(() => null),
+  ]);
+
+  const maxIndexedBlock = parseIntSafe(maxIndexedBlockRow.rows[0]?.height);
+  const maxTransactionBlock = parseIntSafe(maxTransactionBlockRow.rows[0]?.height);
+  const effectiveChainTip = Math.max(0, chainTip);
+  const lagBlocks = effectiveChainTip > 0
+    ? Math.max(0, effectiveChainTip - maxIndexedBlock)
+    : Math.max(0, lastIndexedBlock - maxIndexedBlock);
+
+  syncSnapshot = {
+    chainTip: effectiveChainTip,
+    lastIndexedBlock,
+    maxIndexedBlock,
+    maxTransactionBlock,
+    latestBlockTimestamp: toIsoString(maxIndexedBlockRow.rows[0]?.block_time),
+    latestTransactionTimestamp: toIsoString(maxTransactionBlockRow.rows[0]?.timestamp),
+    inconsistentBlockCount,
+    lagBlocks,
+    isSyncing: lagBlocks > SYNCING_LAG_THRESHOLD,
+    lastResetReason,
+    lastResetAt,
+    lastRepairAt,
+    lastRepairCount: parseIntSafe(lastRepairCount),
+    updatedAt: new Date().toISOString(),
+  };
+
+  gIndexed.set(lastIndexedBlock);
+  gMaxTxBlock.set(maxTransactionBlock);
+  gInconsistentBlocks.set(inconsistentBlockCount);
+  gLag.set(lagBlocks);
+
+  return syncSnapshot;
+}
+
+async function repairInconsistentBlocks(limit = CONSISTENCY_REPAIR_BATCH): Promise<number> {
+  const heights = await findInconsistentBlockHeights(limit);
+  if (heights.length === 0) {
+    await setIndexerState('last_repair_count', '0');
+    return 0;
+  }
+
+  console.warn(`[indexer] Repairing ${heights.length} inconsistent block(s)`);
+  let repaired = 0;
+  for (const height of heights) {
+    try {
+      await indexBlock(height, { replaceExisting: true });
+      repaired += 1;
+    } catch (err) {
+      console.warn(
+        `[indexer] Consistency repair failed for block ${height}:`,
+        err instanceof Error ? err.message : String(err)
+      );
+    }
+  }
+
+  await Promise.all([
+    setIndexerState('last_repair_at', new Date().toISOString()),
+    setIndexerState('last_repair_count', String(repaired)),
+  ]);
+
+  return repaired;
+}
+
 async function resetIndexedData(reason: string): Promise<void> {
   console.warn(`[indexer] Resetting indexed data: ${reason}`);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+    const resetAt = new Date().toISOString();
     await client.query(`
       TRUNCATE TABLE
         token_transfers,
@@ -214,11 +409,30 @@ async function resetIndexedData(reason: string): Promise<void> {
     await client.query(`
       INSERT INTO indexer_state (key, value, updated_at) VALUES
         ('last_indexed_block', '0', NOW()),
-        ('last_indexed_evm_block', '0', NOW())
+        ('last_indexed_evm_block', '0', NOW()),
+        ('last_reset_reason', $1, NOW()),
+        ('last_reset_at', $2, NOW())
       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-    `);
+    `, [reason, resetAt]);
     await client.query('COMMIT');
     gIndexed.set(0);
+    gMaxTxBlock.set(0);
+    gInconsistentBlocks.set(0);
+    syncSnapshot = {
+      ...syncSnapshot,
+      lastIndexedBlock: 0,
+      maxIndexedBlock: 0,
+      maxTransactionBlock: 0,
+      latestBlockTimestamp: null,
+      latestTransactionTimestamp: null,
+      inconsistentBlockCount: 0,
+      lagBlocks: Math.max(0, lastKnownChainTip),
+      isSyncing: Math.max(0, lastKnownChainTip) > SYNCING_LAG_THRESHOLD,
+      lastResetReason: reason,
+      lastResetAt: resetAt,
+      updatedAt: new Date().toISOString(),
+    };
+    gLag.set(syncSnapshot.lagBlocks);
   } catch (err) {
     await client.query('ROLLBACK');
     throw err;
@@ -307,7 +521,7 @@ async function ensureChainConsistency(forceReset: boolean): Promise<void> {
 
 // ─── Block Indexing ───────────────────────────────────────────────────────────
 
-async function indexBlock(height: number): Promise<void> {
+async function indexBlock(height: number, options: IndexBlockOptions = {}): Promise<void> {
   const [blockData, resultsData] = await Promise.all([
     rpcGet<RpcBlock>(`/block?height=${height}`),
     rpcGet<RpcBlockResults>(`/block_results?height=${height}`),
@@ -320,6 +534,14 @@ async function indexBlock(height: number): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+
+    if (options.replaceExisting) {
+      await client.query('DELETE FROM token_transfers WHERE block_height = $1', [height]);
+      await client.query('DELETE FROM evm_transactions WHERE block_height = $1', [height]);
+      await client.query('DELETE FROM transactions WHERE block_height = $1', [height]);
+      await client.query('DELETE FROM contracts WHERE creation_block = $1', [height]);
+      await client.query('DELETE FROM blocks WHERE height = $1', [height]);
+    }
 
     await client.query(
       `INSERT INTO blocks (height, hash, proposer_address, num_txs, total_gas, block_time)
@@ -648,8 +870,26 @@ async function main(): Promise<void> {
   // Health endpoint
   const app = express();
   app.get('/health', (_, res) =>
-    res.json({ status: 'healthy', service: 'lithosphere-indexer', timestamp: new Date().toISOString() })
+    res.json({
+      status: 'healthy',
+      service: 'lithosphere-indexer',
+      timestamp: new Date().toISOString(),
+      sync: syncSnapshot,
+    })
   );
+  app.get('/debug', async (_, res) => {
+    try {
+      const snapshot = await refreshSyncSnapshot();
+      res.json({
+        status: 'ok',
+        service: 'lithosphere-indexer',
+        timestamp: new Date().toISOString(),
+        sync: snapshot,
+      });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
   app.listen(process.env.INDEXER_PORT ?? 3001, () => console.log('[indexer] Health: :3001'));
 
   // Metrics endpoint
@@ -687,46 +927,18 @@ async function main(): Promise<void> {
     )
   `);
   await pool.query(`
-    INSERT INTO indexer_state (key, value) VALUES ('last_indexed_block', '0')
+    INSERT INTO indexer_state (key, value) VALUES
+      ('last_indexed_block', '0'),
+      ('last_indexed_evm_block', '0')
     ON CONFLICT (key) DO NOTHING
   `);
-
-  // Seed LEP100 tokens into contracts table (idempotent — ON CONFLICT DO NOTHING)
-  try {
-    await pool.query(`
-      INSERT INTO contracts (address, name, symbol, decimals, total_supply, contract_type) VALUES
-        ('0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe', 'Wrapped Lithosphere', 'wLITHO', 18, '1000000000000000000000000000', 'token'),
-        ('0x468022F17CAFEBD43C18f68D53c66a1a7f0E5249', 'Lithosphere LitBTC', 'LitBTC', 8, '21000000000000000', 'token'),
-        ('0x9611436ea7B4764Eeb1E31B83A5bF03c835Eb3e8', 'Lithosphere Algo', 'LAX', 6, '10000000000000000', 'token'),
-        ('0x8187b232BDa461d17EA519Ba6898F7b220AAf2e2', 'Jot Art', 'JOT', 18, '1000000000000000000000000000', 'token'),
-        ('0xE7eBf52bD714348984Fb00b4c99d9e994D60DF49', 'Colle AI', 'COLLE', 18, '5000000000000000000000000000', 'token'),
-        ('0x7a29252B13367800dD78FED47afFaB86a615c844', 'Imagen Network', 'IMAGE', 18, '10000000000000000000000000000', 'token'),
-        ('0x9984ad7a774218B263D74BD8A5FFEDa7DD6Fe020', 'AGII', 'AGII', 18, '1000000000000000000000000000', 'token'),
-        ('0x07039884740F4DB0f71BD3bCF87a3FfA0B85A26F', 'Built AI', 'BLDR', 18, '1000000000000000000000000000', 'token'),
-        ('0xa25c2a49893B0296977E2E70Da56AF47241d592F', 'FurGPT', 'FGPT', 18, '1000000000000000000000000000', 'token'),
-        ('0xDEE12eD9C5A1F7c29f3ab3961B892a8434A97EFa', 'Mansa AI', 'MUSA', 18, '1000000000000000000000000000', 'token')
-      ON CONFLICT (address) DO NOTHING
-    `);
-    const tokenCount = await pool.query("SELECT COUNT(*) AS count FROM contracts WHERE contract_type = 'token'");
-    console.log(`[indexer] LEP100 tokens seeded: ${tokenCount.rows[0]?.count ?? 0} tokens in contracts table`);
-  } catch (err) {
-    console.warn('[indexer] Token seed failed (contracts table may not exist yet):', err instanceof Error ? err.message : String(err));
-  }
-
-  // Force re-index: reset indexer_state so we re-process all blocks from START_BLOCK.
-  // This is needed when another indexer (e.g. EVM-only) populated blocks with num_txs=0
-  // and our CometBFT indexer needs to find the actual transactions.
-  if (process.env.FORCE_REINDEX === '1' || process.env.FORCE_REINDEX === 'true') {
-    console.log('[indexer] FORCE_REINDEX=1 — resetting last_indexed_block to 0');
-    await pool.query(`
-      INSERT INTO indexer_state (key, value, updated_at) VALUES ('last_indexed_block', '0', NOW())
-      ON CONFLICT (key) DO UPDATE SET value = '0', updated_at = NOW()
-    `);
-  }
 
   const shouldForceReset = process.env.FORCE_REINDEX === '1' || process.env.FORCE_REINDEX === 'true';
   await ensureChainConsistency(shouldForceReset);
   await seedStaticData();
+  await refreshSyncSnapshot();
+  await repairInconsistentBlocks();
+  await refreshSyncSnapshot();
 
   // Targeted EVM backfill: re-process only blocks that have transactions but no EVM records.
   // This avoids resetting to 0 and re-processing all 85k+ blocks on every restart.
@@ -761,18 +973,26 @@ async function main(): Promise<void> {
 
   let lastValidatorRefresh = Date.now();
   let lastStatsRefresh     = Date.now();
+  let lastConsistencyRepair = Date.now();
+  let lastSyncSnapshotRefresh = Date.now();
 
   while (true) {
     try {
       const status = await rpcGet<RpcStatus>('/status');
       const chainTip = parseInt(status.sync_info.latest_block_height);
+      lastKnownChainTip = chainTip;
       gChain.set(chainTip);
 
       let from = await getLastIndexedBlock();
       if (from < START_BLOCK - 1) from = START_BLOCK - 1;
       const to = Math.min(from + BATCH_SIZE, chainTip);
+      gLag.set(Math.max(0, chainTip - from));
 
       if (from >= chainTip) {
+        if (Date.now() - lastSyncSnapshotRefresh > SYNC_SNAPSHOT_REFRESH_MS) {
+          await refreshSyncSnapshot(chainTip);
+          lastSyncSnapshotRefresh = Date.now();
+        }
         // Fully caught up — wait for next block
         await new Promise(r => setTimeout(r, POLL_MS));
         continue;
@@ -784,6 +1004,7 @@ async function main(): Promise<void> {
       for (let h = from + 1; h <= to; h++) {
         await indexBlock(h);
         await setLastIndexedBlock(h);
+        gLag.set(Math.max(0, chainTip - h));
       }
 
       // Periodic maintenance
@@ -794,6 +1015,14 @@ async function main(): Promise<void> {
       if (Date.now() - lastStatsRefresh > 300_000) {
         await recordNetworkStats();
         lastStatsRefresh = Date.now();
+      }
+      if (Date.now() - lastConsistencyRepair > CONSISTENCY_REPAIR_INTERVAL_MS) {
+        await repairInconsistentBlocks();
+        lastConsistencyRepair = Date.now();
+      }
+      if (Date.now() - lastSyncSnapshotRefresh > SYNC_SNAPSHOT_REFRESH_MS || to >= chainTip) {
+        await refreshSyncSnapshot(chainTip);
+        lastSyncSnapshotRefresh = Date.now();
       }
 
       // Back off only when caught up; aggressively sync when behind

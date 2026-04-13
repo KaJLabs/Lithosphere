@@ -5,8 +5,9 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { truncateHash, formatNumber, timeAgo, formatValue } from '@/lib/format';
-import type { ApiTxList } from '@/lib/types';
+import type { ApiTxList, StatsSummary } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
+import SyncStatusBanner from '@/components/SyncStatusBanner';
 
 const PAGE_SIZE = 25;
 
@@ -29,10 +30,15 @@ export default function TransactionsPage() {
     `/txs?limit=${PAGE_SIZE}&offset=${offset}`,
     { pollInterval: POLL_INTERVAL }
   );
+  const { data: stats } = useApi<StatsSummary>(
+    '/stats/summary',
+    { pollInterval: POLL_INTERVAL }
+  );
 
   const txs = data?.txs ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
+  const isSyncing = Boolean(stats?.isSyncing);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,7 +56,9 @@ export default function TransactionsPage() {
       <div className="text-white">
         {/* Header */}
         <div className="mb-6">
-          <div className="text-sm text-white/55 mb-1">Realtime Feed</div>
+          <div className="text-sm text-white/55 mb-1">
+            {isSyncing ? 'Indexed Feed' : 'Realtime Feed'}
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-3xl font-semibold">Transactions</h1>
             {total > 0 && (
@@ -60,6 +68,8 @@ export default function TransactionsPage() {
             )}
           </div>
         </div>
+
+        <SyncStatusBanner stats={stats} className="mb-6" />
 
         {/* Search */}
         <form onSubmit={handleSearch} className="mb-6 flex gap-3">
@@ -111,7 +121,11 @@ export default function TransactionsPage() {
           ) : txs.length === 0 ? (
             <div className="py-20 text-center text-white/40">
               <div className="text-lg font-medium mb-2">No transactions yet</div>
-              <div className="text-sm">Transactions will appear here as they are indexed from the chain.</div>
+              <div className="text-sm">
+                {isSyncing
+                  ? 'Transactions will appear here as the explorer catches up to the chain.'
+                  : 'Transactions will appear here as they are indexed from the chain.'}
+              </div>
             </div>
           ) : (
             <div>

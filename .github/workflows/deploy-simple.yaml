@@ -335,16 +335,16 @@ jobs:
           curl -fsS http://localhost:8081/health
 
           echo ""
-          echo "Public Explorer via local TLS edge:"
-          curl -kfsS --resolve makalu.litho.ai:443:127.0.0.1 -o /dev/null -w "HTTP %{http_code}\n" https://makalu.litho.ai/
-
-          echo ""
-          echo "Public Faucet Route via local TLS edge:"
-          curl -kfsS --resolve makalu.litho.ai:443:127.0.0.1 -o /dev/null -w "HTTP %{http_code}\n" https://makalu.litho.ai/faucet
-
-          echo ""
           echo "── API Debug:"
           curl -fsS http://localhost:4000/api/debug | head -c 500
+
+          echo ""
+          echo "── Deployment Diagnostics:"
+          cd /opt/lithosphere/Makalu
+          echo "Git SHA: $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+          echo "FORCE_REINDEX: $(grep '^FORCE_REINDEX=' .env 2>/dev/null || echo unset)"
+          echo "Compose SHA256: $(sha256sum docker-compose.yaml | awk '{print $1}')"
+          sudo docker ps --format "table {{.Names}}\t{{.RunningFor}}\t{{.Image}}" | grep -E "litho-|NAME"
 
           echo ""
           echo "Critical Container Health:"

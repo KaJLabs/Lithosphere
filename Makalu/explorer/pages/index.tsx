@@ -6,6 +6,7 @@ import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, timeAgo, truncateHash, formatValue, formatSupply } from '@/lib/format';
 import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiTokenDetail } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
+import SyncStatusBanner from '@/components/SyncStatusBanner';
 import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { useState, useEffect, useRef } from 'react';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
@@ -103,6 +104,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
   });
 
   const topValidators = Array.isArray(validators) ? validators.slice(0, 4) : [];
+  const isSyncing = Boolean(stats?.isSyncing);
   
   const topTokens = tokensData?.slice(0, 4) ?? [
     { symbol: 'LITHO', name: 'Lithosphere', type: 'native' },
@@ -113,7 +115,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
 
   const summaryStats = [
     {
-      label: 'Latest Block',
+      label: isSyncing ? 'Indexed Block' : 'Latest Block',
       value: statsLoading ? '—' : `#${formatNumber(stats?.tipHeight ?? 0)}`,
     },
     {
@@ -238,13 +240,17 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
             ))}
           </section>
 
+          <SyncStatusBanner stats={stats} className="mt-6" />
+
           {/* Blocks + Transactions */}
           <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
             {/* Latest Blocks */}
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-white/55">Live Network Activity</div>
+                  <div className="text-sm text-white/55">
+                    {isSyncing ? 'Indexed Network Activity' : 'Live Network Activity'}
+                  </div>
                   <h2 className="mt-1 text-2xl font-semibold">Latest Blocks</h2>
                 </div>
                 <Link
@@ -306,7 +312,9 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-white/55">Realtime Feed</div>
+                  <div className="text-sm text-white/55">
+                    {isSyncing ? 'Indexed Feed' : 'Realtime Feed'}
+                  </div>
                   <h2 className="mt-1 text-2xl font-semibold">Latest Transactions</h2>
                 </div>
                 <Link

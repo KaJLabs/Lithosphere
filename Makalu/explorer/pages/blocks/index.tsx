@@ -5,6 +5,7 @@ import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, truncateHash, timeAgo } from '@/lib/format';
 import type { ApiBlock, StatsSummary } from '@/lib/types';
+import SyncStatusBanner from '@/components/SyncStatusBanner';
 
 const ROWS_PER_PAGE = 25;
 
@@ -23,6 +24,7 @@ export default function BlocksPage() {
   );
 
   const tipHeight = stats?.tipHeight ?? 0;
+  const isSyncing = Boolean(stats?.isSyncing);
   const totalPages = Math.max(1, Math.ceil(tipHeight / ROWS_PER_PAGE));
 
   // Client-side pagination over the fetched 25 blocks
@@ -34,6 +36,8 @@ export default function BlocksPage() {
         <title>Blocks | {EXPLORER_TITLE}</title>
       </Head>
 
+      <SyncStatusBanner stats={stats} className="mb-6" />
+
       <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
         {/* ── Header ──────────────────────────────────────────────── */}
         <div className="px-6 py-5 border-b border-white/10">
@@ -41,16 +45,16 @@ export default function BlocksPage() {
             <h1 className="text-xl font-semibold text-white">Blocks</h1>
             {/* Live indicator */}
             <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isSyncing ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isSyncing ? 'bg-amber-500' : 'bg-emerald-500'}`} />
             </span>
-            <span className="text-xs font-medium text-emerald-400 uppercase tracking-wide">
-              Live
+            <span className={`text-xs font-medium uppercase tracking-wide ${isSyncing ? 'text-amber-300' : 'text-emerald-400'}`}>
+              {isSyncing ? 'Syncing' : 'Live'}
             </span>
           </div>
           {tipHeight > 0 && (
             <p className="text-sm text-white/40 mt-1">
-              Total of {formatNumber(tipHeight)} blocks
+              Total of {formatNumber(tipHeight)} indexed blocks
             </p>
           )}
         </div>

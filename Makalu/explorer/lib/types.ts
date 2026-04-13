@@ -2,6 +2,13 @@
 
 export interface StatsSummary {
   tipHeight: number;
+  chainTipHeight: number;
+  latestTransactionHeight: number;
+  latestBlockTimestamp: string | null;
+  latestTransactionTimestamp: string | null;
+  syncLagBlocks: number;
+  isSyncing: boolean;
+  inconsistentBlocks: number;
   tps1m: number;
   tps5m: number;
   totalTransactions: number;

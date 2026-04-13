@@ -12,6 +12,8 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
 const HIDDEN_TOKEN_SYMBOLS = new Set(['LitBTC']);
 const HIDDEN_TOKEN_ADDRESSES = new Set(['0x468022f17cafebd43c18f68d53c66a1a7f0e5249']);
+const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
+const SYNCING_LAG_THRESHOLD = 1000;
 
 function isHiddenToken(token: { symbol?: string | null; address?: string | null }): boolean {
   const symbol = token.symbol?.trim();
@@ -122,6 +124,17 @@ interface EvmTxRow {
 
 interface CountRow { count: string }
 
+interface SyncSummary {
+  tipHeight: number;
+  chainTipHeight: number;
+  latestTransactionHeight: number;
+  latestBlockTimestamp: string | null;
+  latestTransactionTimestamp: string | null;
+  syncLagBlocks: number;
+  isSyncing: boolean;
+  inconsistentBlocks: number;
+}
+
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 /** Strip Ethereum branding from Cosmos SDK method names */
@@ -201,6 +214,82 @@ function computeFeeUlitho(gasUsed: string | number | null | undefined, gasPriceW
 function hexToDec(hex: string | null | undefined): string {
   if (!hex || hex === '0x0' || hex === '0x') return '0';
   try { return String(BigInt(hex)); } catch { return '0'; }
+}
+
+function parseIntSafe(value: string | number | null | undefined): number {
+  const parsed = typeof value === 'number' ? value : parseInt(value ?? '0', 10);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function toIsoString(value: Date | string | null | undefined): string | null {
+  if (!value) return null;
+  if (value instanceof Date) return value.toISOString();
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+const INCONSISTENT_BLOCKS_CTE = `
+  WITH tx_counts AS (
+    SELECT block_height::bigint AS height, COUNT(*)::bigint AS tx_count
+    FROM transactions
+    GROUP BY block_height
+  ),
+  inconsistent_blocks AS (
+    SELECT b.height::bigint AS height
+    FROM blocks b
+    LEFT JOIN tx_counts t ON t.height = b.height::bigint
+    WHERE COALESCE(t.tx_count, 0) <> COALESCE(b.num_txs, 0)
+    UNION
+    SELECT t.height
+    FROM tx_counts t
+    LEFT JOIN blocks b ON b.height::bigint = t.height
+    WHERE b.height IS NULL
+  )
+`;
+
+async function fetchChainTipHeight(): Promise<number> {
+  try {
+    const resp = await fetch(`${RPC_URL}/status`, { signal: AbortSignal.timeout(5000) });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const payload = await resp.json() as {
+      result?: { sync_info?: { latest_block_height?: string } };
+    };
+    return parseIntSafe(payload.result?.sync_info?.latest_block_height);
+  } catch (err) {
+    console.warn('[api] chain tip fetch failed:', err instanceof Error ? err.message : String(err));
+    return 0;
+  }
+}
+
+async function getSyncSummary(): Promise<SyncSummary> {
+  const [maxBlock, maxTx, inconsistentCount, chainTipHeight] = await Promise.all([
+    query<{ height: string; block_time: Date | string | null }>(
+      'SELECT COALESCE(MAX(height), 0)::text AS height, MAX(block_time) AS block_time FROM blocks'
+    ),
+    query<{ height: string; timestamp: Date | string | null }>(
+      'SELECT COALESCE(MAX(block_height), 0)::text AS height, MAX(timestamp) AS timestamp FROM transactions'
+    ),
+    query<CountRow>(`
+      ${INCONSISTENT_BLOCKS_CTE}
+      SELECT COUNT(*) AS count FROM inconsistent_blocks
+    `).catch(() => [{ count: '0' }]),
+    fetchChainTipHeight(),
+  ]);
+
+  const tipHeight = parseIntSafe(maxBlock[0]?.height);
+  const latestTransactionHeight = parseIntSafe(maxTx[0]?.height);
+  const syncLagBlocks = chainTipHeight > 0 ? Math.max(0, chainTipHeight - tipHeight) : 0;
+
+  return {
+    tipHeight,
+    chainTipHeight,
+    latestTransactionHeight,
+    latestBlockTimestamp: toIsoString(maxBlock[0]?.block_time),
+    latestTransactionTimestamp: toIsoString(maxTx[0]?.timestamp),
+    syncLagBlocks,
+    isSyncing: chainTipHeight > 0 && syncLagBlocks > SYNCING_LAG_THRESHOLD,
+    inconsistentBlocks: parseIntSafe(inconsistentCount[0]?.count),
+  };
 }
 
 /** EVM JSON-RPC helper */
@@ -444,8 +533,8 @@ export function explorerRouter(): Router {
 
   r.get('/stats/summary', async (_req: Request, res: Response) => {
     try {
-      const [blockRow, tx1m, tx5m, totalTxs, walletCount, avgBlockTime] = await Promise.all([
-        query<{ height: string }>('SELECT height FROM blocks ORDER BY height DESC LIMIT 1'),
+      const [syncSummary, tx1m, tx5m, totalTxs, walletCount, avgBlockTime] = await Promise.all([
+        getSyncSummary(),
         query<CountRow>(
           `SELECT COUNT(*) AS count FROM transactions
            WHERE timestamp > NOW() - INTERVAL '1 minute'`
@@ -471,11 +560,10 @@ export function explorerRouter(): Router {
            ) sub WHERE diff IS NOT NULL`
         ).catch(() => [{ avg_seconds: '0' }]),
       ]);
-      const tipHeight = blockRow[0] ? Number(blockRow[0].height) : 0;
       const txs1m = parseInt(tx1m[0]?.count ?? '0');
       const txs5m = parseInt(tx5m[0]?.count ?? '0');
       res.json({
-        tipHeight,
+        ...syncSummary,
         tps1m: Math.round((txs1m / 60) * 100) / 100,
         tps5m: Math.round((txs5m / 300) * 100) / 100,
         totalTransactions: parseInt(totalTxs[0]?.count ?? '0'),
@@ -1413,29 +1501,51 @@ export function explorerRouter(): Router {
   r.get('/debug', async (_req: Request, res: Response) => {
     try {
       const [
+        syncSummary,
         indexerState,
         blockCount,
         txCount,
         evmTxCount,
         minBlock,
         maxBlock,
+        maxTx,
         sampleBlock,
         tableColumns,
+        inconsistentSample,
       ] = await Promise.all([
+        getSyncSummary().catch(() => ({
+          tipHeight: 0,
+          chainTipHeight: 0,
+          latestTransactionHeight: 0,
+          latestBlockTimestamp: null,
+          latestTransactionTimestamp: null,
+          syncLagBlocks: 0,
+          isSyncing: false,
+          inconsistentBlocks: 0,
+        })),
         query<{ key: string; value: string }>('SELECT * FROM indexer_state').catch(() => []),
         query<CountRow>('SELECT COUNT(*) AS count FROM blocks').catch(() => [{ count: '?' }]),
         query<CountRow>('SELECT COUNT(*) AS count FROM transactions').catch(() => [{ count: '?' }]),
         query<CountRow>('SELECT COUNT(*) AS count FROM evm_transactions').catch(() => [{ count: '?' }]),
         query<{ height: string }>('SELECT MIN(height) AS height FROM blocks').catch(() => []),
         query<{ height: string }>('SELECT MAX(height) AS height FROM blocks').catch(() => []),
+        query<{ height: string }>('SELECT COALESCE(MAX(block_height), 0)::text AS height FROM transactions').catch(() => []),
         query<Record<string, unknown>>('SELECT * FROM blocks ORDER BY height ASC LIMIT 1').catch(() => []),
         query<{ column_name: string; data_type: string; character_maximum_length: number | null }>(
           `SELECT column_name, data_type, character_maximum_length
            FROM information_schema.columns WHERE table_name = 'blocks' ORDER BY ordinal_position`
         ).catch(() => []),
+        query<{ height: string }>(`
+          ${INCONSISTENT_BLOCKS_CTE}
+          SELECT height::text AS height
+          FROM inconsistent_blocks
+          ORDER BY height DESC
+          LIMIT 20
+        `).catch(() => []),
       ]);
 
       res.json({
+        sync: syncSummary,
         indexerState,
         counts: {
           blocks: blockCount[0]?.count,
@@ -1446,6 +1556,10 @@ export function explorerRouter(): Router {
           min: minBlock[0]?.height,
           max: maxBlock[0]?.height,
         },
+        transactionRange: {
+          max: maxTx[0]?.height ?? '0',
+        },
+        inconsistentBlockSample: inconsistentSample.map((row) => row.height),
         sampleBlock: sampleBlock[0] ?? null,
         blocksSchema: tableColumns,
       });
