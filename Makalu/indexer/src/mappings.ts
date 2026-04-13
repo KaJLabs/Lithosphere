@@ -65,6 +65,57 @@ interface RpcBlockResults {
 
 type DbClient = PoolClient;
 
+interface SeedAccount {
+  address: string;
+  evmAddress: string;
+  balance: string;
+  accountNumber: number;
+}
+
+interface SeedToken {
+  address: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  totalSupply: string;
+}
+
+interface RpcStatus {
+  node_info: { network: string };
+  sync_info: { latest_block_height: string };
+}
+
+const GENESIS_ACCOUNTS: SeedAccount[] = [
+  { address: 'litho1jqa20fhuxlceg7mwflpcxgfe4r2p2g2f0nrnj5', evmAddress: '0x903AA7a6fc37F1947B6e4fC3832139A8D4152149', balance: '190000000000000000000000000', accountNumber: 1 },
+  { address: 'litho1fe7hgzhc384dejgzlycyx9t80ere4vakcnphsm', evmAddress: '0x4E7d740Af889EADcC902F9304315677E479aB3b6', balance: '190000000000000000000000000', accountNumber: 2 },
+  { address: 'litho13qvmr0wdwun3rqq5qqahqxvzm8c3559pfwwwr0', evmAddress: '0x8819B1BdcD7727118014003b701982d9F11A50a1', balance: '50000000000000000000000000', accountNumber: 3 },
+  { address: 'litho1yzxrtd9uetfy5hmzzzqhq2sv2yteaafzes2e67', evmAddress: '0x208c35b4bCCAd24a5F621081702a0C51179Ef522', balance: '50000000000000000000000000', accountNumber: 4 },
+  { address: 'litho1v43usrfpru2t7caph9snajs7nf5j2ghuqwxyfc', evmAddress: '0x6563c80D211f14bf63a1B9613ECA1e9a692522Fc', balance: '75000000000000000000000000', accountNumber: 5 },
+  { address: 'litho17y8ecmw5p0e5kmvuq2q3m3t98hwz0r2t8su5ng', evmAddress: '0xF10f9C6Dd40bF34B6d9c02811dC5653dDc278D4b', balance: '75000000000000000000000000', accountNumber: 6 },
+  { address: 'litho12sdvp8mtl9elhec5mk630u3ge9t8hj5p383gu9', evmAddress: '0x541ac09f6bf973fbe714ddb517f228c9567bca81', balance: '50000000000000000000000000', accountNumber: 7 },
+  { address: 'litho1kuaqzyng4prjn7cp45qel58nqweajx7mx45ayp', evmAddress: '0xb73a011268a84729fb01ad019fd0f303b3d91bdb', balance: '50000000000000000000000000', accountNumber: 8 },
+  { address: 'litho13rf5cdrsrk073gl3npslv857ya7uufww5437lz', evmAddress: '0x88d34c34701d9fe8a3f19861f61e9e277dce25ce', balance: '25000000000000000000000000', accountNumber: 9 },
+  { address: 'litho1kaltpxap8ymlfcykekggpgt228zst3lly2t6mm', evmAddress: '0xb77eb09ba13937f4e096cd9080a16a51c505c7ff', balance: '25000000000000000000000000', accountNumber: 10 },
+  { address: 'litho1spzck5q8cymezjyaqw62g8s6hjfsg8cxqsrvww', evmAddress: '0x80458b5007c13791489d03b4a41e1abc93041f06', balance: '35000000000000000000000000', accountNumber: 11 },
+  { address: 'litho1h4cl2cxaxzzfxw7qgamn2zuj7cfwjwts6w6rkw', evmAddress: '0xbd71f560dd3084933bc04777350b92f612e93970', balance: '35000000000000000000000000', accountNumber: 12 },
+  { address: 'litho14c3y86hfd69kwqmdkup9y90ertu53cu6ewpr7h', evmAddress: '0xae2243eae96e8b67036db7025215f91af948e39a', balance: '40000000000000000000000000', accountNumber: 13 },
+  { address: 'litho1g5vc8rcxla03p2456gsfayevpwt44yhxm72naj', evmAddress: '0x4519838f06ff5f10aab4d2209e932c0b975a92e6', balance: '40000000000000000000000000', accountNumber: 14 },
+  { address: 'litho187m5cwfthxyspdzrpqvzs9c6f6k5gzenw8lkq2', evmAddress: '0x3fb74c392BB98900b443081828171a4Ead440B33', balance: '70000000000000000000000000', accountNumber: 15 },
+];
+
+const SEEDED_TOKENS: SeedToken[] = [
+  { address: '0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe', name: 'Wrapped Lithosphere', symbol: 'wLITHO', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x468022F17CAFEBD43C18f68D53c66a1a7f0E5249', name: 'Lithosphere LitBTC', symbol: 'LitBTC', decimals: 8, totalSupply: '21000000000000000' },
+  { address: '0x9611436ea7B4764Eeb1E31B83A5bF03c835Eb3e8', name: 'Lithosphere Algo', symbol: 'LAX', decimals: 6, totalSupply: '10000000000000000' },
+  { address: '0x8187b232BDa461d17EA519Ba6898F7b220AAf2e2', name: 'Jot Art', symbol: 'JOT', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0xE7eBf52bD714348984Fb00b4c99d9e994D60DF49', name: 'Colle AI', symbol: 'COLLE', decimals: 18, totalSupply: '5000000000000000000000000000' },
+  { address: '0x7a29252B13367800dD78FED47afFaB86a615c844', name: 'Imagen Network', symbol: 'IMAGE', decimals: 18, totalSupply: '10000000000000000000000000000' },
+  { address: '0x9984ad7a774218B263D74BD8A5FFEDa7DD6Fe020', name: 'AGII', symbol: 'AGII', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x07039884740F4DB0f71BD3bCF87a3FfA0B85A26F', name: 'Built AI', symbol: 'BLDR', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0xa25c2a49893B0296977E2E70Da56AF47241d592F', name: 'FurGPT', symbol: 'FGPT', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0xDEE12eD9C5A1F7c29f3ab3961B892a8434A97EFa', name: 'Mansa AI', symbol: 'MUSA', decimals: 18, totalSupply: '1000000000000000000000000000' },
+];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /** Safely decode a CometBFT base64-encoded attribute. Returns null if not valid base64. */
@@ -125,6 +176,135 @@ async function setLastIndexedBlock(height: number): Promise<void> {
   gIndexed.set(height);
 }
 
+async function getIndexerState(key: string): Promise<string | null> {
+  const r = await pool.query<{ value: string }>(
+    'SELECT value FROM indexer_state WHERE key = $1',
+    [key]
+  );
+  return r.rows[0]?.value ?? null;
+}
+
+async function setIndexerState(key: string, value: string): Promise<void> {
+  await pool.query(
+    `INSERT INTO indexer_state (key, value, updated_at)
+     VALUES ($1, $2, NOW())
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
+    [key, value]
+  );
+}
+
+async function resetIndexedData(reason: string): Promise<void> {
+  console.warn(`[indexer] Resetting indexed data: ${reason}`);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`
+      TRUNCATE TABLE
+        token_transfers,
+        evm_transactions,
+        transactions,
+        contracts,
+        accounts,
+        validators,
+        proposals,
+        network_stats,
+        blocks
+      RESTART IDENTITY CASCADE
+    `);
+    await client.query(`
+      INSERT INTO indexer_state (key, value, updated_at) VALUES
+        ('last_indexed_block', '0', NOW()),
+        ('last_indexed_evm_block', '0', NOW())
+      ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+    `);
+    await client.query('COMMIT');
+    gIndexed.set(0);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+async function seedGenesisAccounts(): Promise<void> {
+  for (const account of GENESIS_ACCOUNTS) {
+    await pool.query(
+      `INSERT INTO accounts
+         (address, evm_address, balance, sequence, account_number, account_type, first_seen_block, last_seen_block, tx_count)
+       VALUES ($1, $2, $3, 0, $4, 'genesis', 1, 1, 0)
+       ON CONFLICT (address) DO NOTHING`,
+      [account.address, account.evmAddress, account.balance, account.accountNumber]
+    );
+  }
+}
+
+async function seedTokenContracts(): Promise<void> {
+  for (const token of SEEDED_TOKENS) {
+    await pool.query(
+      `INSERT INTO contracts (address, name, symbol, decimals, total_supply, contract_type)
+       VALUES ($1, $2, $3, $4, $5, 'token')
+       ON CONFLICT (address) DO NOTHING`,
+      [token.address, token.name, token.symbol, token.decimals, token.totalSupply]
+    );
+  }
+}
+
+async function seedStaticData(): Promise<void> {
+  try {
+    await seedGenesisAccounts();
+    console.log(`[indexer] Genesis accounts seeded: ${GENESIS_ACCOUNTS.length}`);
+  } catch (err) {
+    console.warn('[indexer] Genesis account seed failed:', err instanceof Error ? err.message : String(err));
+  }
+
+  try {
+    await seedTokenContracts();
+    const tokenCount = await pool.query("SELECT COUNT(*) AS count FROM contracts WHERE contract_type = 'token'");
+    console.log(`[indexer] LEP100 tokens seeded: ${tokenCount.rows[0]?.count ?? 0} tokens in contracts table`);
+  } catch (err) {
+    console.warn('[indexer] Token seed failed (contracts table may not exist yet):', err instanceof Error ? err.message : String(err));
+  }
+}
+
+async function ensureChainConsistency(forceReset: boolean): Promise<void> {
+  const [status, genesisBlock] = await Promise.all([
+    rpcGet<RpcStatus>('/status'),
+    rpcGet<RpcBlock>('/block?height=1'),
+  ]);
+
+  const currentChainId = status.node_info.network;
+  const currentGenesisHash = genesisBlock.block_id.hash.toLowerCase();
+  const currentGenesisTime = genesisBlock.block.header.time;
+
+  const [storedChainId, storedGenesisHash, dbGenesis] = await Promise.all([
+    getIndexerState('chain_id').catch(() => null),
+    getIndexerState('genesis_hash').catch(() => null),
+    pool.query<{ hash: string }>('SELECT hash FROM blocks WHERE height = 1').catch(() => ({ rows: [] as Array<{ hash: string }> })),
+  ]);
+
+  const dbGenesisHash = dbGenesis.rows[0]?.hash?.toLowerCase() ?? null;
+  let resetReason: string | null = null;
+
+  if (forceReset) {
+    resetReason = 'FORCE_REINDEX=1';
+  } else if (storedChainId && storedChainId !== currentChainId) {
+    resetReason = `chain_id changed (${storedChainId} -> ${currentChainId})`;
+  } else if (storedGenesisHash && storedGenesisHash.toLowerCase() !== currentGenesisHash) {
+    resetReason = `genesis hash changed (${storedGenesisHash} -> ${currentGenesisHash})`;
+  } else if (dbGenesisHash && dbGenesisHash !== currentGenesisHash) {
+    resetReason = `blocks.height=1 hash mismatch (${dbGenesisHash} -> ${currentGenesisHash})`;
+  }
+
+  if (resetReason) {
+    await resetIndexedData(resetReason);
+  }
+
+  await setIndexerState('chain_id', currentChainId);
+  await setIndexerState('genesis_hash', currentGenesisHash);
+  await setIndexerState('genesis_time', currentGenesisTime);
+}
+
 // ─── Block Indexing ───────────────────────────────────────────────────────────
 
 async function indexBlock(height: number): Promise<void> {
@@ -145,9 +325,11 @@ async function indexBlock(height: number): Promise<void> {
       `INSERT INTO blocks (height, hash, proposer_address, num_txs, total_gas, block_time)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT (height) DO UPDATE SET
-         num_txs = GREATEST(blocks.num_txs, EXCLUDED.num_txs),
-         total_gas = GREATEST(blocks.total_gas, EXCLUDED.total_gas),
-         proposer_address = COALESCE(EXCLUDED.proposer_address, blocks.proposer_address)`,
+         hash = EXCLUDED.hash,
+         proposer_address = EXCLUDED.proposer_address,
+         num_txs = EXCLUDED.num_txs,
+         total_gas = EXCLUDED.total_gas,
+         block_time = EXCLUDED.block_time`,
       [
         height,
         blockData.block_id.hash.toLowerCase(),
@@ -542,6 +724,10 @@ async function main(): Promise<void> {
     `);
   }
 
+  const shouldForceReset = process.env.FORCE_REINDEX === '1' || process.env.FORCE_REINDEX === 'true';
+  await ensureChainConsistency(shouldForceReset);
+  await seedStaticData();
+
   // Targeted EVM backfill: re-process only blocks that have transactions but no EVM records.
   // This avoids resetting to 0 and re-processing all 85k+ blocks on every restart.
   try {
@@ -578,7 +764,7 @@ async function main(): Promise<void> {
 
   while (true) {
     try {
-      const status = await rpcGet<{ sync_info: { latest_block_height: string } }>('/status');
+      const status = await rpcGet<RpcStatus>('/status');
       const chainTip = parseInt(status.sync_info.latest_block_height);
       gChain.set(chainTip);
 

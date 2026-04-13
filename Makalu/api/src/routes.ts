@@ -502,9 +502,10 @@ export function explorerRouter(): Router {
   r.get('/blocks', async (req: Request, res: Response) => {
     try {
       const limit = clamp(req.query.limit);
+      const offset = Math.max(0, Number(req.query.offset) || 0);
       const rows = await query<BlockRow>(
-        'SELECT * FROM blocks ORDER BY height DESC LIMIT $1',
-        [limit]
+        'SELECT * FROM blocks ORDER BY height DESC LIMIT $1 OFFSET $2',
+        [limit, offset]
       );
       res.json(rows.map(mapBlock));
     } catch (err) {
