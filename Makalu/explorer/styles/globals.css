@@ -12,6 +12,7 @@
     --color-text-muted: #64748b;
     --color-border: #1e2533;
     --color-border-light: #0e1118;
+    --explorer-ui-scale: 2;
   }
 
   .dark {
@@ -23,6 +24,10 @@
     --color-text-muted: #64748b;
     --color-border: #1e2533;
     --color-border-light: #0e1118;
+  }
+
+  html {
+    font-size: calc(16px * var(--explorer-ui-scale));
   }
 
   body {

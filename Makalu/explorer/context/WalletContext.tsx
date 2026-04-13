@@ -21,7 +21,7 @@ const metadata = {
   name: 'Lithosphere Makalu Testnet Explorer',
   description: 'Lithosphere Makalu Testnet Block Explorer',
   url: 'https://makalu.litho.ai',
-  icons: ['https://makalu.litho.ai/favicon.ico'],
+  icons: ['https://makalu.litho.ai/makalu-testnet-favicon.png'],
 };
 
 const ethersConfig = defaultConfig({

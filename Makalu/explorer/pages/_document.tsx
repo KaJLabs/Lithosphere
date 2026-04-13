@@ -17,7 +17,8 @@ export default function Document() {
             `,
           }}
         />
-        <link rel="icon" href="/litho-logo.png" type="image/png" />
+        <link rel="icon" href="/makalu-testnet-favicon.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/makalu-testnet-favicon.png" />
       </Head>
       <body>
         <Main />

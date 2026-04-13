@@ -461,26 +461,6 @@ export default function Header() {
               <SearchBar />
             </div>
 
-            {isConnected && (
-              <div className="hidden 2xl:flex max-w-[220px] items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/5 px-3 py-1.5 text-xs">
-                <span
-                  className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-                    isOnMakalu
-                      ? 'bg-emerald-400/15 text-emerald-300'
-                      : 'bg-amber-400/15 text-amber-300'
-                  }`}
-                >
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      isOnMakalu ? 'bg-emerald-300' : 'bg-amber-300'
-                    }`}
-                  />
-                  {isOnMakalu ? 'Makalu' : 'Network'}
-                </span>
-                <span className="truncate font-semibold text-white">{balanceText}</span>
-              </div>
-            )}
-
             {/* Wallet button + menu */}
             <div className="hidden sm:block">
               <button

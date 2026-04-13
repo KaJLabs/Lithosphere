@@ -10,6 +10,15 @@ import { query } from './db.js';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+const HIDDEN_TOKEN_SYMBOLS = new Set(['LitBTC']);
+const HIDDEN_TOKEN_ADDRESSES = new Set(['0x468022f17cafebd43c18f68d53c66a1a7f0e5249']);
+
+function isHiddenToken(token: { symbol?: string | null; address?: string | null }): boolean {
+  const symbol = token.symbol?.trim();
+  const address = token.address?.toLowerCase();
+  return (symbol ? HIDDEN_TOKEN_SYMBOLS.has(symbol) : false)
+    || (address ? HIDDEN_TOKEN_ADDRESSES.has(address) : false);
+}
 
 /**
  * Convert EVM wei to ulitho.
@@ -744,6 +753,10 @@ export function explorerRouter(): Router {
           if (address.startsWith('litho1')) result.evmAddress = evmAddr; // add to output so frontend knows it
         }
         if (tokenInfo[0]) {
+          if (isHiddenToken({ symbol: tokenInfo[0].symbol, address: addrLower })) {
+            res.status(404).json({ message: 'Address not found' });
+            return;
+          }
           result.isContract = true;
           result.isToken = !!(tokenInfo[0].symbol || tokenInfo[0].contract_type === 'token');
           result.tokenName = tokenInfo[0].name;
@@ -766,6 +779,10 @@ export function explorerRouter(): Router {
 
       if (contractRows[0]) {
         const c = contractRows[0];
+        if (isHiddenToken(c)) {
+          res.status(404).json({ message: 'Address not found' });
+          return;
+        }
         res.json({
           address: c.address,
           balance: '0',
@@ -945,6 +962,8 @@ export function explorerRouter(): Router {
         query<CountRow>('SELECT COUNT(*) AS count FROM transactions').catch(() => [{ count: '0' }]),
       ]);
 
+      const visibleContractTokens = contractTokens.filter((token) => !isHiddenToken(token));
+
       const tokens = [
         {
           symbol: 'LITHO',
@@ -956,7 +975,7 @@ export function explorerRouter(): Router {
           transfers: parseInt(totalTxCount[0]?.count ?? '0'),
           contractAddress: null,
         },
-        ...contractTokens.map((c) => ({
+        ...visibleContractTokens.map((c) => ({
           symbol: c.symbol ?? 'Unknown',
           name: c.name ?? 'Unknown Token',
           decimals: c.decimals ?? 18,
@@ -1036,6 +1055,10 @@ export function explorerRouter(): Router {
       }
 
       const c = rows[0];
+      if (isHiddenToken(c)) {
+        res.status(404).json({ message: 'Token contract not found' });
+        return;
+      }
       const [holderCount, transferCount] = await Promise.all([
         query<CountRow>(
           `SELECT COUNT(*) AS count FROM (

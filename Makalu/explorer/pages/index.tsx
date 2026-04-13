@@ -108,7 +108,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
     { symbol: 'LITHO', name: 'Lithosphere', type: 'native' },
     { symbol: 'wLITHO', name: 'Wrapped Lithosphere', type: 'LEP100' },
     { symbol: 'LAX', name: 'Lithosphere Algo', type: 'LEP100' },
-    { symbol: 'LitBTC', name: 'Lithosphere LitBTC', type: 'LEP100' },
+    { symbol: 'AGII', name: 'Lithosphere AGII', type: 'LEP100' },
   ];
 
   const summaryStats = [
