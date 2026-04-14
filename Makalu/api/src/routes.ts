@@ -1673,9 +1673,39 @@ export function explorerRouter(): Router {
 
   // ── Faucet proxy (forwards to faucet service on :8081) ─────────────
 
+  r.get('/faucet/info', async (_req: Request, res: Response) => {
+    try {
+      const faucetUrl = process.env.FAUCET_INTERNAL_URL || 'http://faucet:8081';
+      const upstream = await fetch(`${faucetUrl}/health`, {
+        signal: AbortSignal.timeout(10_000),
+      });
+
+      const data = await upstream.json() as Record<string, unknown>;
+
+      if (!upstream.ok) {
+        res.status(upstream.status).json({
+          ok: false,
+          message: (data.message as string) || (data.error as string) || 'Faucet info is unavailable.',
+        });
+        return;
+      }
+
+      res.json({
+        ok: true,
+        ...data,
+      });
+    } catch (err) {
+      console.error('[api] /faucet/info error:', err);
+      res.status(502).json({
+        ok: false,
+        message: 'Faucet service is unavailable. Please try again later.',
+      });
+    }
+  });
+
   r.post('/faucet/claim', async (req: Request, res: Response) => {
     try {
-      const { address, amount, walletType } = req.body ?? {};
+      const { address, amount, walletType, assetId, asset } = req.body ?? {};
 
       if (!address) {
         res.status(400).json({ ok: false, message: 'Wallet address is required.' });
@@ -1690,13 +1720,9 @@ export function explorerRouter(): Router {
         return;
       }
 
-      // Extract numeric amount from strings like "10 LITHO" or "25"
-      const allowedAmounts = ['10', '25', '50'];
-      const numericAmount = typeof amount === 'string' ? amount.replace(/[^0-9.]/g, '') : allowedAmounts[0];
-      if (!allowedAmounts.includes(numericAmount)) {
-        res.status(400).json({ ok: false, message: `Invalid amount. Allowed: ${allowedAmounts.join(', ')} LITHO` });
-        return;
-      }
+      const numericAmount = typeof amount === 'string'
+        ? amount.replace(/[^0-9.]/g, '')
+        : undefined;
 
       // The faucet service only accepts EVM (0x) addresses
       // If cosmos address provided, we can't forward to the EVM faucet
@@ -1709,7 +1735,11 @@ export function explorerRouter(): Router {
       const upstream = await fetch(`${faucetUrl}/drip`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, amount: numericAmount }),
+        body: JSON.stringify({
+          address,
+          amount: numericAmount,
+          assetId: typeof assetId === 'string' ? assetId : asset,
+        }),
         signal: AbortSignal.timeout(30_000),
       });
 
@@ -1727,8 +1757,12 @@ export function explorerRouter(): Router {
       res.json({
         ok: true,
         txHash: data.txHash ?? null,
-        message: `Sent ${data.amount ?? `${numericAmount} LITHO`} to ${address}`,
-        cooldownSeconds: ((data.cooldownHours as number) ?? 24) * 3600,
+        message: `Sent ${data.amount ?? numericAmount ?? ''} to ${address}`,
+        cooldownSeconds:
+          typeof data.retryAfterSeconds === 'number'
+            ? data.retryAfterSeconds
+            : ((data.cooldownHours as number) ?? 24) * 3600,
+        assetId: data.assetId ?? (typeof assetId === 'string' ? assetId : asset ?? null),
       });
     } catch (err) {
       console.error('[api] /faucet/claim error:', err);

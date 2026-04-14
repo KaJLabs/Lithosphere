@@ -16,6 +16,25 @@ type ClaimResponse = {
   txHash?: string;
   message?: string;
   cooldownSeconds?: number;
+  assetId?: string | null;
+};
+
+type FaucetAssetConfig = {
+  id: string;
+  name: string;
+  symbol: string;
+  kind: 'native' | 'erc20';
+  standard?: string;
+  allowedAmounts: string[];
+  defaultAmount: string;
+  contractAddress?: string | null;
+};
+
+type FaucetInfoResponse = {
+  ok?: boolean;
+  assets?: FaucetAssetConfig[];
+  defaultAssetId?: string;
+  cooldownHours?: number;
 };
 
 const NETWORK = {
@@ -45,10 +64,16 @@ const WALLET_OPTIONS: SelectOption[] = [
   { value: 'COSMOS', label: 'Lithosphere Wallet (Litho1)' },
 ];
 
-const AMOUNT_OPTIONS: SelectOption[] = [
-  { value: '10 LITHO', label: '10 LITHO' },
-  { value: '25 LITHO', label: '25 LITHO' },
-  { value: '50 LITHO', label: '50 LITHO' },
+const FALLBACK_ASSETS: FaucetAssetConfig[] = [
+  {
+    id: 'litho',
+    name: 'Lithosphere',
+    symbol: 'LITHO',
+    kind: 'native',
+    standard: 'native',
+    allowedAmounts: ['1', '2', '5'],
+    defaultAmount: '1',
+  },
 ];
 
 const PRIMARY_CTA_CLASSES =
@@ -58,6 +83,38 @@ function shortenAddress(value: string) {
   if (!value) return '';
   if (value.length < 12) return value;
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
+}
+
+function normalizeFaucetAssets(assets?: FaucetAssetConfig[] | null): FaucetAssetConfig[] {
+  if (!Array.isArray(assets) || assets.length === 0) {
+    return FALLBACK_ASSETS;
+  }
+
+  return assets
+    .map((asset) => {
+      const symbol = typeof asset.symbol === 'string' && asset.symbol
+        ? asset.symbol
+        : 'TOKEN';
+      const allowedAmounts = Array.isArray(asset.allowedAmounts) && asset.allowedAmounts.length > 0
+        ? asset.allowedAmounts.map((value) => String(value))
+        : (asset.kind === 'native' ? ['1', '2', '5'] : ['10', '25', '50']);
+      const defaultAmount =
+        typeof asset.defaultAmount === 'string' && allowedAmounts.includes(asset.defaultAmount)
+          ? asset.defaultAmount
+          : allowedAmounts[0];
+
+      return {
+        id: asset.id || symbol.toLowerCase(),
+        name: asset.name || symbol,
+        symbol,
+        kind: asset.kind === 'erc20' ? 'erc20' : 'native',
+        standard: asset.standard || (asset.kind === 'erc20' ? 'LEP-100' : 'native'),
+        allowedAmounts,
+        defaultAmount,
+        contractAddress: asset.contractAddress ?? null,
+      } as FaucetAssetConfig;
+    })
+    .filter((asset) => Boolean(asset.id && asset.symbol));
 }
 
 function ThemedSelect({
@@ -155,7 +212,9 @@ export default function FaucetPage() {
   const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
   const [walletType, setWalletType] = useState<WalletType>('WEB3');
-  const [amount, setAmount] = useState('10 LITHO');
+  const [assets, setAssets] = useState<FaucetAssetConfig[]>(FALLBACK_ASSETS);
+  const [assetId, setAssetId] = useState(FALLBACK_ASSETS[0].id);
+  const [amount, setAmount] = useState(FALLBACK_ASSETS[0].defaultAmount);
   const [reason, setReason] = useState('');
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
@@ -163,9 +222,30 @@ export default function FaucetPage() {
   const [statusType, setStatusType] = useState<'info' | 'error' | 'success'>('info');
   const [txHash, setTxHash] = useState<string>('');
   const [cooldown, setCooldown] = useState<number | null>(null);
+  const [cooldownHours, setCooldownHours] = useState(24);
   const [mounted, setMounted] = useState(false);
   const [isAddingNetwork, setIsAddingNetwork] = useState(false);
   const pendingNetworkAdd = useRef(false);
+
+  const selectedAsset = useMemo(() => {
+    return assets.find((asset) => asset.id === assetId) ?? assets[0] ?? FALLBACK_ASSETS[0];
+  }, [assetId, assets]);
+
+  const assetOptions = useMemo<SelectOption[]>(() => {
+    return assets.map((asset) => ({
+      value: asset.id,
+      label: asset.kind === 'native'
+        ? `${asset.symbol} (Native)`
+        : `${asset.symbol} (${asset.standard ?? 'LEP-100'})`,
+    }));
+  }, [assets]);
+
+  const amountOptions = useMemo<SelectOption[]>(() => {
+    return selectedAsset.allowedAmounts.map((value) => ({
+      value,
+      label: `${value} ${selectedAsset.symbol}`,
+    }));
+  }, [selectedAsset]);
 
   // Sync Web3Modal connection state
   useEffect(() => {
@@ -176,6 +256,51 @@ export default function FaucetPage() {
       setWalletType('WEB3');
     }
   }, [isConnected, walletAddress]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFaucetInfo() {
+      try {
+        const response = await fetch('/api/faucet/info');
+        const payload = await response.json() as FaucetInfoResponse;
+        if (!response.ok) {
+          return;
+        }
+
+        const nextAssets = normalizeFaucetAssets(payload.assets);
+        if (cancelled || nextAssets.length === 0) {
+          return;
+        }
+
+        const nextAssetId =
+          typeof payload.defaultAssetId === 'string' &&
+          nextAssets.some((asset) => asset.id === payload.defaultAssetId)
+            ? payload.defaultAssetId
+            : nextAssets[0].id;
+        const nextAsset = nextAssets.find((asset) => asset.id === nextAssetId) ?? nextAssets[0];
+
+        setAssets(nextAssets);
+        setAssetId(nextAsset.id);
+        setAmount(nextAsset.defaultAmount);
+        setCooldownHours(payload.cooldownHours ?? 24);
+      } catch {
+        // Keep the fallback config when faucet metadata is unavailable.
+      }
+    }
+
+    void loadFaucetInfo();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedAsset.allowedAmounts.includes(amount)) {
+      setAmount(selectedAsset.defaultAmount);
+    }
+  }, [amount, selectedAsset]);
 
   // After wallet connects, auto-add Makalu network if user had clicked the button
   useEffect(() => {
@@ -261,7 +386,14 @@ export default function FaucetPage() {
       const res = await fetch('/api/faucet/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ address, walletType, amount, reason, signature }),
+        body: JSON.stringify({
+          address,
+          walletType,
+          assetId: selectedAsset.id,
+          amount,
+          reason,
+          signature,
+        }),
       });
 
       let data: ClaimResponse;
@@ -324,12 +456,11 @@ export default function FaucetPage() {
                 Lithosphere Testnet
               </div>
               <h1 className="text-4xl font-semibold tracking-tight md:text-5xl">
-                Claim LITHO testnet coins on Makalu
+                Claim testnet assets on Makalu
               </h1>
               <p className="mt-4 max-w-xl text-base leading-7 text-white/70">
-                Connect your wallet, switch to Lithosphere Makalu Testnet, and request 10, 25, or
-                50 LITHO every 24 hours for app development, contract deployment, and network
-                testing.
+                Connect your wallet, switch to Lithosphere Makalu Testnet, and request the enabled
+                faucet assets for app development, contract deployment, and network testing.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
@@ -389,10 +520,10 @@ export default function FaucetPage() {
             <section className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <div className="mb-6">
                 <div className="text-sm font-medium text-white/80">Faucet</div>
-                <h2 className="mt-2 text-2xl font-semibold">Claim LITHO testnet coins</h2>
+                <h2 className="mt-2 text-2xl font-semibold">Claim configured faucet assets</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Enter your wallet address and select 10, 25, or 50 LITHO. Maximum one claim per
-                  wallet every 24 hours.
+                  Enter your wallet address, choose an enabled asset, and pick one of its allowed
+                  amounts. Claims are limited per wallet and asset.
                 </p>
               </div>
 
@@ -414,7 +545,15 @@ export default function FaucetPage() {
                   />
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <label className="mb-2 block text-sm text-white/70">Asset</label>
+                    <ThemedSelect
+                      value={selectedAsset.id}
+                      onChange={setAssetId}
+                      options={assetOptions}
+                    />
+                  </div>
                   <div>
                     <label className="mb-2 block text-sm text-white/70">Wallet Type</label>
                     <ThemedSelect
@@ -429,7 +568,7 @@ export default function FaucetPage() {
                     <ThemedSelect
                       value={amount}
                       onChange={setAmount}
-                      options={AMOUNT_OPTIONS}
+                      options={amountOptions}
                     />
                   </div>
                 </div>
@@ -440,7 +579,7 @@ export default function FaucetPage() {
                     disabled={claiming || !address}
                     className={PRIMARY_CTA_CLASSES}
                   >
-                    {claiming ? 'Submitting...' : 'Claim Testnet LITHO'}
+                    {claiming ? 'Submitting...' : `Claim Testnet ${selectedAsset.symbol}`}
                   </button>
                   <button
                     type="button"
@@ -474,7 +613,7 @@ export default function FaucetPage() {
 
               {cooldown !== null && cooldown > 0 && (
                 <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
-                  Cooldown: {Math.ceil(cooldown / 3600)}h remaining before next claim
+                  Cooldown: {Math.ceil(cooldown / 3600)}h remaining before the next {selectedAsset.symbol} claim
                 </div>
               )}
             </section>
@@ -548,7 +687,7 @@ export default function FaucetPage() {
                   <li>• Desktop users: Use your browser wallet extension</li>
                   <li>• Mobile users: Use WalletConnect to scan the QR code with your mobile wallet</li>
                   <li>• Click &quot;Add Makalu Network&quot; to auto-add the chain to your wallet</li>
-                  <li>• Claim 10, 25, or 50 LITHO once every 24 hours</li>
+                  <li>• Claim the enabled faucet assets once every {cooldownHours} hours</li>
                 </ul>
               </div>
             </section>

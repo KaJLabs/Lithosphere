@@ -131,6 +131,7 @@
       text-align: center;
       font-size: 0.8rem;
       color: #666;
+      line-height: 1.6;
     }
     .info span { color: #8b5cf6; }
     .spinner {
@@ -151,7 +152,7 @@
   <div class="container">
     <div class="logo">
       <h1>Lithosphere Faucet</h1>
-      <p>Get test LITHO tokens for the Makalu testnet</p>
+      <p>Request configured testnet assets for the Makalu network</p>
     </div>
 
     <div class="card">
@@ -167,12 +168,13 @@
       </div>
 
       <div class="form-group">
+        <label for="asset">Asset</label>
+        <select id="asset"></select>
+      </div>
+
+      <div class="form-group">
         <label for="amount">Amount</label>
-        <select id="amount">
-          <option value="10" selected>10 LITHO</option>
-          <option value="25">25 LITHO</option>
-          <option value="50">50 LITHO</option>
-        </select>
+        <select id="amount"></select>
       </div>
 
       <button id="drip-btn" onclick="requestDrip()">
@@ -182,36 +184,108 @@
       <div id="result" class="result"></div>
 
       <div class="info">
-        <p>Available amounts: <span id="available-amounts">10 / 25 / 50 LITHO</span></p>
-        <p>Default amount: <span id="drip-amount">10 LITHO</span></p>
-        <p>Cooldown: <span id="cooldown">24 hours</span> per address</p>
+        <p>Selected asset: <span id="selected-asset">LITHO</span></p>
+        <p>Available amounts: <span id="available-amounts">1 / 2 / 5 LITHO</span></p>
+        <p>Default amount: <span id="drip-amount">1 LITHO</span></p>
+        <p>Cooldown: <span id="cooldown">24 hours</span> per address and asset</p>
       </div>
     </div>
   </div>
 
   <script>
     const API_BASE = window.location.origin;
-    const FALLBACK_AMOUNTS = ['10', '25', '50'];
+    const FALLBACK_ASSETS = [
+      {
+        id: 'litho',
+        name: 'Lithosphere',
+        symbol: 'LITHO',
+        kind: 'native',
+        allowedAmounts: ['1', '2', '5'],
+        defaultAmount: '1',
+      },
+    ];
 
-    function renderAmountOptions(amounts, defaultAmount) {
+    let faucetAssets = FALLBACK_ASSETS;
+
+    function normalizeAssets(rawAssets) {
+      if (!Array.isArray(rawAssets) || rawAssets.length === 0) {
+        return FALLBACK_ASSETS;
+      }
+
+      return rawAssets
+        .map((asset) => {
+          const symbol = typeof asset.symbol === 'string' && asset.symbol ? asset.symbol : 'TOKEN';
+          const allowedAmounts = Array.isArray(asset.allowedAmounts) && asset.allowedAmounts.length
+            ? asset.allowedAmounts.map((value) => String(value))
+            : (asset.kind === 'native' ? ['1', '2', '5'] : ['10', '25', '50']);
+          const defaultAmount =
+            typeof asset.defaultAmount === 'string' && allowedAmounts.includes(asset.defaultAmount)
+              ? asset.defaultAmount
+              : allowedAmounts[0];
+
+          return {
+            id: String(asset.id || symbol.toLowerCase()),
+            name: typeof asset.name === 'string' && asset.name ? asset.name : symbol,
+            symbol,
+            kind: asset.kind === 'erc20' ? 'erc20' : 'native',
+            standard: typeof asset.standard === 'string' ? asset.standard : (asset.kind === 'erc20' ? 'LEP-100' : 'native'),
+            allowedAmounts,
+            defaultAmount,
+          };
+        })
+        .filter((asset) => asset.id && asset.symbol);
+    }
+
+    function getSelectedAsset() {
+      const assetInput = document.getElementById('asset');
+      return faucetAssets.find((asset) => asset.id === assetInput.value) || faucetAssets[0];
+    }
+
+    function renderAssetOptions(assets, selectedAssetId) {
+      const assetSelect = document.getElementById('asset');
+      assetSelect.innerHTML = '';
+
+      assets.forEach((asset) => {
+        const option = document.createElement('option');
+        option.value = asset.id;
+        option.textContent = asset.kind === 'native'
+          ? `${asset.symbol} (Native)`
+          : `${asset.symbol} (${asset.standard || 'LEP-100'})`;
+        option.selected = asset.id === selectedAssetId;
+        assetSelect.appendChild(option);
+      });
+    }
+
+    function renderAmountOptions(asset, selectedAmount) {
       const amountSelect = document.getElementById('amount');
       amountSelect.innerHTML = '';
 
-      amounts.forEach((amount) => {
+      asset.allowedAmounts.forEach((amount) => {
         const option = document.createElement('option');
         option.value = amount;
-        option.textContent = `${amount} LITHO`;
-        option.selected = amount === defaultAmount;
+        option.textContent = `${amount} ${asset.symbol}`;
+        option.selected = amount === selectedAmount;
         amountSelect.appendChild(option);
       });
     }
 
+    function updateAssetInfo(asset) {
+      document.getElementById('selected-asset').textContent =
+        `${asset.name} (${asset.symbol})`;
+      document.getElementById('available-amounts').textContent =
+        asset.allowedAmounts.map((amount) => `${amount} ${asset.symbol}`).join(' / ');
+      document.getElementById('drip-amount').textContent =
+        `${asset.defaultAmount} ${asset.symbol}`;
+    }
+
     async function requestDrip() {
       const addressInput = document.getElementById('address');
+      const assetInput = document.getElementById('asset');
       const amountInput = document.getElementById('amount');
       const btn = document.getElementById('drip-btn');
       const result = document.getElementById('result');
       const address = addressInput.value.trim();
+      const assetId = assetInput.value;
       const amount = amountInput.value;
 
       if (!address || !address.match(/^0x[a-fA-F0-9]{40}$/)) {
@@ -228,7 +302,7 @@
         const res = await fetch(`${API_BASE}/drip`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ address, amount }),
+          body: JSON.stringify({ address, assetId, amount }),
         });
 
         const data = await res.json();
@@ -249,26 +323,36 @@
       }
     }
 
-    // Submit on Enter
     document.getElementById('address').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') requestDrip();
     });
 
-    // Load faucet info
+    document.getElementById('asset').addEventListener('change', () => {
+      const asset = getSelectedAsset();
+      renderAmountOptions(asset, asset.defaultAmount);
+      updateAssetInfo(asset);
+    });
+
     fetch(`${API_BASE}/health`)
-      .then(r => r.json())
-      .then(data => {
-        const amounts = Array.isArray(data.allowedAmounts) && data.allowedAmounts.length
-          ? data.allowedAmounts
-          : FALLBACK_AMOUNTS;
-        const defaultAmount = data.defaultAmount || amounts[0];
-        renderAmountOptions(amounts, defaultAmount);
-        document.getElementById('available-amounts').textContent =
-          amounts.map((amount) => `${amount} LITHO`).join(' / ');
-        document.getElementById('drip-amount').textContent = `${defaultAmount} LITHO`;
+      .then((r) => r.json())
+      .then((data) => {
+        faucetAssets = normalizeAssets(data.assets);
+        const defaultAssetId = typeof data.defaultAssetId === 'string' &&
+          faucetAssets.some((asset) => asset.id === data.defaultAssetId)
+          ? data.defaultAssetId
+          : faucetAssets[0].id;
+        const activeAsset = faucetAssets.find((asset) => asset.id === defaultAssetId) || faucetAssets[0];
+
+        renderAssetOptions(faucetAssets, activeAsset.id);
+        renderAmountOptions(activeAsset, activeAsset.defaultAmount);
+        updateAssetInfo(activeAsset);
         document.getElementById('cooldown').textContent = `${data.cooldownHours || 24} hours`;
       })
-      .catch(() => {});
+      .catch(() => {
+        renderAssetOptions(faucetAssets, faucetAssets[0].id);
+        renderAmountOptions(faucetAssets[0], faucetAssets[0].defaultAmount);
+        updateAssetInfo(faucetAssets[0]);
+      });
   </script>
 </body>
 </html>

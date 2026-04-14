@@ -27,6 +27,7 @@ type WalletTabKey = (typeof WALLET_TABS)[number]['key'];
 type TokenTabKey = (typeof TOKEN_TABS)[number]['key'];
 type TabKey = WalletTabKey | TokenTabKey;
 const ADDRESS_TX_PAGE_SIZE = 25;
+const ADDRESS_TX_GRID_CLASS = 'lg:grid-cols-[minmax(0,1.8fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.8fr)]';
 
 /* ── Standard LEP-100 ABI (ERC-20 compatible) ────────────────────────── */
 
@@ -181,71 +182,95 @@ function TxTable({
           </div>
         </div>
       )}
-      <div className="hidden md:grid grid-cols-[1.8fr_0.8fr_1.4fr_1.4fr_1fr_0.7fr_0.8fr] gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-white/40 uppercase tracking-wide">
-        <div>Tx Hash</div>
-        <div>Block</div>
-        <div>From</div>
-        <div>To</div>
-        <div>Value</div>
-        <div>Method</div>
-        <div>Age</div>
-      </div>
-      <div>
-        {txs.map((tx) => (
-          <div
-            key={tx.hash}
-            className="grid grid-cols-1 md:grid-cols-[1.8fr_0.8fr_1.4fr_1.4fr_1fr_0.7fr_0.8fr] gap-3 md:gap-4 px-5 py-4 border-b border-white/5 hover:bg-white/[0.03] transition"
-          >
-            <div className="flex items-center gap-2">
-              <StatusDot success={tx.success} />
-              <Link href={`/txs/${tx.hash || tx.evmHash}`} className="font-mono text-sm text-emerald-300 hover:text-emerald-200 transition truncate">
-                {truncateHash(tx.hash || tx.evmHash || '')}
-              </Link>
-            </div>
-            <div className="flex items-center md:block">
-              <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">Block</span>
-              <Link href={`/blocks/${tx.blockHeight}`} className="font-mono text-sm text-white/80 hover:text-white transition">
-                #{formatNumber(tx.blockHeight)}
-              </Link>
-            </div>
-            <div className="flex items-center md:block">
-              <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">From</span>
-              <Link href={`/address/${tx.fromAddr}`} className={`font-mono text-sm transition truncate ${isCurrentAddress(tx.fromAddr, tx.evmFromAddr, tx.cosmosFromAddr) ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}>
-                {truncateHash(tx.fromAddr, 10, 6)}
-              </Link>
-            </div>
-            <div className="flex items-center md:block">
-              <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">To</span>
-              {tx.toAddr ? (
-                <Link href={`/address/${tx.toAddr}`} className={`font-mono text-sm transition truncate ${isCurrentAddress(tx.toAddr, tx.evmToAddr, tx.cosmosToAddr) ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}>
-                  {truncateHash(tx.toAddr, 10, 6)}
-                </Link>
-              ) : (
-                <span className="text-sm text-white/30">&mdash;</span>
-              )}
-            </div>
-            {/* Value */}
-            <div className="flex items-center md:block">
-              <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">Value</span>
-              <span className="text-sm text-white/80">
-                <FormattedValueElement
-                  formattedStr={formatValue(tx.value, tx.denom)}
-                  tokenAddress={tx.contractAddress}
-                />
-              </span>
-            </div>
-            <div className="flex items-center md:block">
-              <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">Method</span>
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-medium text-white/70 truncate max-w-[120px]" title={tx.methodName ?? tx.txType ?? 'Transfer'}>
-                {tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer')}
-              </span>
-            </div>
-            <div className="flex items-center md:block">
-              <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">Age</span>
-              <span className="text-sm text-white/50">{tx.timestamp ? timeAgo(tx.timestamp) : '--'}</span>
-            </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-0">
+          <div className={`hidden lg:grid ${ADDRESS_TX_GRID_CLASS} gap-4 border-b border-white/10 px-5 py-3 text-[11px] font-medium uppercase tracking-[0.24em] text-white/40`}>
+            <div>Tx Hash</div>
+            <div>Block</div>
+            <div>From</div>
+            <div>To</div>
+            <div>Value</div>
+            <div>Method</div>
+            <div className="text-right">Age</div>
           </div>
-        ))}
+          <div>
+            {txs.map((tx) => {
+              const methodLabel = tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer');
+              const txHash = tx.hash || tx.evmHash || '';
+              return (
+                <div
+                  key={tx.hash}
+                  className={`grid grid-cols-1 ${ADDRESS_TX_GRID_CLASS} gap-3 border-b border-white/5 px-5 py-4 transition hover:bg-white/[0.03] lg:gap-4`}
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <StatusDot success={tx.success} />
+                    <Link
+                      href={`/txs/${txHash}`}
+                      className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
+                      title={txHash}
+                    >
+                      {truncateHash(txHash)}
+                    </Link>
+                  </div>
+                  <div className="flex min-w-0 items-center lg:block">
+                    <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">Block</span>
+                    <Link href={`/blocks/${tx.blockHeight}`} className="font-mono text-sm text-white/80 transition hover:text-white">
+                      #{formatNumber(tx.blockHeight)}
+                    </Link>
+                  </div>
+                  <div className="flex min-w-0 items-center lg:block">
+                    <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">From</span>
+                    <Link
+                      href={`/address/${tx.fromAddr}`}
+                      className={`block truncate font-mono text-sm transition ${isCurrentAddress(tx.fromAddr, tx.evmFromAddr, tx.cosmosFromAddr) ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}
+                      title={tx.fromAddr}
+                    >
+                      {truncateHash(tx.fromAddr, 10, 6)}
+                    </Link>
+                  </div>
+                  <div className="flex min-w-0 items-center lg:block">
+                    <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">To</span>
+                    {tx.toAddr ? (
+                      <Link
+                        href={`/address/${tx.toAddr}`}
+                        className={`block truncate font-mono text-sm transition ${isCurrentAddress(tx.toAddr, tx.evmToAddr, tx.cosmosToAddr) ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}
+                        title={tx.toAddr}
+                      >
+                        {truncateHash(tx.toAddr, 10, 6)}
+                      </Link>
+                    ) : (
+                      <span className="text-sm text-white/30">--</span>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 items-start lg:block">
+                    <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">Value</span>
+                    <span className="block min-w-0 text-sm text-white/80">
+                      <FormattedValueElement
+                        formattedStr={formatValue(tx.value, tx.denom)}
+                        tokenAddress={tx.contractAddress}
+                      />
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 items-center lg:block">
+                    <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">Method</span>
+                    <span
+                      className="inline-flex max-w-full items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-white/70"
+                      title={methodLabel}
+                    >
+                      <span className="truncate">{methodLabel}</span>
+                    </span>
+                  </div>
+                  <div className="flex min-w-0 items-center lg:block lg:text-right">
+                    <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">Age</span>
+                    <span className="text-sm text-white/50" title={formatTimestamp(tx.timestamp)}>
+                      {tx.timestamp ? timeAgo(tx.timestamp) : '--'}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
       {pageInfo && totalPages > 1 && onPageChange && (
         <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
@@ -761,27 +786,29 @@ function TokenContractLayout({
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
       <div className="border-b border-white/10">
-        <nav className="flex gap-6 -mb-px" aria-label="Token contract tabs">
-          {TOKEN_TABS.map((t) => {
-            const active = resolvedTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`pb-3 text-sm font-medium transition border-b-2 ${
-                  active
-                    ? 'border-emerald-400 text-white'
-                    : 'border-transparent text-white/50 hover:text-white/70'
-                }`}
-              >
-                {t.label}
-                {t.key === 'holders' && tokenDetail?.holders != null && tokenDetail.holders > 0 && (
-                  <span className="ml-1.5 text-xs text-white/35">({formatNumber(tokenDetail.holders)})</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="overflow-x-auto">
+          <nav className="flex w-max min-w-full gap-6 -mb-px" aria-label="Token contract tabs">
+            {TOKEN_TABS.map((t) => {
+              const active = resolvedTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`pb-3 text-sm font-medium transition border-b-2 ${
+                    active
+                      ? 'border-emerald-400 text-white'
+                      : 'border-transparent text-white/50 hover:text-white/70'
+                  }`}
+                >
+                  {t.label}
+                  {t.key === 'holders' && tokenDetail?.holders != null && tokenDetail.holders > 0 && (
+                    <span className="ml-1.5 text-xs text-white/35">({formatNumber(tokenDetail.holders)})</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       {/* ── Tab content ─────────────────────────────────────────────── */}
@@ -915,23 +942,25 @@ function WalletLayout({
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
       <div className="border-b border-white/10">
-        <nav className="flex gap-6 -mb-px" aria-label="Address tabs">
-          {WALLET_TABS.map((t) => {
-            const isActive = resolvedTab === t.key;
-            return (
-              <button
-                key={t.key}
-                onClick={() => setTab(t.key)}
-                className={`pb-3 text-sm font-medium transition border-b-2 ${isActive ? 'border-emerald-400 text-white' : 'border-transparent text-white/50 hover:text-white/70'}`}
-              >
-                {t.label}
-                {t.key === 'transactions' && account.txCount > 0 && (
-                  <span className="ml-1.5 text-xs text-white/35">({formatNumber(account.txCount)})</span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="overflow-x-auto">
+          <nav className="flex w-max min-w-full gap-6 -mb-px" aria-label="Address tabs">
+            {WALLET_TABS.map((t) => {
+              const isActive = resolvedTab === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`pb-3 text-sm font-medium transition border-b-2 ${isActive ? 'border-emerald-400 text-white' : 'border-transparent text-white/50 hover:text-white/70'}`}
+                >
+                  {t.label}
+                  {t.key === 'transactions' && account.txCount > 0 && (
+                    <span className="ml-1.5 text-xs text-white/35">({formatNumber(account.txCount)})</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
       {/* ── Tab content ─────────────────────────────────────────────── */}

@@ -37,9 +37,12 @@ process.on('SIGINT', shutdown);
 // Start
 try {
   await app.listen({ port: config.port, host: config.host });
+  const assetSummary = config.assets
+    .map((asset) => `${asset.symbol} [${asset.allowedAmounts.join('/')}]`)
+    .join(' | ');
   console.log(`[faucet] Listening on http://${config.host}:${config.port}`);
   console.log(`[faucet] RPC: ${config.rpcUrl} | Chain: ${config.chainId}`);
-  console.log(`[faucet] Drip: ${config.dripAmount} LITHO | Cooldown: ${config.cooldownHours}h`);
+  console.log(`[faucet] Assets: ${assetSummary} | Cooldown: ${config.cooldownHours}h`);
 } catch (err) {
   app.log.error(err);
   process.exit(1);

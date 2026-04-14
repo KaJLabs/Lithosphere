@@ -15,9 +15,13 @@ export function FormattedValueElement({ formattedStr, tokenAddress }: FormattedV
       ? `/address/${symbol}`
       : (tokenAddress ? `/token/${tokenAddress}` : '/token/native');
     return (
-      <span className="font-mono">
-        {amount}{' '}
-        <Link href={linkHref} className="text-emerald-400 hover:text-emerald-300 transition" onClick={(e) => e.stopPropagation()}>
+      <span className="inline-flex max-w-full flex-wrap items-baseline gap-x-1 gap-y-0.5 font-mono">
+        <span>{amount}</span>
+        <Link
+          href={linkHref}
+          className="shrink-0 text-emerald-400 hover:text-emerald-300 transition"
+          onClick={(e) => e.stopPropagation()}
+        >
           {symbol}
         </Link>
       </span>
