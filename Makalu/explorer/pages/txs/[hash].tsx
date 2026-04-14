@@ -35,7 +35,7 @@ function InfoRow({ label, children }: { label: string; children: React.ReactNode
   return (
     <div className="flex flex-col gap-1 border-b border-white/5 py-3.5 min-w-0 last:border-0 sm:flex-row sm:items-start sm:gap-5">
       <div className="shrink-0 text-sm text-white/45 sm:w-36">{label}</div>
-      <div className="flex-1 min-w-0 text-sm text-white break-all break-words">{children}</div>
+      <div className="flex-1 min-w-0 overflow-hidden text-sm text-white break-words">{children}</div>
     </div>
   );
 }
@@ -50,23 +50,29 @@ function AddressVariant({
   tone?: 'primary' | 'secondary';
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+      <div className="flex items-start justify-between gap-3">
+        <span className="mt-0.5 shrink-0 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
           {label}
         </span>
-        <Link
-          href={`/address/${address}`}
-          className={`min-w-0 flex-1 font-mono text-[13px] leading-5 break-all transition ${
-            tone === 'primary'
-              ? 'text-emerald-300 hover:text-emerald-200'
-              : 'text-white/60 hover:text-emerald-300'
-          }`}
-        >
-          {address}
-        </Link>
         <CopyBtn text={address} />
       </div>
+      <Link
+        href={`/address/${address}`}
+        title={address}
+        className={`mt-2 block min-w-0 transition ${
+          tone === 'primary'
+            ? 'text-emerald-300 hover:text-emerald-200'
+            : 'text-white/60 hover:text-emerald-300'
+        }`}
+      >
+        <span className="block font-mono text-[13px] leading-5 sm:hidden">
+          {truncateHash(address, 16, 8)}
+        </span>
+        <span className="hidden max-w-full overflow-x-auto whitespace-nowrap font-mono text-[13px] leading-5 sm:block">
+          {address}
+        </span>
+      </Link>
     </div>
   );
 }
@@ -89,7 +95,7 @@ function AddressDetails({
   ];
 
   return (
-    <div className="space-y-2">
+    <div className="min-w-0 space-y-2">
       {variants.map((variant) => (
         <AddressVariant
           key={`${variant.label}-${variant.address}`}
