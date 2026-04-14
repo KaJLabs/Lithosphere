@@ -23,7 +23,7 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="ml-2 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition"
+      className="ml-2 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition"
       title="Copy to clipboard"
     >
       {copied ? 'copied' : 'copy'}
@@ -33,9 +33,71 @@ function CopyBtn({ text }: { text: string }) {
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-3.5 border-b border-white/5 last:border-0 min-w-0">
-      <div className="sm:w-40 shrink-0 text-sm text-white/45">{label}</div>
+    <div className="flex flex-col gap-1 border-b border-white/5 py-3.5 min-w-0 last:border-0 sm:flex-row sm:items-start sm:gap-5">
+      <div className="shrink-0 text-sm text-white/45 sm:w-36">{label}</div>
       <div className="flex-1 min-w-0 text-sm text-white break-all break-words">{children}</div>
+    </div>
+  );
+}
+
+function AddressVariant({
+  label,
+  address,
+  tone = 'primary',
+}: {
+  label: string;
+  address: string;
+  tone?: 'primary' | 'secondary';
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+      <div className="flex items-start gap-2">
+        <span className="mt-0.5 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
+          {label}
+        </span>
+        <Link
+          href={`/address/${address}`}
+          className={`min-w-0 flex-1 font-mono text-[13px] leading-5 break-all transition ${
+            tone === 'primary'
+              ? 'text-emerald-300 hover:text-emerald-200'
+              : 'text-white/60 hover:text-emerald-300'
+          }`}
+        >
+          {address}
+        </Link>
+        <CopyBtn text={address} />
+      </div>
+    </div>
+  );
+}
+
+function AddressDetails({
+  primary,
+  evm,
+  cosmos,
+}: {
+  primary?: string | null;
+  evm?: string;
+  cosmos?: string;
+}) {
+  if (!primary) return <span className="text-white/40">&mdash;</span>;
+
+  const variants = [
+    { label: 'Primary', address: primary, tone: 'primary' as const },
+    ...(evm && evm !== primary ? [{ label: 'EVM', address: evm, tone: 'secondary' as const }] : []),
+    ...(cosmos && cosmos !== primary && cosmos !== evm ? [{ label: 'Cosmos', address: cosmos, tone: 'secondary' as const }] : []),
+  ];
+
+  return (
+    <div className="space-y-2">
+      {variants.map((variant) => (
+        <AddressVariant
+          key={`${variant.label}-${variant.address}`}
+          label={variant.label}
+          address={variant.address}
+          tone={variant.tone}
+        />
+      ))}
     </div>
   );
 }
@@ -135,6 +197,7 @@ export default function TransactionDetailPage() {
 
   // Display method: prefer decoded methodName, fallback to cleaned Cosmos method
   const displayMethod = tx.methodName ?? cleanMethod(tx.method);
+  const typeInfo = txTypeInfo(tx.txType);
 
   // Tab items
   const tabs: { key: RightTab; label: string }[] = [
@@ -161,6 +224,33 @@ export default function TransactionDetailPage() {
           <span className="text-white/70 font-mono">{truncateHash(tx.hash)}</span>
         </div>
 
+        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-sm text-white/45">Transaction Details</div>
+            <div className="mt-1 font-mono text-lg text-white/85 break-all">{tx.hash}</div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                tx.success
+                  ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
+                  : 'border-red-400/20 bg-red-400/10 text-red-300'
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${tx.success ? 'bg-emerald-400' : 'bg-red-400'}`} />
+              {tx.success ? 'SUCCESS' : 'FAILED'}
+            </span>
+            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${typeInfo.color}`}>
+              {typeInfo.label}
+            </span>
+            {displayMethod && (
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono text-white/55">
+                {displayMethod}
+              </span>
+            )}
+          </div>
+        </div>
+
         {/* ============================================================ */}
         {/*  TWO-PANEL LAYOUT                                            */}
         {/* ============================================================ */}
@@ -170,7 +260,7 @@ export default function TransactionDetailPage() {
           {/*  LEFT PANEL: Transaction summary                            */}
           {/* ---------------------------------------------------------- */}
           <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold mb-5">Transaction</h2>
+            <h2 className="text-lg font-semibold mb-5">Summary</h2>
 
             {/* Status */}
             <InfoRow label="Status">
@@ -194,7 +284,7 @@ export default function TransactionDetailPage() {
 
             {/* Original Hash (if different) */}
             {tx.evmHash && tx.evmHash !== tx.hash && (
-              <InfoRow label="0x Hash">
+              <InfoRow label="EVM Hash">
                 <span className="font-mono">{truncateHash(tx.evmHash, 14)}</span>
                 <CopyBtn text={tx.evmHash} />
               </InfoRow>
@@ -225,84 +315,20 @@ export default function TransactionDetailPage() {
 
             {/* From */}
             <InfoRow label="From">
-              {tx.fromAddr ? (
-                <div>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <Link
-                      href={`/address/${tx.fromAddr}`}
-                      className="font-mono text-emerald-300 hover:text-emerald-200 transition"
-                    >
-                      {truncateHash(tx.fromAddr, 10)}
-                    </Link>
-                    <CopyBtn text={tx.fromAddr} />
-                  </div>
-                  {tx.evmFromAddr && tx.evmFromAddr !== tx.fromAddr && (
-                    <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      <Link
-                        href={`/address/${tx.evmFromAddr}`}
-                        className="font-mono text-xs text-white/45 hover:text-emerald-300 transition"
-                      >
-                        {truncateHash(tx.evmFromAddr, 10)}
-                      </Link>
-                      <CopyBtn text={tx.evmFromAddr} />
-                    </div>
-                  )}
-                  {tx.cosmosFromAddr && tx.cosmosFromAddr !== tx.fromAddr && (
-                    <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      <Link
-                        href={`/address/${tx.cosmosFromAddr}`}
-                        className="font-mono text-xs text-white/45 hover:text-emerald-300 transition"
-                      >
-                        {truncateHash(tx.cosmosFromAddr, 10)}
-                      </Link>
-                      <CopyBtn text={tx.cosmosFromAddr} />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <span className="text-white/40">&mdash;</span>
-              )}
+              <AddressDetails
+                primary={tx.fromAddr}
+                evm={tx.evmFromAddr}
+                cosmos={tx.cosmosFromAddr}
+              />
             </InfoRow>
 
             {/* To */}
             <InfoRow label="To">
-              {tx.toAddr ? (
-                <div>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <Link
-                      href={`/address/${tx.toAddr}`}
-                      className="font-mono text-emerald-300 hover:text-emerald-200 transition"
-                    >
-                      {truncateHash(tx.toAddr, 10)}
-                    </Link>
-                    <CopyBtn text={tx.toAddr} />
-                  </div>
-                  {tx.evmToAddr && tx.evmToAddr !== tx.toAddr && (
-                    <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      <Link
-                        href={`/address/${tx.evmToAddr}`}
-                        className="font-mono text-xs text-white/45 hover:text-emerald-300 transition"
-                      >
-                        {truncateHash(tx.evmToAddr, 10)}
-                      </Link>
-                      <CopyBtn text={tx.evmToAddr} />
-                    </div>
-                  )}
-                  {tx.cosmosToAddr && tx.cosmosToAddr !== tx.toAddr && (
-                    <div className="mt-1 flex items-center gap-1 flex-wrap">
-                      <Link
-                        href={`/address/${tx.cosmosToAddr}`}
-                        className="font-mono text-xs text-white/45 hover:text-emerald-300 transition"
-                      >
-                        {truncateHash(tx.cosmosToAddr, 10)}
-                      </Link>
-                      <CopyBtn text={tx.cosmosToAddr} />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <span className="text-white/40">&mdash;</span>
-              )}
+              <AddressDetails
+                primary={tx.toAddr}
+                evm={tx.evmToAddr}
+                cosmos={tx.cosmosToAddr}
+              />
             </InfoRow>
 
             {/* Contract created */}
@@ -420,14 +446,9 @@ export default function TransactionDetailPage() {
 
                   {/* Transaction Type */}
                   <InfoRow label="Transaction Type">
-                    {(() => {
-                      const info = txTypeInfo(tx.txType);
-                      return (
-                        <span className={`inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-medium ${info.color}`}>
-                          {info.label}
-                        </span>
-                      );
-                    })()}
+                    <span className={`inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-medium ${typeInfo.color}`}>
+                      {typeInfo.label}
+                    </span>
                     {displayMethod && (
                       <span className="ml-2 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-0.5 text-xs font-mono text-white/50">
                         {displayMethod}

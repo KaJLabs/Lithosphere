@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, formatLitho, formatValue } from '@/lib/format';
-import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiToken, ApiPrice } from '@/lib/types';
+import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiToken, ApiPrice, ApiAddressTxList, PageInfo } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
@@ -26,6 +26,7 @@ const TOKEN_TABS = [
 type WalletTabKey = (typeof WALLET_TABS)[number]['key'];
 type TokenTabKey = (typeof TOKEN_TABS)[number]['key'];
 type TabKey = WalletTabKey | TokenTabKey;
+const ADDRESS_TX_PAGE_SIZE = 25;
 
 /* ── Standard LEP-100 ABI (ERC-20 compatible) ────────────────────────── */
 
@@ -139,15 +140,27 @@ function TableSkeleton({ rows = 8 }: { rows?: number }) {
 function TxTable({
   txs,
   loading,
-  currentAddr,
+  currentAddrs,
   emptyLabel,
+  pageInfo,
+  onPageChange,
 }: {
   txs: ApiTx[] | null;
   loading: boolean;
-  currentAddr: string;
+  currentAddrs: string[];
   emptyLabel: string;
+  pageInfo?: PageInfo | null;
+  onPageChange?: (offset: number) => void;
 }) {
-  if (loading) return <TableSkeleton />;
+  const currentAddrSet = new Set(currentAddrs.map((addr) => addr.toLowerCase()));
+  const isCurrentAddress = (...addresses: Array<string | null | undefined>) =>
+    addresses.some((addr) => !!addr && currentAddrSet.has(addr.toLowerCase()));
+  const total = pageInfo?.total ?? txs?.length ?? 0;
+  const offset = pageInfo?.offset ?? 0;
+  const limit = pageInfo?.limit ?? txs?.length ?? ADDRESS_TX_PAGE_SIZE;
+  const totalPages = Math.max(1, Math.ceil(total / Math.max(limit, 1)));
+
+  if (loading && (!txs || txs.length === 0)) return <TableSkeleton />;
 
   if (!txs || txs.length === 0) {
     return (
@@ -160,6 +173,14 @@ function TxTable({
 
   return (
     <>
+      {pageInfo && total > 0 && (
+        <div className="flex flex-col gap-1 border-b border-white/10 px-5 py-3 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+          <div>{formatNumber(total)} matching transaction{total === 1 ? '' : 's'}</div>
+          <div>
+            Showing {formatNumber(offset + 1)} to {formatNumber(Math.min(offset + txs.length, total))}
+          </div>
+        </div>
+      )}
       <div className="hidden md:grid grid-cols-[1.8fr_0.8fr_1.4fr_1.4fr_1fr_0.7fr_0.8fr] gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-white/40 uppercase tracking-wide">
         <div>Tx Hash</div>
         <div>Block</div>
@@ -189,14 +210,14 @@ function TxTable({
             </div>
             <div className="flex items-center md:block">
               <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">From</span>
-              <Link href={`/address/${tx.fromAddr}`} className={`font-mono text-sm transition truncate ${tx.fromAddr === currentAddr ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}>
+              <Link href={`/address/${tx.fromAddr}`} className={`font-mono text-sm transition truncate ${isCurrentAddress(tx.fromAddr, tx.evmFromAddr, tx.cosmosFromAddr) ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}>
                 {truncateHash(tx.fromAddr, 10, 6)}
               </Link>
             </div>
             <div className="flex items-center md:block">
               <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">To</span>
               {tx.toAddr ? (
-                <Link href={`/address/${tx.toAddr}`} className={`font-mono text-sm transition truncate ${tx.toAddr === currentAddr ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}>
+                <Link href={`/address/${tx.toAddr}`} className={`font-mono text-sm transition truncate ${isCurrentAddress(tx.toAddr, tx.evmToAddr, tx.cosmosToAddr) ? 'text-white/50' : 'text-emerald-300 hover:text-emerald-200'}`}>
                   {truncateHash(tx.toAddr, 10, 6)}
                 </Link>
               ) : (
@@ -226,6 +247,29 @@ function TxTable({
           </div>
         ))}
       </div>
+      {pageInfo && totalPages > 1 && onPageChange && (
+        <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-white/35">
+            Page {formatNumber(Math.floor(offset / limit) + 1)} of {formatNumber(totalPages)}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onPageChange(Math.max(0, offset - limit))}
+              disabled={offset === 0}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => onPageChange(offset + limit)}
+              disabled={!pageInfo.hasMore}
+              className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -584,18 +628,22 @@ function TokenContractLayout({
   account,
   tokenDetail,
   txs,
+  txPageInfo,
   txsLoading,
   addr,
   activeTab,
   setTab,
+  onTxPageChange,
 }: {
   account: ApiAddress;
   tokenDetail: ApiTokenDetail | null;
   txs: ApiTx[] | null;
+  txPageInfo: PageInfo | null;
   txsLoading: boolean;
   addr: string;
   activeTab: TabKey;
   setTab: (key: TabKey) => void;
+  onTxPageChange: (offset: number) => void;
 }) {
   const resolvedTab = TOKEN_TABS.some((t) => t.key === activeTab) ? activeTab : 'transfers';
   const tokenName = tokenDetail?.name ?? account.tokenName ?? 'Unknown Token';
@@ -739,7 +787,14 @@ function TokenContractLayout({
       {/* ── Tab content ─────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
         {resolvedTab === 'transfers' && (
-          <TxTable txs={txs} loading={txsLoading} currentAddr={addr} emptyLabel="No transfers found" />
+          <TxTable
+            txs={txs}
+            loading={txsLoading}
+            currentAddrs={[account.address, account.evmAddress, account.cosmosAddress].filter((value): value is string => Boolean(value))}
+            emptyLabel="No transfers found"
+            pageInfo={txPageInfo}
+            onPageChange={onTxPageChange}
+          />
         )}
         {resolvedTab === 'holders' && (
           <HoldersTab addr={addr} />
@@ -760,29 +815,33 @@ function TokenContractLayout({
 function WalletLayout({
   account,
   txs,
+  txPageInfo,
   txsLoading,
-  addr,
   activeTab,
   setTab,
   usdPrice,
   tokens,
+  onTxPageChange,
 }: {
   account: ApiAddress;
   txs: ApiTx[] | null;
+  txPageInfo: PageInfo | null;
   txsLoading: boolean;
-  addr: string;
   activeTab: TabKey;
   setTab: (key: TabKey) => void;
   usdPrice: number | null;
   tokens: ApiToken[] | null;
+  onTxPageChange: (offset: number) => void;
 }) {
   const resolvedTab = WALLET_TABS.some((t) => t.key === activeTab) ? activeTab : 'transactions';
+  const currentAddrs = [account.address, account.evmAddress, account.cosmosAddress].filter((value): value is string => Boolean(value));
 
   const altAddress = account.evmAddress && account.evmAddress !== account.address
     ? account.evmAddress
     : account.cosmosAddress && account.cosmosAddress !== account.address
       ? account.cosmosAddress
       : null;
+  const altAddressLabel = altAddress?.startsWith('0x') ? 'EVM' : 'Cosmos';
 
   return (
     <div className="text-white space-y-6">
@@ -811,7 +870,10 @@ function WalletLayout({
         </div>
 
         {altAddress && (
-          <div className="mt-2 flex items-center gap-2 text-sm">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/45">
+              {altAddressLabel}
+            </span>
             <Link href={`/address/${altAddress}`} className="font-mono text-white/55 hover:text-emerald-300 transition">{altAddress}</Link>
             <CopyBtn text={altAddress} />
           </div>
@@ -875,10 +937,24 @@ function WalletLayout({
       {/* ── Tab content ─────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
         {resolvedTab === 'transactions' && (
-          <TxTable txs={txs} loading={txsLoading} currentAddr={addr} emptyLabel="No transactions found" />
+          <TxTable
+            txs={txs}
+            loading={txsLoading}
+            currentAddrs={currentAddrs}
+            emptyLabel="No transactions found"
+            pageInfo={txPageInfo}
+            onPageChange={onTxPageChange}
+          />
         )}
         {resolvedTab === 'transfers' && (
-          <TxTable txs={txs} loading={txsLoading} currentAddr={addr} emptyLabel="No transfers found" />
+          <TxTable
+            txs={txs}
+            loading={txsLoading}
+            currentAddrs={currentAddrs}
+            emptyLabel="No transfers found"
+            pageInfo={txPageInfo}
+            onPageChange={onTxPageChange}
+          />
         )}
         {resolvedTab === 'tokens' && <TokensTab tokens={tokens} />}
       </div>
@@ -894,12 +970,26 @@ export default function AddressPage() {
   const addr = typeof address === 'string' ? address : '';
   const activeTab: TabKey =
     typeof tab === 'string' ? (tab as TabKey) : 'transactions';
+  const [txOffset, setTxOffset] = useState(0);
 
   const { data: account, loading: accountLoading, error: accountError } =
     useApi<ApiAddress>(addr ? `/address/${addr}` : null);
 
-  const { data: txs, loading: txsLoading } =
-    useApi<ApiTx[]>(addr ? `/address/${addr}/txs?limit=25` : null);
+  useEffect(() => {
+    setTxOffset(0);
+  }, [addr]);
+
+  const { data: txsData, loading: txsLoading } =
+    useApi<ApiAddressTxList>(addr ? `/address/${addr}/txs?limit=${ADDRESS_TX_PAGE_SIZE}&offset=${txOffset}` : null);
+  const txs = txsData?.items ?? null;
+  const txPageInfo: PageInfo | null = txsData
+    ? {
+        total: txsData.total,
+        limit: txsData.limit,
+        offset: txsData.offset,
+        hasMore: txsData.hasMore,
+      }
+    : null;
 
   // Fetch token detail if this is a token contract
   const isContract = account ? detectIsContract(account) : false;
@@ -955,21 +1045,24 @@ export default function AddressPage() {
           account={account}
           tokenDetail={tokenDetail}
           txs={txs}
+          txPageInfo={txPageInfo}
           txsLoading={txsLoading}
           addr={addr}
           activeTab={activeTab}
           setTab={setTab}
+          onTxPageChange={setTxOffset}
         />
       ) : (
         <WalletLayout
           account={account}
           txs={txs}
+          txPageInfo={txPageInfo}
           txsLoading={txsLoading}
-          addr={addr}
           activeTab={activeTab}
           setTab={setTab}
           usdPrice={usdPrice}
           tokens={tokens}
+          onTxPageChange={setTxOffset}
         />
       )}
     </>

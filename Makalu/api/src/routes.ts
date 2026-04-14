@@ -42,6 +42,12 @@ function clamp(val: unknown, def = DEFAULT_LIMIT): number {
   return Math.min(n, MAX_LIMIT);
 }
 
+function clampOffset(val: unknown): number {
+  const n = Number(val);
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.floor(n);
+}
+
 /** Convert an EVM 0x address to its Cosmos bech32 equivalent (litho1...). */
 function evmToCosmos(evmAddr: string | null | undefined): string | undefined {
   if (!evmAddr) return undefined;
@@ -54,6 +60,75 @@ function evmToCosmos(evmAddr: string | null | undefined): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/** Convert a Cosmos bech32 address (litho1...) to its EVM 0x equivalent. */
+function cosmosToEvm(cosmosAddr: string | null | undefined): string | undefined {
+  if (!cosmosAddr) return undefined;
+  try {
+    const decoded = bech32.decode(cosmosAddr.toLowerCase());
+    if (decoded.prefix !== 'litho') return undefined;
+    const bytes = Buffer.from(bech32.fromWords(decoded.words));
+    if (bytes.length !== 20) return undefined;
+    return `0x${bytes.toString('hex')}`;
+  } catch {
+    return undefined;
+  }
+}
+
+interface AddressForms {
+  query: string;
+  queryLower: string;
+  cosmosAddress?: string;
+  evmAddress?: string;
+  searchAddrs: string[];
+  contractSearchAddrs: string[];
+}
+
+function resolveAddressForms(
+  address: string,
+  account?: Pick<AccountRow, 'address' | 'evm_address'> | null
+): AddressForms {
+  const query = address.trim();
+  const queryLower = query.toLowerCase();
+  const derivedEvm = queryLower.startsWith('0x') ? queryLower : cosmosToEvm(queryLower);
+  const derivedCosmos = queryLower.startsWith('litho1') ? queryLower : evmToCosmos(queryLower)?.toLowerCase();
+  const accountAddress = account?.address?.toLowerCase();
+  const accountEvmAddress = account?.evm_address?.toLowerCase();
+
+  const searchSet = new Set<string>();
+  const contractSet = new Set<string>();
+  const addSearch = (value?: string | null) => {
+    if (value) searchSet.add(value.toLowerCase());
+  };
+  const addContract = (value?: string | null) => {
+    if (value) contractSet.add(value.toLowerCase());
+  };
+
+  addSearch(queryLower);
+  addSearch(derivedCosmos);
+  addSearch(derivedEvm);
+  addSearch(accountAddress);
+  addSearch(accountEvmAddress);
+
+  addContract(queryLower);
+  addContract(derivedEvm);
+  addContract(accountAddress);
+  addContract(accountEvmAddress);
+
+  const cosmosAddress = (accountAddress?.startsWith('litho1') ? accountAddress : undefined)
+    ?? (derivedCosmos?.startsWith('litho1') ? derivedCosmos : undefined);
+  const evmAddress = (accountEvmAddress?.startsWith('0x') ? accountEvmAddress : undefined)
+    ?? (derivedEvm?.startsWith('0x') ? derivedEvm : undefined);
+
+  return {
+    query,
+    queryLower,
+    cosmosAddress,
+    evmAddress,
+    searchAddrs: [...searchSet],
+    contractSearchAddrs: [...contractSet],
+  };
 }
 
 // ── Row types (mirror DB columns) ───────────────────────────────────────────
@@ -483,14 +558,18 @@ function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
   };
 }
 
-function mapAddress(r: AccountRow, queriedAddr?: string) {
+function mapAddress(
+  r: AccountRow,
+  forms?: Pick<AddressForms, 'queryLower' | 'evmAddress' | 'cosmosAddress'>
+) {
   // If user queried by EVM address, show that as primary
-  const isEvmQuery = queriedAddr?.startsWith('0x');
-  const evmAddr = r.evm_address ?? (r.address.startsWith('0x') ? r.address : undefined);
+  const isEvmQuery = forms?.queryLower?.startsWith('0x');
+  const evmAddr = forms?.evmAddress ?? r.evm_address ?? (r.address.startsWith('0x') ? r.address : undefined);
+  const cosmosAddr = forms?.cosmosAddress ?? (r.address.startsWith('litho') ? r.address : undefined);
   return {
-    address: isEvmQuery && evmAddr ? evmAddr : r.address,
+    address: isEvmQuery && evmAddr ? evmAddr : (cosmosAddr ?? r.address),
     evmAddress: evmAddr ?? undefined,
-    cosmosAddress: r.address.startsWith('litho') ? r.address : undefined,
+    cosmosAddress: cosmosAddr ?? undefined,
     balance: r.balance ?? '0',
     txCount: Number(r.tx_count ?? 0),
     lastSeen: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
@@ -788,61 +867,38 @@ export function explorerRouter(): Router {
   r.get('/address/:address', async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      const addrLower = address.toLowerCase();
-
-      // Fetch live EVM balance if address is an EVM address and RPC is available
-      async function fetchLiveBalance(addr: string): Promise<string> {
-        if (!addr.startsWith('0x') || !EVM_RPC_URL) return '0';
-        try {
-          const result = await evmRpcCall('eth_getBalance', [addr, 'latest']);
-          if (typeof result === 'string') return hexToDec(result);
-        } catch { }
-        return '0';
-      }
+      const initialForms = resolveAddressForms(address);
 
       // 1. Try accounts table (both cosmos and evm address columns)
       const rows = await query<AccountRow>(
-        'SELECT * FROM accounts WHERE address = $1 OR evm_address = $1 OR LOWER(address) = $2 OR LOWER(evm_address) = $2',
-        [address, addrLower]
+        `SELECT * FROM accounts
+         WHERE LOWER(address) = ANY($1) OR LOWER(evm_address) = ANY($1)
+         LIMIT 1`,
+        [initialForms.searchAddrs]
       );
+      const forms = resolveAddressForms(address, rows[0] ?? null);
       if (rows[0]) {
         // Check if this address is a token contract
         const tokenInfo = await query<{
           name: string | null; symbol: string | null; decimals: number | null;
           total_supply: string | null; contract_type: string | null;
         }>(
-          'SELECT name, symbol, decimals, total_supply, contract_type FROM contracts WHERE LOWER(address) = $1',
-          [addrLower]
+          `SELECT name, symbol, decimals, total_supply, contract_type
+           FROM contracts
+           WHERE LOWER(address) = ANY($1)
+           LIMIT 1`,
+          [forms.contractSearchAddrs]
         ).catch(() => []);
 
-        const result: Record<string, unknown> = mapAddress(rows[0], address);
-        
-        let evmAddr = rows[0].evm_address ?? (address.startsWith('0x') ? address : undefined);
-
-        // If evmAddr is missing (common for litho1... addresses not fully indexed), try to find it from tx combinations
-        if (!evmAddr && address.startsWith('litho1')) {
-           const evmInfer = await query<{ from_address: string | null; to_address: string | null; sender: string | null; receiver: string | null; }>(
-             `SELECT e.from_address, e.to_address, t.sender, t.receiver 
-              FROM transactions t 
-              JOIN evm_transactions e ON t.hash = e.cosmos_tx_hash 
-              WHERE LOWER(t.sender) = $1 OR LOWER(t.receiver) = $1 
-              LIMIT 1`,
-             [addrLower]
-           ).catch(() => []);
-           if (evmInfer[0]) {
-              if (evmInfer[0].sender?.toLowerCase() === addrLower && evmInfer[0].from_address) evmAddr = evmInfer[0].from_address;
-              if (evmInfer[0].receiver?.toLowerCase() === addrLower && evmInfer[0].to_address) evmAddr = evmInfer[0].to_address;
-           }
-        }
+        const result: Record<string, unknown> = mapAddress(rows[0], forms);
 
         // Fetch live balance from RPC (more accurate than DB)
-        if (evmAddr) {
-          const liveBalance = await fetchLiveBalance(evmAddr);
+        if (forms.evmAddress) {
+          const liveBalance = await fetchLiveBalance(forms.evmAddress);
           if (liveBalance !== '0') result.balance = liveBalance;
-          if (address.startsWith('litho1')) result.evmAddress = evmAddr; // add to output so frontend knows it
         }
         if (tokenInfo[0]) {
-          if (isHiddenToken({ symbol: tokenInfo[0].symbol, address: addrLower })) {
+          if (isHiddenToken({ symbol: tokenInfo[0].symbol, address: forms.evmAddress ?? forms.queryLower })) {
             res.status(404).json({ message: 'Address not found' });
             return;
           }
@@ -862,8 +918,11 @@ export function explorerRouter(): Router {
         address: string; name: string | null; symbol: string | null;
         decimals: number | null; total_supply: string | null; contract_type: string | null;
       }>(
-        'SELECT address, name, symbol, decimals, total_supply, contract_type FROM contracts WHERE LOWER(address) = $1',
-        [addrLower]
+        `SELECT address, name, symbol, decimals, total_supply, contract_type
+         FROM contracts
+         WHERE LOWER(address) = ANY($1)
+         LIMIT 1`,
+        [forms.contractSearchAddrs]
       ).catch(() => []);
 
       if (contractRows[0]) {
@@ -873,7 +932,9 @@ export function explorerRouter(): Router {
           return;
         }
         res.json({
-          address: c.address,
+          address: forms.queryLower.startsWith('0x') ? (forms.evmAddress ?? c.address) : (forms.cosmosAddress ?? c.address),
+          evmAddress: forms.evmAddress ?? c.address,
+          cosmosAddress: forms.cosmosAddress,
           balance: '0',
           txCount: 0,
           lastSeen: new Date().toISOString(),
@@ -890,46 +951,44 @@ export function explorerRouter(): Router {
       // 3. Build synthetic account from transactions (EVM addresses not yet in accounts table)
       const txCount = await query<CountRow>(
         `SELECT COUNT(*) AS count FROM (
-           SELECT hash FROM transactions WHERE LOWER(sender) = $1 OR LOWER(receiver) = $1
+           SELECT hash
+           FROM transactions
+           WHERE LOWER(sender) = ANY($1) OR LOWER(receiver) = ANY($1)
            UNION
-           SELECT cosmos_tx_hash FROM evm_transactions WHERE LOWER(from_address) = $1 OR LOWER(to_address) = $1
+           SELECT cosmos_tx_hash
+           FROM evm_transactions
+           WHERE LOWER(from_address) = ANY($1) OR LOWER(to_address) = ANY($1)
          ) combined`,
-        [addrLower]
+        [forms.searchAddrs]
       );
 
       const count = parseInt(txCount[0]?.count ?? '0');
       if (count > 0) {
-        let evmAddr = address.startsWith('0x') ? address : null;
-        if (!evmAddr && address.startsWith('litho1')) {
-           const evmInfer = await query<{ from_address: string | null; to_address: string | null; sender: string | null; receiver: string | null; }>(
-             `SELECT e.from_address, e.to_address, t.sender, t.receiver 
-              FROM transactions t 
-              JOIN evm_transactions e ON t.hash = e.cosmos_tx_hash 
-              WHERE LOWER(t.sender) = $1 OR LOWER(t.receiver) = $1 
-              LIMIT 1`,
-             [addrLower]
-           ).catch(() => []);
-           if (evmInfer[0]) {
-              if (evmInfer[0].sender?.toLowerCase() === addrLower && evmInfer[0].from_address) evmAddr = evmInfer[0].from_address;
-              if (evmInfer[0].receiver?.toLowerCase() === addrLower && evmInfer[0].to_address) evmAddr = evmInfer[0].to_address;
-           }
-        }
-
         const [lastTx, liveBalance] = await Promise.all([
-          query<{ timestamp: Date }>(
-            `SELECT timestamp FROM transactions
-             WHERE LOWER(sender) = $1 OR LOWER(receiver) = $1
-             ORDER BY timestamp DESC LIMIT 1`,
-            [addrLower]
+          query<{ timestamp: Date | string | null }>(
+            `SELECT MAX(timestamp) AS timestamp
+             FROM (
+               SELECT t.timestamp
+               FROM transactions t
+               WHERE LOWER(t.sender) = ANY($1) OR LOWER(t.receiver) = ANY($1)
+               UNION ALL
+               SELECT e.timestamp
+               FROM evm_transactions e
+               WHERE LOWER(e.from_address) = ANY($1) OR LOWER(e.to_address) = ANY($1)
+             ) activity`,
+            [forms.searchAddrs]
           ),
-          fetchLiveBalance(evmAddr || address),
+          fetchLiveBalance(forms.evmAddress ?? forms.queryLower),
         ]);
         res.json({
-          address,
-          evmAddress: evmAddr !== address ? evmAddr : undefined,
+          address: forms.queryLower.startsWith('0x')
+            ? (forms.evmAddress ?? forms.queryLower)
+            : (forms.cosmosAddress ?? forms.queryLower),
+          evmAddress: forms.evmAddress,
+          cosmosAddress: forms.cosmosAddress,
           balance: liveBalance,
           txCount: count,
-          lastSeen: lastTx[0]?.timestamp instanceof Date ? lastTx[0].timestamp.toISOString() : new Date().toISOString(),
+          lastSeen: toIsoString(lastTx[0]?.timestamp) ?? new Date().toISOString(),
         });
         return;
       }
@@ -937,7 +996,7 @@ export function explorerRouter(): Router {
       // 4. Check if this is a validator proposer address (CometBFT consensus hex)
       const proposerBlocks = await query<{ count: string; last_time: Date | null }>(
         `SELECT COUNT(*) AS count, MAX(block_time) AS last_time FROM blocks WHERE LOWER(proposer_address) = $1`,
-        [addrLower]
+        [forms.queryLower]
       ).catch(() => [{ count: '0', last_time: null }]);
 
       const blocksProposed = parseInt(proposerBlocks[0]?.count ?? '0');
@@ -966,39 +1025,83 @@ export function explorerRouter(): Router {
     try {
       const { address } = req.params;
       const limit = clamp(req.query.limit, 25);
-      const addrLower = address.toLowerCase();
+      const offset = clampOffset(req.query.offset);
+      const initialForms = resolveAddressForms(address);
 
       // Resolve linked addresses: if querying by 0x, also search by litho1... and vice versa
       const linkedAddrs = await query<AccountRow>(
-        'SELECT * FROM accounts WHERE address = $1 OR evm_address = $1 OR LOWER(address) = $2 OR LOWER(evm_address) = $2',
-        [address, addrLower]
+        `SELECT * FROM accounts
+         WHERE LOWER(address) = ANY($1) OR LOWER(evm_address) = ANY($1)
+         LIMIT 1`,
+        [initialForms.searchAddrs]
       ).catch(() => []);
-      const cosmosAddr = linkedAddrs[0]?.address?.toLowerCase() ?? null;
-      const evmAddr = linkedAddrs[0]?.evm_address?.toLowerCase() ?? null;
+      const forms = resolveAddressForms(address, linkedAddrs[0] ?? null);
+      const addrs = forms.searchAddrs;
 
-      // Build array of all address forms to search
-      const searchAddrs = new Set([addrLower]);
-      if (cosmosAddr) searchAddrs.add(cosmosAddr);
-      if (evmAddr) searchAddrs.add(evmAddr);
-      const addrs = [...searchAddrs];
+      const [countRows, rows] = await Promise.all([
+        query<CountRow>(
+          `SELECT COUNT(*) AS count
+           FROM (
+             SELECT DISTINCT t.hash
+             FROM transactions t
+             LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
+             WHERE LOWER(t.sender) = ANY($1) OR LOWER(t.receiver) = ANY($1)
+                OR LOWER(e.from_address) = ANY($1) OR LOWER(e.to_address) = ANY($1)
+           ) matched`,
+          [addrs]
+        ),
+        query<TxRow & {
+          evm_hash: string | null;
+          evm_input_data: string | null;
+          evm_contract_address: string | null;
+          evm_from_address: string | null;
+          evm_to_address: string | null;
+          evm_value: string | null;
+          evm_gas_price: string | null;
+          evm_nonce: number | null;
+        }>(
+          `SELECT * FROM (
+             SELECT DISTINCT ON (t.hash)
+               t.*,
+               e.hash AS evm_hash,
+               e.input_data AS evm_input_data,
+               e.contract_address AS evm_contract_address,
+               e.from_address AS evm_from_address,
+               e.to_address AS evm_to_address,
+               e.value AS evm_value,
+               e.gas_price AS evm_gas_price,
+               e.nonce AS evm_nonce
+             FROM transactions t
+             LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
+             WHERE LOWER(t.sender) = ANY($1) OR LOWER(t.receiver) = ANY($1)
+                OR LOWER(e.from_address) = ANY($1) OR LOWER(e.to_address) = ANY($1)
+             ORDER BY t.hash, t.timestamp DESC
+           ) sub
+           ORDER BY sub.timestamp DESC
+           LIMIT $2 OFFSET $3`,
+          [addrs, limit, offset]
+        ),
+      ]);
 
-      // Search both Cosmos transactions (sender/receiver) and EVM transactions (from/to)
-      // Use subquery to deduplicate, then sort by most recent
-      const rows = await query<TxRow & { evm_hash: string | null; evm_input_data: string | null; evm_contract_address: string | null; evm_from_address: string | null; evm_to_address: string | null; evm_value: string | null; evm_gas_price: string | null; evm_nonce: number | null }>(
-        `SELECT * FROM (
-           SELECT DISTINCT ON (t.hash) t.*, e.hash AS evm_hash, e.input_data AS evm_input_data, e.contract_address AS evm_contract_address, e.from_address AS evm_from_address, e.to_address AS evm_to_address, e.value AS evm_value, e.gas_price AS evm_gas_price, e.nonce AS evm_nonce
-           FROM transactions t
-           LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
-           WHERE LOWER(t.sender) = ANY($1) OR LOWER(t.receiver) = ANY($1)
-              OR LOWER(e.from_address) = ANY($1) OR LOWER(e.to_address) = ANY($1)
-           ORDER BY t.hash
-         ) sub
-         ORDER BY sub.timestamp DESC
-         LIMIT $2`,
-        [addrs, limit]
-      );
       const enrichedRows = await enrichEvmRows(rows);
-      res.json(enrichedRows.map((r) => mapTx(r, r.evm_hash, { input_data: r.evm_input_data, contract_address: r.evm_contract_address, from_address: r.evm_from_address, to_address: r.evm_to_address, value: r.evm_value, gas_price: r.evm_gas_price, nonce: r.evm_nonce })));
+      const items = enrichedRows.map((r) => mapTx(r, r.evm_hash, {
+        input_data: r.evm_input_data,
+        contract_address: r.evm_contract_address,
+        from_address: r.evm_from_address,
+        to_address: r.evm_to_address,
+        value: r.evm_value,
+        gas_price: r.evm_gas_price,
+        nonce: r.evm_nonce,
+      }));
+      const total = parseInt(countRows[0]?.count ?? '0', 10);
+
+      res.json({
+        items,
+        total,
+        limit,
+        offset,
+        hasMore: offset + items.length < total,
+      });
     } catch (err) {
       console.error('[api] /address/:address/txs error:', err);
       res.status(500).json({ error: 'Internal server error' });

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isBech32Address, isEvmAddress } from '@/lib/format';
 
 interface FormattedValueElementProps {
   formattedStr: string;
@@ -10,7 +11,9 @@ export function FormattedValueElement({ formattedStr, tokenAddress }: FormattedV
   if (match) {
     const amount = match[1];
     const symbol = match[2];
-    const linkHref = tokenAddress ? `/token/${tokenAddress}` : '/token/native';
+    const linkHref = isBech32Address(symbol) || isEvmAddress(symbol)
+      ? `/address/${symbol}`
+      : (tokenAddress ? `/token/${tokenAddress}` : '/token/native');
     return (
       <span className="font-mono">
         {amount}{' '}

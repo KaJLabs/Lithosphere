@@ -96,6 +96,15 @@ export interface ApiTxList {
   total: number;
   limit: number;
   offset: number;
+  hasMore?: boolean;
+}
+
+export interface ApiAddressTxList {
+  items: ApiTx[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
 }
 
 export interface ApiAddress {
