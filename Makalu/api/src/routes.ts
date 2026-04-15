@@ -20,6 +20,8 @@ const HIDDEN_TOKEN_SYMBOLS = new Set(['LitBTC']);
 const HIDDEN_TOKEN_ADDRESSES = new Set(['0x468022f17cafebd43c18f68d53c66a1a7f0e5249']);
 const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
 const SYNCING_LAG_THRESHOLD = 1000;
+const EVM_RPC_URL = (process.env.EVM_RPC_URL || '').replace(/\/$/, '');
+const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL].filter(Boolean))];
 
 function isHiddenToken(token: { symbol?: string | null; address?: string | null }): boolean {
   const symbol = token.symbol?.trim();
@@ -326,11 +328,32 @@ function parseIntSafe(value: string | number | null | undefined): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseHexInteger(value: string | null | undefined): number | null {
+  if (!value) return null;
+  try {
+    const parsed = Number(BigInt(value));
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 function toIsoString(value: Date | string | null | undefined): string | null {
   if (!value) return null;
   if (value instanceof Date) return value.toISOString();
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+function hexTimestampToIso(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  try {
+    const millis = Number(BigInt(value) * 1000n);
+    if (!Number.isFinite(millis)) return undefined;
+    return new Date(millis).toISOString();
+  } catch {
+    return undefined;
+  }
 }
 
 const INCONSISTENT_BLOCKS_CTE = `
@@ -397,33 +420,38 @@ async function getSyncSummary(): Promise<SyncSummary> {
   };
 }
 
-/** EVM JSON-RPC helper */
-const EVM_RPC_URL = process.env.EVM_RPC_URL || '';
 async function evmRpcCall(method: string, params: unknown[]): Promise<unknown> {
-  if (!EVM_RPC_URL) return null;
-  try {
-    const resp = await fetch(EVM_RPC_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'User-Agent': 'Makalu-API/1.0' },
-      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!resp.ok) {
-        console.error(`[evmRpcCall] HTTP error! status: ${resp.status}`);
-        return null;
+  if (EVM_RPC_ENDPOINTS.length === 0) return null;
+
+  for (const endpoint of EVM_RPC_ENDPOINTS) {
+    try {
+      const resp = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'User-Agent': 'Makalu-API/1.0' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!resp.ok) {
+        console.error(`[evmRpcCall] ${method} HTTP ${resp.status} from ${endpoint}`);
+        continue;
+      }
+      const data = await resp.json() as { result?: unknown; error?: unknown };
+      if (data.error) {
+        console.error(`[evmRpcCall] ${method} RPC error from ${endpoint}:`, data.error);
+        continue;
+      }
+      if (data.result != null) return data.result;
+    } catch (err) {
+      console.error(`[evmRpcCall] ${method} fetch exception from ${endpoint}:`, err);
     }
-    const data = await resp.json() as { result?: unknown; error?: unknown };
-    if (data.error) console.error(`[evmRpcCall] RPC error:`, data.error);
-    return data.result ?? null;
-  } catch (err) {
-    console.error(`[evmRpcCall] Fetch exception:`, err);
-    return null;
   }
+
+  return null;
 }
 
 /** Fetch live EVM balance if address is an EVM address and RPC is available */
 async function fetchLiveBalance(addr: string): Promise<string> {
-  if (!addr.startsWith('0x') || !EVM_RPC_URL) return '0';
+  if (!addr.startsWith('0x') || EVM_RPC_ENDPOINTS.length === 0) return '0';
   try {
     const result = await evmRpcCall('eth_getBalance', [addr, 'latest']);
     if (typeof result === 'string') return hexToDec(result);
@@ -432,6 +460,39 @@ async function fetchLiveBalance(addr: string): Promise<string> {
 }
 
 type EvmExtra = { value?: string | null; gas_price?: string | null; from_address?: string | null; to_address?: string | null; input_data?: string | null; contract_address?: string | null; nonce?: number | null };
+
+interface RpcEvmTransaction {
+  hash?: string;
+  blockHash?: string | null;
+  blockNumber?: string | null;
+  from?: string;
+  to?: string | null;
+  gas?: string;
+  gasPrice?: string;
+  input?: string;
+  nonce?: string;
+  transactionIndex?: string;
+  value?: string;
+}
+
+interface RpcEvmReceipt {
+  blockHash?: string | null;
+  blockNumber?: string | null;
+  contractAddress?: string | null;
+  effectiveGasPrice?: string;
+  from?: string;
+  gasUsed?: string;
+  status?: string;
+  to?: string | null;
+  transactionHash?: string;
+  transactionIndex?: string;
+}
+
+interface RpcEvmBlock {
+  hash?: string;
+  number?: string;
+  timestamp?: string;
+}
 
 /** For EVM txs with missing/broken DB values, fetch live from RPC */
 async function enrichEvmFromRpc(evmHash: string, evmExtra: EvmExtra): Promise<EvmExtra> {
@@ -475,6 +536,60 @@ async function enrichEvmRows<T extends { evm_hash?: string | null; evm_input_dat
     }
     return r;
   }));
+}
+
+async function buildRpcFallbackTx(evmHash: string) {
+  const normalizedHash = normalizeEvmTxHash(evmHash);
+  if (!normalizedHash) return null;
+
+  const rpcTx = await evmRpcCall('eth_getTransactionByHash', [normalizedHash]) as RpcEvmTransaction | null;
+  if (!rpcTx) return null;
+
+  const rpcReceipt = await evmRpcCall('eth_getTransactionReceipt', [normalizedHash]) as RpcEvmReceipt | null;
+  const blockNumberHex = rpcTx.blockNumber ?? rpcReceipt?.blockNumber ?? null;
+  const rpcBlock = blockNumberHex
+    ? await evmRpcCall('eth_getBlockByNumber', [blockNumberHex, false]) as RpcEvmBlock | null
+    : null;
+
+  const rpcFrom = rpcTx.from?.toLowerCase() ?? rpcReceipt?.from?.toLowerCase() ?? '';
+  const rpcTo = rpcTx.to?.toLowerCase() ?? rpcReceipt?.to?.toLowerCase() ?? '';
+  const contractAddress = rpcReceipt?.contractAddress?.toLowerCase() ?? undefined;
+  const blockHeight = parseIntSafe(hexToDec(blockNumberHex));
+  const gasUsed = hexToDec(rpcReceipt?.gasUsed);
+  const gasWanted = hexToDec(rpcTx.gas);
+  const gasPriceWei = hexToDec(rpcReceipt?.effectiveGasPrice ?? rpcTx.gasPrice);
+  const timestamp = hexTimestampToIso(rpcBlock?.timestamp);
+  const cosmosFrom = evmToCosmos(rpcFrom) || undefined;
+  const cosmosTo = evmToCosmos(rpcTo) || undefined;
+  const inputData = rpcTx.input ?? undefined;
+  const toForType = rpcTo || cosmosTo;
+
+  return {
+    hash: normalizedHash,
+    evmHash: normalizedHash,
+    blockHeight,
+    fromAddr: cosmosFrom || rpcFrom,
+    toAddr: cosmosTo || rpcTo || null,
+    value: weiToUlitho(hexToDec(rpcTx.value)),
+    tokenTransferAmount: decodeTransferAmount(inputData),
+    denom: 'ulitho',
+    feePaid: computeFeeUlitho(gasUsed, gasPriceWei) ?? '0',
+    gasUsed: gasUsed !== '0' ? gasUsed : null,
+    gasWanted: gasWanted !== '0' ? gasWanted : null,
+    success: rpcReceipt ? rpcReceipt.status !== '0x0' : true,
+    method: 'MsgTx',
+    methodName: decodeMethodName(inputData),
+    txType: classifyTxType(inputData, toForType, contractAddress),
+    timestamp,
+    contractAddress,
+    nonce: parseHexInteger(rpcTx.nonce) ?? undefined,
+    gasPrice: gasPriceWei !== '0' ? weiToUlitho(gasPriceWei) : undefined,
+    inputData,
+    evmFromAddr: rpcFrom || undefined,
+    evmToAddr: rpcTo || undefined,
+    cosmosFromAddr: cosmosFrom,
+    cosmosToAddr: cosmosTo,
+  };
 }
 
 // ── Mappers → Explorer-expected shapes ──────────────────────────────────────
@@ -844,6 +959,16 @@ export function explorerRouter(): Router {
         const fee = computeFeeUlitho(enrichedEvm.gas_used, enrichedEvm.gas_price);
         res.json(fee ? { ...mapped, feePaid: fee } : mapped);
         return;
+      }
+
+      // 4. DB miss for a valid EVM hash: synthesize the tx directly from RPC so
+      // older or not-yet-indexed EVM transactions still resolve in the explorer.
+      if (normalizedEvmHash) {
+        const rpcFallback = await buildRpcFallbackTx(normalizedEvmHash);
+        if (rpcFallback) {
+          res.json(rpcFallback);
+          return;
+        }
       }
 
       res.status(404).json({ message: 'Transaction not found' });
@@ -1352,7 +1477,7 @@ export function explorerRouter(): Router {
   r.get('/tokens/:address/roles', async (req: Request, res: Response) => {
     try {
       const { address } = req.params;
-      if (address === 'native' || !address.startsWith('0x') || !EVM_RPC_URL) {
+      if (address === 'native' || !address.startsWith('0x') || EVM_RPC_ENDPOINTS.length === 0) {
         res.json({ roles: [] });
         return;
       }
