@@ -7,6 +7,11 @@
 import { Router, type Request, type Response } from 'express';
 import { bech32 } from 'bech32';
 import { query } from './db.js';
+import {
+  isEvmTxHash,
+  pickValidTxHash,
+  sanitizeUpstreamMessage,
+} from './tx-utils.js';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -46,6 +51,30 @@ function clampOffset(val: unknown): number {
   const n = Number(val);
   if (!Number.isFinite(n) || n < 0) return 0;
   return Math.floor(n);
+}
+
+function normalizeFaucetAmountInput(value: unknown): { value?: string; invalid: boolean } {
+  if (value == null) {
+    return { invalid: false };
+  }
+
+  if (typeof value === 'number') {
+    if (Number.isFinite(value) && value > 0) {
+      return { value: value.toString(), invalid: false };
+    }
+    return { invalid: true };
+  }
+
+  if (typeof value !== 'string') {
+    return { invalid: true };
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || !/^\d+(\.\d+)?$/.test(trimmed)) {
+    return { invalid: true };
+  }
+
+  return { value: trimmed, invalid: false };
 }
 
 /** Convert an EVM 0x address to its Cosmos bech32 equivalent (litho1...). */
@@ -409,6 +438,11 @@ async function enrichEvmFromRpc(evmHash: string, evmExtra: EvmExtra): Promise<Ev
   const gasPriceIsBad = !evmExtra.gas_price || evmExtra.gas_price === '0' || Number(evmExtra.gas_price) === 0;
   if (!valueIsBad && !gasPriceIsBad) return evmExtra;
 
+  if (!isEvmTxHash(evmHash)) {
+    console.warn(`[api] Skipping EVM enrichment for malformed hash: ${String(evmHash).slice(0, 80)}`);
+    return evmExtra;
+  }
+
   const rpcTx = await evmRpcCall('eth_getTransactionByHash', [evmHash]) as { value?: string; gasPrice?: string; from?: string; to?: string; input?: string; nonce?: string } | null;
   if (!rpcTx) return evmExtra;
 
@@ -465,6 +499,8 @@ function mapBlockDetail(r: BlockRow, txs: Array<TxRow & { evm_hash?: string | nu
 }
 
 function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: string | null | undefined; contract_address?: string | null | undefined; from_address?: string | null | undefined; to_address?: string | null | undefined; value?: string | null | undefined; gas_price?: string | null | undefined; nonce?: number | null | undefined }) {
+  const safeHash = pickValidTxHash(r.hash, evmHash);
+  const safeEvmHash = isEvmTxHash(evmHash) ? evmHash.trim() : undefined;
   // Check if this is actually an EVM tx (has real EVM data, not just an empty join object)
   const hasEvmData = !!(evmExtra?.from_address || evmExtra?.to_address || evmExtra?.value || evmExtra?.input_data);
   const isEvmTx = r.tx_type === 'MsgEthereumTx' || hasEvmData;
@@ -487,8 +523,8 @@ function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: stri
   // For ERC-20 token transfers, try to decode the transfer amount from input data
   const tokenTransferAmount = decodeTransferAmount(evmExtra?.input_data);
   return {
-    hash: r.hash,
-    evmHash: evmHash ?? undefined,
+    hash: safeHash ?? '',
+    evmHash: safeEvmHash,
     blockHeight: Number(r.block_height),
     fromAddr,
     toAddr,
@@ -518,6 +554,8 @@ function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: stri
 }
 
 function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
+  const safeHash = pickValidTxHash(cosmosTx?.hash ?? evm.cosmos_tx_hash, evm.hash);
+  const safeEvmHash = isEvmTxHash(evm.hash) ? evm.hash.trim() : undefined;
   const evmFrom = evm.from_address ?? '';
   const evmTo = evm.to_address ?? '';
   // Derive cosmos addresses from EVM addresses (don't use cosmosTx.receiver — that's the fee collector)
@@ -530,8 +568,8 @@ function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
   const gasPriceUlitho = weiToUlitho(evm.gas_price);
   const computedFee = computeFeeUlitho(evm.gas_used, evm.gas_price);
   return {
-    hash: cosmosTx?.hash ?? evm.cosmos_tx_hash,
-    evmHash: evm.hash,
+    hash: safeHash ?? '',
+    evmHash: safeEvmHash,
     blockHeight: Number(evm.block_height),
     fromAddr: cosmosFrom || evmFrom,
     toAddr: cosmosTo || evmTo,
@@ -829,6 +867,12 @@ export function explorerRouter(): Router {
       }
 
       // Fetch receipt from EVM RPC
+      if (!isEvmTxHash(evmHash)) {
+        console.warn(`[api] Skipping receipt lookup for malformed hash: ${String(evmHash).slice(0, 80)}`);
+        res.json({ logs: [], raw: null });
+        return;
+      }
+
       const receipt = await evmRpcCall('eth_getTransactionReceipt', [evmHash]);
       if (!receipt) {
         res.json({ logs: [], raw: null });
@@ -1282,7 +1326,7 @@ export function explorerRouter(): Router {
         totalSupply: c.total_supply,
         type: 'LEP100',
         creator: c.creator,
-        creationTx: c.creation_tx,
+        creationTx: pickValidTxHash(c.creation_tx) ?? null,
         creationBlock: c.creation_block ? parseInt(c.creation_block) : null,
         createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : String(c.created_at),
         holders: parseInt(holderCount[0]?.count ?? '0'),
@@ -1343,7 +1387,7 @@ export function explorerRouter(): Router {
           roleHash,
           account: account.toLowerCase(),
           block,
-          txHash: log.transactionHash,
+          txHash: pickValidTxHash(log.transactionHash) ?? '',
         };
       });
 
@@ -1396,7 +1440,7 @@ export function explorerRouter(): Router {
           }
 
           return {
-            txHash: r.hash,
+            txHash: pickValidTxHash(r.hash, r.evm_hash) ?? '',
             fromAddress: (r.evm_hash || r.evm_from) ? (evmToCosmos(evmExtra.from_address) || r.sender || evmExtra.from_address || '') : (r.sender || evmExtra.from_address || ''),
             toAddress: (r.evm_hash || r.evm_from) ? (evmToCosmos(evmExtra.to_address) || evmExtra.to_address || '') : (r.receiver || evmExtra.to_address || ''),
             value: finalValue,
@@ -1430,7 +1474,7 @@ export function explorerRouter(): Router {
         ]);
         res.json({
           transfers: rows.map((r) => ({
-            txHash: r.hash,
+            txHash: pickValidTxHash(r.hash) ?? '',
             fromAddress: r.from_address,
             toAddress: r.to_address ?? '',
             value: weiToUlitho(r.value),
@@ -1685,7 +1729,10 @@ export function explorerRouter(): Router {
       if (!upstream.ok) {
         res.status(upstream.status).json({
           ok: false,
-          message: (data.message as string) || (data.error as string) || 'Faucet info is unavailable.',
+          message: sanitizeUpstreamMessage(
+            (data.message as string) || (data.error as string),
+            'Faucet info is unavailable.',
+          ),
         });
         return;
       }
@@ -1705,29 +1752,39 @@ export function explorerRouter(): Router {
 
   r.post('/faucet/claim', async (req: Request, res: Response) => {
     try {
-      const { address, amount, walletType, assetId, asset } = req.body ?? {};
+      const { address, amount, assetId, asset } = req.body ?? {};
+      const normalizedAddress = typeof address === 'string' ? address.trim() : '';
+      const normalizedAmount = normalizeFaucetAmountInput(amount);
 
-      if (!address) {
+      if (!normalizedAddress) {
+        console.warn('[api] Rejecting faucet claim: missing address');
         res.status(400).json({ ok: false, message: 'Wallet address is required.' });
         return;
       }
 
       // Validate address format
-      const isEvm = typeof address === 'string' && /^0x[a-fA-F0-9]{40}$/.test(address);
-      const isCosmos = typeof address === 'string' && address.startsWith('litho1');
+      const isEvm = /^0x[a-fA-F0-9]{40}$/.test(normalizedAddress);
+      const isCosmos = normalizedAddress.startsWith('litho1');
       if (!isEvm && !isCosmos) {
-        res.status(400).json({ ok: false, message: 'Invalid wallet address. Use a 0x... or litho1... address.' });
+        console.warn(`[api] Rejecting faucet claim: invalid address format "${normalizedAddress.slice(0, 80)}"`);
+        res.status(400).json({ ok: false, message: 'Invalid wallet address. Use a 0x... address.' });
         return;
       }
-
-      const numericAmount = typeof amount === 'string'
-        ? amount.replace(/[^0-9.]/g, '')
-        : undefined;
 
       // The faucet service only accepts EVM (0x) addresses
       // If cosmos address provided, we can't forward to the EVM faucet
       if (!isEvm) {
+        console.warn(`[api] Rejecting faucet claim for non-EVM address: ${normalizedAddress}`);
         res.status(400).json({ ok: false, message: 'The faucet currently supports EVM (0x) addresses only. Please use your 0x address.' });
+        return;
+      }
+
+      if (normalizedAmount.invalid) {
+        console.warn(`[api] Rejecting faucet claim: invalid amount "${String(amount).slice(0, 80)}"`);
+        res.status(400).json({
+          ok: false,
+          message: 'Invalid amount. Provide a numeric faucet amount such as 1 or 5.',
+        });
         return;
       }
 
@@ -1736,8 +1793,8 @@ export function explorerRouter(): Router {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          address,
-          amount: numericAmount,
+          address: normalizedAddress,
+          amount: normalizedAmount.value,
           assetId: typeof assetId === 'string' ? assetId : asset,
         }),
         signal: AbortSignal.timeout(30_000),
@@ -1746,18 +1803,30 @@ export function explorerRouter(): Router {
       const data = await upstream.json() as Record<string, unknown>;
 
       if (!upstream.ok) {
+        const sanitizedMessage = sanitizeUpstreamMessage(
+          (data.message as string) || (data.error as string),
+          'Faucet request failed.',
+        );
+        console.warn(`[api] Faucet claim failed upstream (${upstream.status}) for ${normalizedAddress}: ${sanitizedMessage}`);
         res.status(upstream.status).json({
           ok: false,
-          message: (data.message as string) || (data.error as string) || 'Faucet request failed.',
+          message: sanitizedMessage,
           cooldownSeconds: data.retryAfterSeconds ?? null,
         });
         return;
       }
 
+      const txHash = isEvmTxHash(typeof data.txHash === 'string' ? data.txHash.trim() : undefined)
+        ? (data.txHash as string).trim()
+        : null;
+      if (data.txHash && !txHash) {
+        console.warn(`[api] Faucet upstream returned malformed tx hash for ${normalizedAddress}`);
+      }
+
       res.json({
         ok: true,
-        txHash: data.txHash ?? null,
-        message: `Sent ${data.amount ?? numericAmount ?? ''} to ${address}`,
+        txHash,
+        message: `Sent ${data.amount ?? normalizedAmount.value ?? ''} to ${normalizedAddress}`,
         cooldownSeconds:
           typeof data.retryAfterSeconds === 'number'
             ? data.retryAfterSeconds

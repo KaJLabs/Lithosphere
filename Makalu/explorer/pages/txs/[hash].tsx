@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply } from '@/lib/format';
+import { getPreferredTxHash, isEvmTxHash } from '@/lib/tx';
 import type { ApiTx, StatsSummary, EvmLogsResponse } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
@@ -199,7 +200,11 @@ export default function TransactionDetailPage() {
   const gasPercent =
     gasUsed != null && gasWanted ? ((gasUsed / gasWanted) * 100).toFixed(2) : null;
   const logEvents = parseRawLog(tx.rawLog);
-  const receiptHref = `/receipt/${tx.evmHash || tx.hash}`;
+  const txHash = getPreferredTxHash(tx);
+  const displayTxHash = txHash ?? 'Unavailable';
+  const evmHash = isEvmTxHash(tx.evmHash) ? tx.evmHash : null;
+  const alternateEvmHash = evmHash && evmHash !== txHash ? evmHash : null;
+  const receiptHash = alternateEvmHash ?? (isEvmTxHash(txHash) ? txHash : null);
 
   // Display method: prefer decoded methodName, fallback to cleaned Cosmos method
   const displayMethod = tx.methodName ?? cleanMethod(tx.method);
@@ -216,8 +221,8 @@ export default function TransactionDetailPage() {
   return (
     <>
       <Head>
-        <title>Tx {truncateHash(tx.hash)} | {EXPLORER_TITLE}</title>
-        <meta name="description" content={`View Lithosphere Makalu transaction details for ${tx.hash}`} />
+        <title>Tx {truncateHash(displayTxHash)} | {EXPLORER_TITLE}</title>
+        <meta name="description" content={`View Lithosphere Makalu transaction details for ${displayTxHash}`} />
       </Head>
 
       <div className="text-white">
@@ -227,13 +232,13 @@ export default function TransactionDetailPage() {
           <span>/</span>
           <Link href="/txs" className="hover:text-white/70 transition">Transactions</Link>
           <span>/</span>
-          <span className="text-white/70 font-mono">{truncateHash(tx.hash)}</span>
+          <span className="text-white/70 font-mono">{truncateHash(displayTxHash)}</span>
         </div>
 
         <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="min-w-0">
             <div className="text-sm text-white/45">Transaction Details</div>
-            <div className="mt-1 font-mono text-lg text-white/85 break-all">{tx.hash}</div>
+            <div className="mt-1 font-mono text-lg text-white/85 break-all">{displayTxHash}</div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <span
@@ -284,15 +289,15 @@ export default function TransactionDetailPage() {
 
             {/* Hash */}
             <InfoRow label="Hash">
-              <span className="font-mono">{truncateHash(tx.hash, 14)}</span>
-              <CopyBtn text={tx.hash} />
+              <span className="font-mono">{txHash ? truncateHash(txHash, 14) : 'Unavailable'}</span>
+              {txHash && <CopyBtn text={txHash} />}
             </InfoRow>
 
             {/* Original Hash (if different) */}
-            {tx.evmHash && tx.evmHash !== tx.hash && (
+            {alternateEvmHash && (
               <InfoRow label="EVM Hash">
-                <span className="font-mono">{truncateHash(tx.evmHash, 14)}</span>
-                <CopyBtn text={tx.evmHash} />
+                <span className="font-mono">{truncateHash(alternateEvmHash, 14)}</span>
+                <CopyBtn text={alternateEvmHash} />
               </InfoRow>
             )}
 
@@ -352,12 +357,16 @@ export default function TransactionDetailPage() {
 
             {/* Receipt link */}
             <InfoRow label="Receipt">
-              <Link
-                href={receiptHref}
-                className="text-emerald-300 hover:text-emerald-200 transition text-sm"
-              >
-                View Receipt &rarr;
-              </Link>
+              {receiptHash ? (
+                <Link
+                  href={`/receipt/${receiptHash}`}
+                  className="text-emerald-300 hover:text-emerald-200 transition text-sm"
+                >
+                  View Receipt &rarr;
+                </Link>
+              ) : (
+                <span className="text-white/30">Unavailable</span>
+              )}
             </InfoRow>
           </div>
 

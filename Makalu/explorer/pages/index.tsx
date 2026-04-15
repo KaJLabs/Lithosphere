@@ -4,6 +4,7 @@ import type { GetServerSideProps } from 'next';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, timeAgo, truncateHash, formatValue, formatSupply } from '@/lib/format';
+import { getPreferredTxHash } from '@/lib/tx';
 import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiTokenDetail } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
@@ -336,18 +337,25 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                         <div className="h-3 rounded bg-white/10 w-full" />
                       </div>
                     ))
-                  : txs.map((tx) => (
+                  : txs.map((tx) => {
+                      const txHash = getPreferredTxHash(tx);
+                      const txKey = txHash ?? `${tx.blockHeight}-${tx.fromAddr}-${tx.toAddr ?? 'none'}-${tx.timestamp ?? 'unknown'}`;
+                      return (
                       <div
-                        key={tx.hash}
+                        key={txKey}
                         className="rounded-2xl border border-white/10 bg-black/25 p-4"
                       >
                         <div className="flex items-center justify-between gap-3">
-                          <Link
-                            href={`/txs/${tx.hash}`}
-                            className="font-mono font-medium hover:text-emerald-300 transition"
-                          >
-                            {truncateHash(tx.hash)}
-                          </Link>
+                          {txHash ? (
+                            <Link
+                              href={`/txs/${txHash}`}
+                              className="font-mono font-medium hover:text-emerald-300 transition"
+                            >
+                              {truncateHash(txHash)}
+                            </Link>
+                          ) : (
+                            <span className="font-mono font-medium text-white/30">Unavailable</span>
+                          )}
                           <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70 truncate max-w-[120px]" title={tx.methodName ?? tx.txType ?? 'Transfer'}>
                             {tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer')}
                           </span>
@@ -376,7 +384,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    )})}
               </div>
             </div>
           </section>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, formatValue } from '@/lib/format';
+import { isValidTransactionHash } from '@/lib/tx';
 import type {
   ApiTokenDetail,
   ApiTokenTransferList,
@@ -134,19 +135,25 @@ function TransfersTab({ address, decimals, symbol }: { address: string; decimals
           </div>
 
           <div>
-            {transfers.map((tx, i) => (
+            {transfers.map((tx, i) => {
+              const txHash = isValidTransactionHash(tx.txHash) ? tx.txHash : null;
+              return (
               <div
-                key={`${tx.txHash}-${i}`}
+                key={`${txHash ?? 'missing'}-${i}`}
                 className={`grid grid-cols-1 ${TOKEN_TRANSFERS_GRID_CLASS} gap-3 border-b border-white/5 px-5 py-4 transition hover:bg-white/[0.03] lg:gap-4`}
               >
                 <div className="flex min-w-0 items-center">
-                  <Link
-                    href={`/txs/${tx.txHash}`}
-                    className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
-                    title={tx.txHash}
-                  >
-                    {truncateHash(tx.txHash)}
-                  </Link>
+                  {txHash ? (
+                    <Link
+                      href={`/txs/${txHash}`}
+                      className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
+                      title={txHash}
+                    >
+                      {truncateHash(txHash)}
+                    </Link>
+                  ) : (
+                    <span className="block truncate font-mono text-sm text-white/30">Unavailable</span>
+                  )}
                 </div>
 
                 <div className="flex min-w-0 items-center">
@@ -185,7 +192,7 @@ function TransfersTab({ address, decimals, symbol }: { address: string; decimals
                   </span>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       </div>
@@ -369,6 +376,10 @@ function HoldersTab({ address, decimals, symbol, totalSupply }: { address: strin
 /* ── Contract Tab ─────────────────────────────────────────────────────── */
 
 function ContractTab({ token }: { token: ApiTokenDetail }) {
+  const rawCreationTx = typeof token.creationTx === 'string' ? token.creationTx.trim() : '';
+  const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
+  const hasCreationTx = rawCreationTx.length > 0;
+
   return (
     <div className="p-6 space-y-6">
       {/* Verification badge */}
@@ -416,13 +427,17 @@ function ContractTab({ token }: { token: ApiTokenDetail }) {
             </div>
           )}
 
-          {token.creationTx && (
+          {hasCreationTx && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Creation Tx</div>
               <div className="flex-1 text-sm">
-                <Link href={`/txs/${token.creationTx}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
-                  {token.creationTx}
-                </Link>
+                {creationTxHash ? (
+                  <Link href={`/txs/${creationTxHash}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
+                    {creationTxHash}
+                  </Link>
+                ) : (
+                  <span className="font-mono text-white/30">Unavailable</span>
+                )}
               </div>
             </div>
           )}
@@ -494,21 +509,29 @@ function RolesSection({ contractAddress }: { contractAddress: string }) {
       </button>
       {expanded && (
         <div className="divide-y divide-white/5">
-          {roles.map((r, i) => (
-            <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 py-3">
-              <div className="sm:w-36 shrink-0 text-sm font-medium text-white/70">{r.role}</div>
-              <div className="flex-1 text-sm font-mono text-emerald-300 break-all">
-                <Link href={`/address/${r.account}`} className="hover:text-emerald-200 transition">
-                  {r.account}
-                </Link>
+          {roles.map((r, i) => {
+            const txHash = isValidTransactionHash(r.txHash) ? r.txHash : null;
+
+            return (
+              <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 px-5 py-3">
+                <div className="sm:w-36 shrink-0 text-sm font-medium text-white/70">{r.role}</div>
+                <div className="flex-1 text-sm font-mono text-emerald-300 break-all">
+                  <Link href={`/address/${r.account}`} className="hover:text-emerald-200 transition">
+                    {r.account}
+                  </Link>
+                </div>
+                <div className="text-xs text-white/40 shrink-0">
+                  {txHash ? (
+                    <Link href={`/txs/${txHash}`} className="hover:text-white/60 transition">
+                      Grant
+                    </Link>
+                  ) : (
+                    <span className="text-white/20">Unavailable</span>
+                  )}
+                </div>
               </div>
-              <div className="text-xs text-white/40 shrink-0">
-                <Link href={`/txs/${r.txHash}`} className="hover:text-white/60 transition">
-                  Grant
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -519,6 +542,9 @@ function RolesSection({ contractAddress }: { contractAddress: string }) {
 
 function InfoTab({ token }: { token: ApiTokenDetail }) {
   const isNative = token.type === 'native';
+  const rawCreationTx = typeof token.creationTx === 'string' ? token.creationTx.trim() : '';
+  const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
+  const hasCreationTx = rawCreationTx.length > 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -642,6 +668,9 @@ export default function TokenDetailPage() {
 
   const isNative = token.type === 'native';
   const decimals = token.decimals ?? 18;
+  const rawCreationTx = typeof token.creationTx === 'string' ? token.creationTx.trim() : '';
+  const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
+  const hasCreationTx = rawCreationTx.length > 0;
 
   return (
     <>
@@ -758,13 +787,17 @@ export default function TokenDetailPage() {
               </div>
             </div>
           )}
-          {token.creationTx && (
+          {hasCreationTx && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4 border-b border-white/5">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Creation Tx</div>
               <div className="flex-1 text-sm font-mono">
-                <Link href={`/txs/${token.creationTx}`} className="text-emerald-300 hover:text-emerald-200 transition break-all">
-                  {truncateHash(token.creationTx)}
-                </Link>
+                {creationTxHash ? (
+                  <Link href={`/txs/${creationTxHash}`} className="text-emerald-300 hover:text-emerald-200 transition break-all">
+                    {truncateHash(creationTxHash)}
+                  </Link>
+                ) : (
+                  <span className="text-white/30">Unavailable</span>
+                )}
               </div>
             </div>
           )}
@@ -793,7 +826,7 @@ export default function TokenDetailPage() {
               <div className="flex-1 text-sm text-white/70 leading-relaxed">{token.description}</div>
             </div>
           )}
-          {!token.contractAddress && !token.creator && !token.creationTx && !token.description && (
+          {!token.contractAddress && !token.creator && !hasCreationTx && !token.description && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Type</div>
               <div className="flex-1 text-sm text-white">{isNative ? 'Native Chain Asset' : 'LEP-100 Token'}</div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, formatLitho, formatValue } from '@/lib/format';
+import { getPreferredTxHash, isValidTransactionHash } from '@/lib/tx';
 import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiToken, ApiPrice, ApiAddressTxList, PageInfo } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
@@ -196,21 +197,28 @@ function TxTable({
           <div>
             {txs.map((tx) => {
               const methodLabel = tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer');
-              const txHash = tx.hash || tx.evmHash || '';
+              const txHash = getPreferredTxHash(tx);
+              const txKey = txHash ?? `${tx.blockHeight}-${tx.fromAddr}-${tx.toAddr ?? 'none'}-${tx.timestamp ?? 'unknown'}`;
               return (
                 <div
-                  key={tx.hash}
+                  key={txKey}
                   className={`grid grid-cols-1 ${ADDRESS_TX_GRID_CLASS} gap-3 border-b border-white/5 px-5 py-4 transition hover:bg-white/[0.03] lg:gap-4`}
                 >
                   <div className="flex min-w-0 items-center gap-2">
                     <StatusDot success={tx.success} />
-                    <Link
-                      href={`/txs/${txHash}`}
-                      className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
-                      title={txHash}
-                    >
-                      {truncateHash(txHash)}
-                    </Link>
+                    {txHash ? (
+                      <Link
+                        href={`/txs/${txHash}`}
+                        className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
+                        title={txHash}
+                      >
+                        {truncateHash(txHash)}
+                      </Link>
+                    ) : (
+                      <span className="block truncate font-mono text-sm text-white/30" title="Transaction hash unavailable">
+                        Unavailable
+                      </span>
+                    )}
                   </div>
                   <div className="flex min-w-0 items-center lg:block">
                     <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">Block</span>
@@ -460,6 +468,9 @@ function HoldersTab({ addr }: { addr: string }) {
 
 function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiTokenDetail | null }) {
   const verified = tokenDetail?.verified ?? false;
+  const rawCreationTx = typeof tokenDetail?.creationTx === 'string' ? tokenDetail.creationTx.trim() : '';
+  const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
+  const hasCreationTx = rawCreationTx.length > 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -507,13 +518,17 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
               </div>
             </div>
           )}
-          {tokenDetail?.creationTx && (
+          {hasCreationTx && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Creation Tx</div>
               <div className="flex-1 text-sm">
-                <Link href={`/txs/${tokenDetail.creationTx}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
-                  {tokenDetail.creationTx}
-                </Link>
+                {creationTxHash ? (
+                  <Link href={`/txs/${creationTxHash}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
+                    {creationTxHash}
+                  </Link>
+                ) : (
+                  <span className="font-mono text-white/30">Unavailable</span>
+                )}
               </div>
             </div>
           )}

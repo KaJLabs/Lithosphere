@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { truncateHash, formatNumber, timeAgo, formatTimestamp, formatValue } from '@/lib/format';
+import { getPreferredTxHash } from '@/lib/tx';
 import type { ApiTxList, StatsSummary } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
@@ -130,21 +131,28 @@ export default function TransactionsPage() {
                 <div>
                   {txs.map((tx) => {
                     const methodLabel = tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer');
-                    const txHash = tx.hash || tx.evmHash || '';
+                    const txHash = getPreferredTxHash(tx);
+                    const txKey = txHash ?? `${tx.blockHeight}-${tx.fromAddr}-${tx.toAddr ?? 'none'}-${tx.timestamp ?? 'unknown'}`;
                     return (
                       <div
-                        key={tx.hash || tx.evmHash}
+                        key={txKey}
                         className={`grid grid-cols-1 ${TX_TABLE_GRID_CLASS} gap-3 border-b border-white/5 px-5 py-4 transition hover:bg-white/[0.03] lg:gap-4`}
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <StatusDot success={tx.success} />
-                          <Link
-                            href={`/txs/${txHash}`}
-                            className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
-                            title={txHash}
-                          >
-                            {truncateHash(txHash)}
-                          </Link>
+                          {txHash ? (
+                            <Link
+                              href={`/txs/${txHash}`}
+                              className="block truncate font-mono text-sm text-emerald-300 transition hover:text-emerald-200"
+                              title={txHash}
+                            >
+                              {truncateHash(txHash)}
+                            </Link>
+                          ) : (
+                            <span className="block truncate font-mono text-sm text-white/30" title="Transaction hash unavailable">
+                              Unavailable
+                            </span>
+                          )}
                         </div>
 
                         <div className="flex min-w-0 items-center lg:block">

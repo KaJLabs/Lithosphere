@@ -3,8 +3,8 @@ import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useWeb3Modal } from '@web3modal/ethers/react';
 import { useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { EXPLORER_TITLE } from '@/lib/constants';
-
-type WalletType = 'WEB3' | 'COSMOS';
+import { isEvmAddress } from '@/lib/format';
+import { isEvmTxHash } from '@/lib/tx';
 
 type SelectOption = {
   value: string;
@@ -58,11 +58,6 @@ const MAKALU_CHAIN = {
 };
 
 const MAKALU_CHAIN_ID = parseInt(MAKALU_CHAIN.chainId, 16); // 700777
-
-const WALLET_OPTIONS: SelectOption[] = [
-  { value: 'WEB3', label: 'Web3 Wallet (0x)' },
-  { value: 'COSMOS', label: 'Lithosphere Wallet (Litho1)' },
-];
 
 const FALLBACK_ASSETS: FaucetAssetConfig[] = [
   {
@@ -211,11 +206,9 @@ export default function FaucetPage() {
   const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
-  const [walletType, setWalletType] = useState<WalletType>('WEB3');
   const [assets, setAssets] = useState<FaucetAssetConfig[]>(FALLBACK_ASSETS);
   const [assetId, setAssetId] = useState(FALLBACK_ASSETS[0].id);
   const [amount, setAmount] = useState(FALLBACK_ASSETS[0].defaultAmount);
-  const [reason, setReason] = useState('');
   const [connectedAddress, setConnectedAddress] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
   const [status, setStatus] = useState<string>('');
@@ -247,14 +240,27 @@ export default function FaucetPage() {
     }));
   }, [selectedAsset]);
 
+  const normalizedAddress = address.trim();
+  const isValidRecipientAddress = isEvmAddress(normalizedAddress);
+  const amountIsValid = selectedAsset.allowedAmounts.includes(amount);
+  const canSubmitClaim = isValidRecipientAddress && amountIsValid && !claiming;
+  const addressHelpText = normalizedAddress
+    ? (
+      isValidRecipientAddress
+        ? 'Faucet claims are sent to the EVM address shown above.'
+        : 'The faucet only supports EVM recipient addresses in 0x... format.'
+    )
+    : 'Paste a 0x recipient address or connect a Web3 wallet to autofill it.';
+
   // Sync Web3Modal connection state
   useEffect(() => {
     setMounted(true);
     if (isConnected && walletAddress) {
       setConnectedAddress(walletAddress);
-      setAddress(walletAddress);
-      setWalletType('WEB3');
+      setAddress((current) => current.trim() || walletAddress);
+      return;
     }
+    setConnectedAddress(null);
   }, [isConnected, walletAddress]);
 
   useEffect(() => {
@@ -347,8 +353,8 @@ export default function FaucetPage() {
   }
 
   const explorerTxUrl = useMemo(() => {
-    if (!txHash) return '';
-    return `${NETWORK.explorer}/tx/${txHash}`;
+    if (!isEvmTxHash(txHash)) return '';
+    return `${NETWORK.explorer}/txs/${txHash}`;
   }, [txHash]);
 
   function showStatus(msg: string, type: 'info' | 'error' | 'success' = 'info') {
@@ -356,43 +362,32 @@ export default function FaucetPage() {
     setStatusType(type);
   }
 
-  async function signOwnershipProof(): Promise<string> {
-    // Web3Modal with ethers can handle signing
-    // For now, return empty string as the backend can work without it
-    return '';
-  }
-
   async function submitClaim(e: React.FormEvent) {
     e.preventDefault();
     showStatus('');
     setTxHash('');
     setCooldown(null);
+
+    if (!isValidRecipientAddress) {
+      showStatus('The faucet currently supports EVM (0x) addresses only. Please use your 0x address.', 'error');
+      return;
+    }
+
+    if (!amountIsValid) {
+      showStatus(`Select one of the allowed ${selectedAsset.symbol} amounts before submitting your claim.`, 'error');
+      return;
+    }
+
     setClaiming(true);
 
     try {
-      let signature = '';
-      if (
-        walletType === 'WEB3' &&
-        connectedAddress &&
-        connectedAddress.toLowerCase() === address.toLowerCase()
-      ) {
-        try {
-          signature = await signOwnershipProof();
-        } catch {
-          // continue without signature if user rejects
-        }
-      }
-
       const res = await fetch('/api/faucet/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          address,
-          walletType,
+          address: normalizedAddress,
           assetId: selectedAsset.id,
           amount,
-          reason,
-          signature,
         }),
       });
 
@@ -414,7 +409,7 @@ export default function FaucetPage() {
       }
 
       showStatus(data.message || 'Claim submitted successfully.', 'success');
-      if (data.txHash) setTxHash(data.txHash);
+      if (isEvmTxHash(data.txHash)) setTxHash(data.txHash);
       if (typeof data.cooldownSeconds === 'number') setCooldown(data.cooldownSeconds);
     } catch (err: any) {
       showStatus(err?.message || 'Failed to submit faucet claim.', 'error');
@@ -494,11 +489,11 @@ export default function FaucetPage() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <div className="text-white/50">Chain ID</div>
+                    <div className="text-white/50">Cosmos Chain ID</div>
                     <div className="mt-1 font-medium text-white">{NETWORK.cosmosChainId}</div>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                    <div className="text-white/50">Chain ID</div>
+                    <div className="text-white/50">EVM Chain ID</div>
                     <div className="mt-1 font-medium text-white">{NETWORK.evmChainIdDecimal}</div>
                   </div>
                 </div>
@@ -522,30 +517,31 @@ export default function FaucetPage() {
                 <div className="text-sm font-medium text-white/80">Faucet</div>
                 <h2 className="mt-2 text-2xl font-semibold">Claim configured faucet assets</h2>
                 <p className="mt-2 text-sm leading-6 text-white/65">
-                  Enter your wallet address, choose an enabled asset, and pick one of its allowed
-                  amounts. Claims are limited per wallet and asset.
+                  Enter a 0x recipient address, choose an enabled asset, and pick one of its
+                  allowed amounts. Claims are limited per wallet and asset.
                 </p>
               </div>
 
               <form onSubmit={submitClaim} className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-sm text-white/70">Wallet Address</label>
+                  <label className="mb-2 block text-sm text-white/70">Recipient Address</label>
                   <input
                     type="text"
                     value={address}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setAddress(val);
-                      // Auto-detect wallet type from address format
-                      if (val.startsWith('0x')) setWalletType('WEB3');
-                      else if (val.startsWith('litho1')) setWalletType('COSMOS');
-                    }}
-                    placeholder="0x... or litho1... wallet address"
-                    className="w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 focus:border-white/25"
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="0x... recipient address"
+                    className={`w-full rounded-2xl border bg-black/40 px-4 py-3 text-sm text-white outline-none placeholder:text-white/30 ${
+                      normalizedAddress && !isValidRecipientAddress
+                        ? 'border-red-400/40 focus:border-red-300/60'
+                        : 'border-white/10 focus:border-white/25'
+                    }`}
                   />
+                  <p className={`mt-2 text-xs ${normalizedAddress && !isValidRecipientAddress ? 'text-red-300' : 'text-white/45'}`}>
+                    {addressHelpText}
+                  </p>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="mb-2 block text-sm text-white/70">Asset</label>
                     <ThemedSelect
@@ -555,28 +551,22 @@ export default function FaucetPage() {
                     />
                   </div>
                   <div>
-                    <label className="mb-2 block text-sm text-white/70">Wallet Type</label>
-                    <ThemedSelect
-                      value={walletType}
-                      onChange={(next) => setWalletType(next as WalletType)}
-                      options={WALLET_OPTIONS}
-                      title="Auto-detected from your address"
-                    />
-                  </div>
-                  <div>
                     <label className="mb-2 block text-sm text-white/70">Amount</label>
                     <ThemedSelect
                       value={amount}
                       onChange={setAmount}
                       options={amountOptions}
                     />
+                    <p className={`mt-2 text-xs ${amountIsValid ? 'text-white/45' : 'text-red-300'}`}>
+                      Allowed: {selectedAsset.allowedAmounts.join(', ')} {selectedAsset.symbol}
+                    </p>
                   </div>
                 </div>
 
                 <div className="flex flex-wrap gap-3 pt-2">
                   <button
                     type="submit"
-                    disabled={claiming || !address}
+                    disabled={!canSubmitClaim}
                     className={PRIMARY_CTA_CLASSES}
                   >
                     {claiming ? 'Submitting...' : `Claim Testnet ${selectedAsset.symbol}`}
@@ -639,11 +629,11 @@ export default function FaucetPage() {
                   <div className="mt-1 break-all font-medium text-white">{NETWORK.evmRpcUrl}</div>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-white/50">Chain ID</div>
+                  <div className="text-white/50">Cosmos Chain ID</div>
                   <div className="mt-1 font-medium text-white">{NETWORK.cosmosChainId}</div>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/30 p-4">
-                  <div className="text-white/50">Chain ID</div>
+                  <div className="text-white/50">EVM Chain ID</div>
                   <div className="mt-1 font-medium text-white">{NETWORK.evmChainIdDecimal}</div>
                 </div>
                 <a
@@ -687,6 +677,7 @@ export default function FaucetPage() {
                   <li>• Desktop users: Use your browser wallet extension</li>
                   <li>• Mobile users: Use WalletConnect to scan the QR code with your mobile wallet</li>
                   <li>• Click &quot;Add Makalu Network&quot; to auto-add the chain to your wallet</li>
+                  <li>• Faucet claims require an EVM recipient address in 0x... format</li>
                   <li>• Claim the enabled faucet assets once every {cooldownHours} hours</li>
                 </ul>
               </div>

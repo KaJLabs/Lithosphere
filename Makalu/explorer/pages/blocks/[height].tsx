@@ -4,6 +4,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatTimestamp, timeAgo, truncateHash, formatValue } from '@/lib/format';
+import { getPreferredTxHash } from '@/lib/tx';
 import type { ApiBlock, ApiTx, StatsSummary } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 import HashDisplay from '@/components/HashDisplay';
@@ -51,11 +52,16 @@ export default function BlockDetailPage() {
     {
       key: 'hash',
       header: 'Tx Hash',
-      render: (tx) => (
-        <Link href={`/txs/${tx.hash || tx.evmHash}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition">
-          {truncateHash(tx.hash || tx.evmHash || '')}
-        </Link>
-      ),
+      render: (tx) => {
+        const txHash = getPreferredTxHash(tx);
+        return txHash ? (
+          <Link href={`/txs/${txHash}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition">
+            {truncateHash(txHash)}
+          </Link>
+        ) : (
+          <span className="font-mono text-sm text-white/30">Unavailable</span>
+        );
+      },
     },
     {
       key: 'method',
@@ -226,7 +232,7 @@ export default function BlockDetailPage() {
             <DataTable
               columns={txColumns}
               data={block.txs}
-              rowKey={(tx) => tx.hash}
+              rowKey={(tx) => getPreferredTxHash(tx) ?? `${tx.blockHeight}-${tx.fromAddr}-${tx.toAddr ?? 'none'}-${tx.timestamp ?? 'unknown'}`}
             />
           </div>
         ) : (

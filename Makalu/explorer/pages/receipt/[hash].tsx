@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue } from '@/lib/format';
+import { getPreferredTxHash } from '@/lib/tx';
 import type { ApiTx } from '@/lib/types';
 
 /* ---------- tiny helpers ---------- */
@@ -129,6 +130,8 @@ export default function TransactionReceiptPage() {
   const feeBig = tx.feePaid && tx.feePaid !== '0' ? tx.feePaid : '0';
   const denom = tx.denom ?? 'ulitho';
   const events = parseRawLog(tx.rawLog);
+  const txHash = getPreferredTxHash(tx);
+  const displayTxHash = txHash ?? 'Unavailable';
 
   // Compute total (value + fee) as string addition for display
   let total: string;
@@ -141,7 +144,7 @@ export default function TransactionReceiptPage() {
   return (
     <>
       <Head>
-        <title>Receipt {truncateHash(tx.hash)} | {EXPLORER_TITLE}</title>
+        <title>Receipt {truncateHash(displayTxHash)} | {EXPLORER_TITLE}</title>
       </Head>
 
       <div className="text-white space-y-6">
@@ -159,16 +162,20 @@ export default function TransactionReceiptPage() {
           <div className="min-w-0">
             <h1 className="text-2xl font-semibold mb-1">Transaction Receipt</h1>
             <div className="flex items-center flex-wrap gap-2">
-              <span className="font-mono text-sm text-white/60 break-all">{tx.hash}</span>
-              <CopyBtn text={tx.hash} />
+              <span className="font-mono text-sm text-white/60 break-all">{displayTxHash}</span>
+              {txHash && <CopyBtn text={txHash} />}
             </div>
           </div>
-          <Link
-            href={`/txs/${tx.hash}`}
-            className="text-sm text-emerald-300 hover:text-emerald-200 transition whitespace-nowrap"
-          >
-            View Transaction &rarr;
-          </Link>
+          {txHash ? (
+            <Link
+              href={`/txs/${txHash}`}
+              className="text-sm text-emerald-300 hover:text-emerald-200 transition whitespace-nowrap"
+            >
+              View Transaction &rarr;
+            </Link>
+          ) : (
+            <span className="text-sm text-white/30">Unavailable</span>
+          )}
         </div>
 
         {/* Sender / Hash / Date */}
@@ -190,8 +197,8 @@ export default function TransactionReceiptPage() {
           </Row>
           <Row label="Hash">
             <div className="flex items-center flex-wrap gap-2">
-              <span className="font-mono break-all">{tx.hash}</span>
-              <CopyBtn text={tx.hash} />
+              <span className="font-mono break-all">{displayTxHash}</span>
+              {txHash && <CopyBtn text={txHash} />}
             </div>
           </Row>
           {tx.timestamp && (
