@@ -21,7 +21,10 @@ const HIDDEN_TOKEN_ADDRESSES = new Set(['0x468022f17cafebd43c18f68d53c66a1a7f0e5
 const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
 const SYNCING_LAG_THRESHOLD = 1000;
 const EVM_RPC_URL = (process.env.EVM_RPC_URL || '').replace(/\/$/, '');
-const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL].filter(Boolean))];
+// Keep a public EVM RPC as a last resort so direct tx lookups still work when
+// the server's private RPC is missing older historical transaction data.
+const PUBLIC_EVM_RPC_URL = (process.env.PUBLIC_EVM_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
+const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL, PUBLIC_EVM_RPC_URL].filter(Boolean))];
 
 function isHiddenToken(token: { symbol?: string | null; address?: string | null }): boolean {
   const symbol = token.symbol?.trim();
