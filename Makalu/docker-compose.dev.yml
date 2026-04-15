@@ -164,7 +164,7 @@ services:
       - "${INDEXER_PORT:-3001}:3001"
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}?sslmode=disable
       LITHO_RPC_URL: http://lithovm:8545
       LITHO_WS_URL: ws://lithovm:8545
       LITHO_CHAIN_ID: ${CHAIN_ID:-700777}
@@ -218,7 +218,7 @@ services:
       NODE_ENV: development
       API_PORT: 4000
       API_HOST: 0.0.0.0
-      DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-lithosphere}:${POSTGRES_PASSWORD:-lithosphere_dev}@postgres:5432/${POSTGRES_DB:-lithosphere}?sslmode=disable
       LITHO_RPC_URL: http://lithovm:8545
       LITHO_CHAIN_ID: ${CHAIN_ID:-700777}
       EXPLORER_INTERNAL_URL: http://explorer:3000
