@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply } from '@/lib/format';
-import { getPreferredTxHash, isEvmTxHash } from '@/lib/tx';
+import { getPreferredTxHash, normalizeEvmTxHash } from '@/lib/tx';
 import type { ApiTx, StatsSummary, EvmLogsResponse } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
@@ -202,9 +202,9 @@ export default function TransactionDetailPage() {
   const logEvents = parseRawLog(tx.rawLog);
   const txHash = getPreferredTxHash(tx);
   const displayTxHash = txHash ?? 'Unavailable';
-  const evmHash = isEvmTxHash(tx.evmHash) ? tx.evmHash : null;
+  const evmHash = normalizeEvmTxHash(tx.evmHash);
   const alternateEvmHash = evmHash && evmHash !== txHash ? evmHash : null;
-  const receiptHash = alternateEvmHash ?? (isEvmTxHash(txHash) ? txHash : null);
+  const receiptHash = alternateEvmHash ?? normalizeEvmTxHash(txHash);
 
   // Display method: prefer decoded methodName, fallback to cleaned Cosmos method
   const displayMethod = tx.methodName ?? cleanMethod(tx.method);

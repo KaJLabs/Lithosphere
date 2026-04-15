@@ -501,7 +501,7 @@ function mapBlockDetail(r: BlockRow, txs: Array<TxRow & { evm_hash?: string | nu
 
 function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: string | null | undefined; contract_address?: string | null | undefined; from_address?: string | null | undefined; to_address?: string | null | undefined; value?: string | null | undefined; gas_price?: string | null | undefined; nonce?: number | null | undefined }) {
   const safeHash = pickValidTxHash(r.hash, evmHash);
-  const safeEvmHash = isEvmTxHash(evmHash) ? evmHash.trim() : undefined;
+  const safeEvmHash = normalizeEvmTxHash(evmHash) ?? undefined;
   // Check if this is actually an EVM tx (has real EVM data, not just an empty join object)
   const hasEvmData = !!(evmExtra?.from_address || evmExtra?.to_address || evmExtra?.value || evmExtra?.input_data);
   const isEvmTx = r.tx_type === 'MsgEthereumTx' || hasEvmData;
@@ -556,7 +556,7 @@ function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: stri
 
 function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
   const safeHash = pickValidTxHash(cosmosTx?.hash ?? evm.cosmos_tx_hash, evm.hash);
-  const safeEvmHash = isEvmTxHash(evm.hash) ? evm.hash.trim() : undefined;
+  const safeEvmHash = normalizeEvmTxHash(evm.hash) ?? undefined;
   const evmFrom = evm.from_address ?? '';
   const evmTo = evm.to_address ?? '';
   // Derive cosmos addresses from EVM addresses (don't use cosmosTx.receiver — that's the fee collector)

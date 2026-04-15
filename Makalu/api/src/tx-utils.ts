@@ -24,7 +24,7 @@ export function isEvmTxHash(hash: string | null | undefined): hash is string {
 }
 
 export function isValidTransactionHash(hash: string | null | undefined): hash is string {
-  return isCosmosTxHash(hash) || isEvmTxHash(hash);
+  return isCosmosTxHash(hash) || normalizeEvmTxHash(hash) !== null;
 }
 
 export function pickValidTxHash(
@@ -32,13 +32,21 @@ export function pickValidTxHash(
   secondary?: string | null,
 ): string | undefined {
   const first = typeof primary === 'string' ? primary.trim() : '';
-  if (isValidTransactionHash(first)) {
+  if (isCosmosTxHash(first)) {
     return first;
+  }
+  const normalizedFirst = normalizeEvmTxHash(first);
+  if (normalizedFirst) {
+    return normalizedFirst;
   }
 
   const second = typeof secondary === 'string' ? secondary.trim() : '';
-  if (isValidTransactionHash(second)) {
+  if (isCosmosTxHash(second)) {
     return second;
+  }
+  const normalizedSecond = normalizeEvmTxHash(second);
+  if (normalizedSecond) {
+    return normalizedSecond;
   }
 
   return undefined;
