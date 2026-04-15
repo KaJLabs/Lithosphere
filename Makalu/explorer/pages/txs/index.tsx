@@ -5,7 +5,7 @@ import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { truncateHash, formatNumber, timeAgo, formatTimestamp, formatValue } from '@/lib/format';
-import { getPreferredTxHash } from '@/lib/tx';
+import { getPreferredTxHash, normalizeEvmTxHash } from '@/lib/tx';
 import type { ApiTxList, StatsSummary } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
@@ -45,7 +45,8 @@ export default function TransactionsPage() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const h = search.trim();
-    if (h) router.push(`/txs/${h}`);
+    const normalizedHash = normalizeEvmTxHash(h) ?? h;
+    if (normalizedHash) router.push(`/txs/${normalizedHash}`);
   };
 
   return (

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   isCosmosTxHash,
   isEvmTxHash,
+  normalizeEvmTxHash,
   pickValidTxHash,
   sanitizeUpstreamMessage,
 } from '../tx-utils.js';
@@ -17,6 +18,16 @@ describe('tx-utils', () => {
     expect(
       isEvmTxHash('0xf3df3dce8dce77d8b1172dc9d191e11caed85563f5b5a323f6ea4a18ab97077f'),
     ).toBe(true);
+  });
+
+  it('normalizes bare and prefixed EVM transaction hashes to lowercase 0x form', () => {
+    expect(
+      normalizeEvmTxHash('f3df3dce8dce77d8b1172dc9d191e11caed85563f5b5a323f6ea4a18ab97077f'),
+    ).toBe('0xf3df3dce8dce77d8b1172dc9d191e11caed85563f5b5a323f6ea4a18ab97077f');
+
+    expect(
+      normalizeEvmTxHash('0xF3DF3DCE8DCE77D8B1172DC9D191E11CAED85563F5B5A323F6EA4A18AB97077F'),
+    ).toBe('0xf3df3dce8dce77d8b1172dc9d191e11caed85563f5b5a323f6ea4a18ab97077f');
   });
 
   it('prefers a valid primary hash and falls back to a valid secondary hash', () => {

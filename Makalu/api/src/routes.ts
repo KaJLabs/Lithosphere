@@ -9,6 +9,7 @@ import { bech32 } from 'bech32';
 import { query } from './db.js';
 import {
   isEvmTxHash,
+  normalizeEvmTxHash,
   pickValidTxHash,
   sanitizeUpstreamMessage,
 } from './tx-utils.js';
@@ -788,6 +789,7 @@ export function explorerRouter(): Router {
   r.get('/txs/:hash', async (req: Request, res: Response) => {
     try {
       const { hash } = req.params;
+      const normalizedEvmHash = normalizeEvmTxHash(hash);
 
       type TxJoinRow = TxRow & { evm_hash: string | null; evm_input_data: string | null; evm_contract_address: string | null; evm_from_address: string | null; evm_to_address: string | null; evm_value: string | null; evm_gas_price: string | null; evm_gas_used: number | null; evm_nonce: number | null };
       const txJoinSql = `SELECT t.*, e.hash AS evm_hash, e.input_data AS evm_input_data, e.contract_address AS evm_contract_address, e.from_address AS evm_from_address, e.to_address AS evm_to_address, e.value AS evm_value, e.gas_price AS evm_gas_price, e.gas_used AS evm_gas_used, e.nonce AS evm_nonce
@@ -820,11 +822,13 @@ export function explorerRouter(): Router {
         return;
       }
 
-      // 3. Try EVM tx hash lookup (0x-prefixed hashes)
-      const evmRows = await query<EvmTxRow>(
-        'SELECT * FROM evm_transactions WHERE LOWER(hash) = LOWER($1)',
-        [hash]
-      );
+      // 3. Try EVM tx hash lookup. Accept both 0x-prefixed and bare 64-char hashes.
+      const evmRows = normalizedEvmHash
+        ? await query<EvmTxRow>(
+            'SELECT * FROM evm_transactions WHERE LOWER(hash) = LOWER($1)',
+            [normalizedEvmHash]
+          )
+        : [];
       if (evmRows[0]) {
         // Enrich from RPC if value/gasPrice are missing or broken
         const evm = evmRows[0];
@@ -854,10 +858,11 @@ export function explorerRouter(): Router {
   r.get('/txs/:hash/logs', async (req: Request, res: Response) => {
     try {
       const { hash } = req.params;
+      const normalizedEvmHash = normalizeEvmTxHash(hash);
 
       // Resolve the EVM hash (user may pass Cosmos hash or EVM hash)
-      let evmHash = hash;
-      if (!hash.startsWith('0x')) {
+      let evmHash = normalizedEvmHash ?? hash;
+      if (!normalizedEvmHash && !hash.startsWith('0x')) {
         // Try to find the EVM hash from the cosmos tx hash
         const evmRow = await query<{ hash: string }>(
           'SELECT hash FROM evm_transactions WHERE LOWER(cosmos_tx_hash) = LOWER($1)',
