@@ -241,7 +241,7 @@ jobs:
 
           mkdir -p "${BUNDLE_DIR}/abi" "${BUNDLE_DIR}/bytecode" "${BUNDLE_DIR}/metadata"
 
-          for artifact in artifacts/contracts/src/*.sol/*.json; do
+          for artifact in artifacts/src/*.sol/*.json; do
             [[ -f "${artifact}" ]] || continue
             [[ "${artifact}" == *.dbg.json ]] && continue
 
