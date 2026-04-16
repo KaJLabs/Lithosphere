@@ -1,12 +1,17 @@
 {
   "name": "@lithosphere/sdk",
   "version": "0.1.0",
-  "description": "Official Lithosphere TypeScript SDK for interacting with the Lithosphere L1 blockchain",
+  "description": "Official Lithosphere TypeScript SDK for the Lithosphere developer preview",
   "license": "MIT",
   "author": "Lithosphere Team",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lithosphere/sdk.git"
+    "url": "git+https://github.com/KaJLabs/lithosphere.git",
+    "directory": "Makalu/templates/sdk-template"
+  },
+  "homepage": "https://github.com/KaJLabs/lithosphere/tree/main/Makalu/templates/sdk-template",
+  "bugs": {
+    "url": "https://github.com/KaJLabs/lithosphere/issues"
   },
   "keywords": [
     "lithosphere",

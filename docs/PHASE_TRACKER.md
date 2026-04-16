@@ -46,7 +46,7 @@
 - [x] create-litho-app CLI — fully functional
 - [x] CODEOWNERS + ESLint + Prettier
 - [x] PR template — `.github/PULL_REQUEST_TEMPLATE.md`
-- [x] Automated semantic-release — `.releaserc.json` + semantic-release job in `release.yaml`
+- [x] GitHub developer-preview release workflow — validation + packed CLI/SDK tarballs + contract bundles in `release.yaml`
 
 ## Phase 2 — CI Foundations (100%)
 
@@ -65,9 +65,9 @@
 ## Phase 3 — Artifact & Package Management (100%)
 
 - [x] Docker image build & push (publish-images.yaml — 3 images, semver + sha tags)
-- [x] Cosign image signing (in release.yaml + publish-images.yaml)
-- [x] SBOM generation SPDX (release.yaml + per-image in publish-images.yaml)
-- [x] NPM scope publish — `@lithosphere/sdk` + `create-litho-app` with version sync from semantic-release
+- [x] Cosign image signing (publish-images.yaml)
+- [x] SBOM generation SPDX (publish-images.yaml)
+- [x] GitHub prerelease package bundles — `@lithosphere/sdk` + `create-litho-app` packed as release assets; npm publish deferred
 - [x] Contract versioned artifacts — ABI/bytecode/metadata tarball + SHA256 checksums uploaded to GitHub Releases
 - [x] OCI registry — GHCR with semver tags (`1.2.3`, `1.2`), sha-based immutable tags, retention policy
 - [x] Immutable artifact conventions + retention policy — `docs/guides/consuming-releases.md`

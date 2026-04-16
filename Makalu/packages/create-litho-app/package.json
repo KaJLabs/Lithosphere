@@ -1,24 +1,35 @@
 {
   "name": "create-litho-app",
   "version": "0.1.0",
-  "description": "CLI tool to scaffold new Lithosphere projects from templates",
+  "description": "Official CLI for scaffolding Lithosphere developer-preview projects",
   "license": "MIT",
   "author": "Lithosphere Team",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KaJLabs/lithosphere.git",
+    "directory": "Makalu/packages/create-litho-app"
+  },
+  "homepage": "https://github.com/KaJLabs/lithosphere/tree/main/Makalu/packages/create-litho-app",
+  "bugs": {
+    "url": "https://github.com/KaJLabs/lithosphere/issues"
+  },
   "type": "module",
   "bin": {
     "create-litho-app": "./dist/index.cjs"
   },
   "main": "./dist/index.cjs",
-  "types": "./dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "scripts": {
-    "build": "tsup",
+    "build": "tsup && node scripts/prepare-package.mjs",
     "dev": "tsup --watch",
-    "start": "node dist/index.js",
+    "start": "node dist/index.cjs",
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc --noEmit",
+    "prepack": "pnpm run build",
     "clean": "rimraf dist"
   },
   "dependencies": {
@@ -44,10 +55,11 @@
     "registry": "https://registry.npmjs.org/"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "keywords": [
     "lithosphere",
+    "developer-preview",
     "cli",
     "scaffold",
     "generator",

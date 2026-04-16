@@ -1,257 +1,128 @@
-# Lithosphere Release Pipeline - SLSA Level 3
-# Supply Chain Security with Cosign signing, SBOM generation, and provenance
-
-name: Release
+name: Developer Preview Release
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'Makalu/**'
-      - '.github/workflows/release.yaml'
     tags:
-      - 'v*'
-  workflow_dispatch:  # Allow manual trigger for testing
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version without the leading v"
+        required: true
+      prerelease:
+        description: "Mark the GitHub release as a prerelease"
+        required: true
+        type: boolean
+        default: true
 
 env:
-  REGISTRY: ghcr.io
-  # Note: github.repository is converted to lowercase for Docker compatibility
-  IMAGE_NAME: kajlabs/lithosphere/service-template
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
 
 jobs:
-  semantic-release:
-    name: Semantic Release
+  validate:
+    name: Validate Preview Release
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
     outputs:
-      new_release_published: ${{ steps.release.outputs.new_release_published }}
-      new_release_version: ${{ steps.release.outputs.new_release_version }}
+      version: ${{ steps.release_meta.outputs.version }}
+      tag: ${{ steps.release_meta.outputs.tag }}
+      prerelease: ${{ steps.release_meta.outputs.prerelease }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: 'Makalu/pnpm-lock.yaml'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: "Makalu/pnpm-lock.yaml"
 
-      - name: Install dependencies
-        run: cd Makalu && pnpm install
-
-      - name: Run semantic-release
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: cd Makalu && npx semantic-release
-
-  build-and-push:
-    name: Build & Push Container
-    needs: semantic-release
-    if: always() && (needs.semantic-release.result == 'success' || needs.semantic-release.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-      attestations: write
-    
-    defaults:
-      run:
-        working-directory: ./Makalu
-
-    outputs:
-      digest: ${{ steps.push.outputs.digest }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-,format=short
-
-      - name: Build and Push
-        id: push
-        uses: docker/build-push-action@v5
-        with:
-          context: ./Makalu/templates/service-template
-          file: ./Makalu/templates/service-template/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-
-      - name: Sign image with Cosign
+      - name: Resolve release metadata
+        id: release_meta
+        shell: bash
         run: |
-          cosign sign --yes ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+            PRERELEASE="${{ inputs.prerelease }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+            if [[ "${VERSION}" == *-* ]]; then
+              PRERELEASE=true
+            else
+              PRERELEASE=false
+            fi
+          fi
 
-      - name: Generate SBOM
-        uses: anchore/sbom-action@v0
-        with:
-          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
-          format: spdx-json
-          output-file: sbom.spdx.json
-
-      - name: Upload SBOM
-        uses: actions/upload-artifact@v4
-        with:
-          name: sbom
-          path: sbom.spdx.json
-
-  # ─────────────────────────────────────────────────────────────────────────
-  # SLSA Provenance Generation - SLSA Level 3 Compliance
-  # Generates cryptographically signed build provenance attestation
-  # ─────────────────────────────────────────────────────────────────────────
-  provenance:
-    name: Generate SLSA Provenance
-    needs: build-and-push
-    permissions:
-      actions: read
-      id-token: write
-      contents: write
-      packages: write
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v3
-      
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      
-      - name: Generate SLSA Provenance
-        id: provenance
-        run: |
-          # Extract digest hash (remove sha256: prefix if present)
-          DIGEST="${{ needs.build-and-push.outputs.digest }}"
-          DIGEST_HASH="${DIGEST#sha256:}"
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
-          TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          COMMIT_TIMESTAMP="${{ github.event.head_commit.timestamp }}"
-          
-          # Create SLSA v1.0 provenance predicate (only the predicate, not the full statement)
-          cat > provenance.json << 'JSONEOF'
-          {
-            "buildType": "https://slsa.dev/provenance/v1.0?draft",
-            "builder": {
-              "id": "https://github.com/KaJLabs/lithosphere/Attestations/GitHubActionsWorkflow@v1"
-            },
-            "invocation": {
-              "configSource": {
-                "uri": "git+https://github.com/KaJLabs/lithosphere",
-                "digest": {
-                  "sha1": "GITHUB_SHA_PLACEHOLDER"
-                },
-                "entryPoint": ".github/workflows/release.yaml"
-              }
-            },
-            "metadata": {
-              "buildInvocationId": "BUILD_ID_PLACEHOLDER",
-              "buildStartedOn": "BUILD_START_PLACEHOLDER",
-              "buildFinishedOn": "BUILD_END_PLACEHOLDER",
-              "completeness": {
-                "parameters": true,
-                "environment": false,
-                "materials": true
-              },
-              "reproducible": false
-            },
-            "materials": [
-              {
-                "uri": "git+https://github.com/KaJLabs/lithosphere",
-                "digest": {
-                  "sha1": "GITHUB_SHA_PLACEHOLDER"
-                }
-              }
-            ]
-          }
-          JSONEOF
-          
-          # Replace placeholders
-          sed -i "s|GITHUB_SHA_PLACEHOLDER|${{ github.sha }}|g" provenance.json
-          sed -i "s|BUILD_ID_PLACEHOLDER|${{ github.run_id }}-${{ github.run_attempt }}|g" provenance.json
-          sed -i "s|BUILD_START_PLACEHOLDER|${COMMIT_TIMESTAMP}|g" provenance.json
-          sed -i "s|BUILD_END_PLACEHOLDER|${TIMESTAMP}|g" provenance.json
-          
-          echo "Generated SLSA provenance predicate:"
-          cat provenance.json
-          
-          # Validate JSON
-          if ! jq empty provenance.json 2>/dev/null; then
-            echo "❌ Invalid JSON generated"
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.]+)*$ ]]; then
+            echo "Invalid release version: ${VERSION}"
             exit 1
           fi
-          
-          echo "✅ Valid JSON provenance generated"
-      
-      - name: Attest Provenance with Cosign
-        run: |
-          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${{ needs.build-and-push.outputs.digest }}"
-          
-          # Sign the provenance attestation
-          cosign attest --yes \
-            --predicate provenance.json \
-            --type https://slsa.dev/provenance/v1.0?draft \
-            "$IMAGE"
-          
-          echo "✅ SLSA provenance attestation signed and pushed to registry"
-      
-      - name: Upload Provenance
-        uses: actions/upload-artifact@v4
-        with:
-          name: slsa-provenance
-          path: provenance.json
 
-  publish-npm:
-    name: Publish NPM Packages
-    runs-on: ubuntu-latest
-    needs: [semantic-release, build-and-push]
-    if: always() && needs.semantic-release.outputs.new_release_published == 'true'
-    permissions:
-      contents: read
+          echo "version=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "tag=v${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "prerelease=${PRERELEASE}" >> "${GITHUB_OUTPUT}"
 
-    defaults:
-      run:
+      - name: Install dependencies
         working-directory: ./Makalu
+        run: pnpm install --frozen-lockfile
+
+      - name: Sync preview package versions
+        env:
+          RELEASE_VERSION: ${{ steps.release_meta.outputs.version }}
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          for (const file of [
+            'Makalu/packages/create-litho-app/package.json',
+            'Makalu/templates/sdk-template/package.json',
+          ]) {
+            const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+            pkg.version = process.env.RELEASE_VERSION;
+            fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+          }
+          NODE
+
+      - name: Typecheck public packages
+        working-directory: ./Makalu
+        run: |
+          pnpm --filter create-litho-app typecheck
+          pnpm --filter @lithosphere/sdk typecheck
+
+      - name: Build CLI
+        working-directory: ./Makalu
+        run: pnpm --filter create-litho-app build
+
+      - name: Build SDK
+        working-directory: ./Makalu
+        run: pnpm --filter @lithosphere/sdk build
+
+      - name: Test SDK
+        working-directory: ./Makalu
+        run: pnpm --filter @lithosphere/sdk test
+
+      - name: Compile canonical contracts
+        working-directory: ./Makalu/contracts
+        run: pnpm compile
+
+  publish_github_release:
+    name: Package And Publish Preview
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: write
+    env:
+      RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+      RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+      RELEASE_PRERELEASE: ${{ needs.validate.outputs.prerelease }}
+      ASSET_DIR: ${{ github.workspace }}/.release-assets
 
     steps:
       - name: Checkout
@@ -260,150 +131,237 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 9
+          version: ${{ env.PNPM_VERSION }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: 'Makalu/pnpm-lock.yaml'
-          registry-url: 'https://registry.npmjs.org'
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: "Makalu/pnpm-lock.yaml"
 
       - name: Install dependencies
-        run: pnpm install
+        working-directory: ./Makalu
+        run: pnpm install --frozen-lockfile
 
-      - name: Sync version from release
-        if: needs.semantic-release.outputs.new_release_version != ''
+      - name: Sync preview package versions
         run: |
-          VERSION="${{ needs.semantic-release.outputs.new_release_version }}"
-          echo "Syncing version ${VERSION} to publishable packages"
-          # Update SDK
-          cd templates/sdk-template && node -e "
-            const pkg=JSON.parse(require('fs').readFileSync('package.json','utf8'));
-            pkg.version='${VERSION}';
-            require('fs').writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');
-          " && cd ../..
-          # Update CLI
-          cd packages/create-litho-app && node -e "
-            const pkg=JSON.parse(require('fs').readFileSync('package.json','utf8'));
-            pkg.version='${VERSION}';
-            require('fs').writeFileSync('package.json',JSON.stringify(pkg,null,2)+'\n');
-          " && cd ../..
+          node <<'NODE'
+          const fs = require('fs');
 
-      - name: Build
-        run: pnpm build
+          for (const file of [
+            'Makalu/packages/create-litho-app/package.json',
+            'Makalu/templates/sdk-template/package.json',
+          ]) {
+            const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+            pkg.version = process.env.RELEASE_VERSION;
+            fs.writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
+          }
+          NODE
 
-      - name: Publish @lithosphere/sdk
-        run: cd templates/sdk-template && pnpm publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
+      - name: Prepare asset directory
+        run: mkdir -p "${ASSET_DIR}"
 
-      - name: Publish create-litho-app
-        run: cd packages/create-litho-app && pnpm publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        continue-on-error: true
+      - name: Build CLI
+        working-directory: ./Makalu
+        run: pnpm --filter create-litho-app build
 
-      - name: Publish Summary
-        if: always()
+      - name: Build SDK
+        working-directory: ./Makalu
+        run: pnpm --filter @lithosphere/sdk build
+
+      - name: Pack create-litho-app
+        working-directory: ./Makalu/packages/create-litho-app
+        run: npm pack --pack-destination "${ASSET_DIR}"
+
+      - name: Pack @lithosphere/sdk
+        working-directory: ./Makalu/templates/sdk-template
+        run: npm pack --pack-destination "${ASSET_DIR}"
+
+      - name: Smoke test packed CLI and SDK assets
+        shell: bash
         run: |
-          echo "## NPM Publish" >> $GITHUB_STEP_SUMMARY
-          echo "- @lithosphere/sdk" >> $GITHUB_STEP_SUMMARY
-          echo "- create-litho-app" >> $GITHUB_STEP_SUMMARY
-          echo "- Version: ${{ needs.semantic-release.outputs.new_release_version }}" >> $GITHUB_STEP_SUMMARY
+          set -euo pipefail
 
-  # ─────────────────────────────────────────────────────────────────────────
-  # Contract Artifact Release — versioned ABI/bytecode bundles with checksums
-  # ─────────────────────────────────────────────────────────────────────────
-  publish-contract-artifacts:
-    name: Publish Contract Artifacts
-    runs-on: ubuntu-latest
-    needs: semantic-release
-    if: needs.semantic-release.outputs.new_release_published == 'true'
-    permissions:
-      contents: write
-    defaults:
-      run:
-        working-directory: ./Makalu/contracts
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+          CLI_TARBALL="$(find "${ASSET_DIR}" -maxdepth 1 -name 'create-litho-app-*.tgz' -print -quit)"
+          SDK_TARBALL="$(find "${ASSET_DIR}" -maxdepth 1 -name 'lithosphere-sdk-*.tgz' -print -quit)"
 
-      - uses: pnpm/action-setup@v2
-        with:
-          version: 9
+          if [[ -z "${CLI_TARBALL}" || -z "${SDK_TARBALL}" ]]; then
+            echo "Packed tarballs were not generated as expected."
+            exit 1
+          fi
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
+          CLI_INSTALL_DIR="${RUNNER_TEMP}/create-litho-app-install"
+          SCAFFOLD_ROOT="${RUNNER_TEMP}/create-litho-app-smoke"
+          SDK_CONSUMER_DIR="${RUNNER_TEMP}/sdk-consumer"
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile || pnpm install
+          mkdir -p "${CLI_INSTALL_DIR}" "${SCAFFOLD_ROOT}" "${SDK_CONSUMER_DIR}"
 
-      - name: Compile contracts
-        run: pnpm compile
+          npm install --prefix "${CLI_INSTALL_DIR}" "${CLI_TARBALL}"
 
-      - name: Bundle versioned artifacts
-        run: |
-          VERSION="${{ needs.semantic-release.outputs.new_release_version }}"
-          BUNDLE_DIR="lithosphere-contracts-v${VERSION}"
-          mkdir -p "${BUNDLE_DIR}/abi" "${BUNDLE_DIR}/bytecode" "${BUNDLE_DIR}/metadata"
+          CLI_BIN="${CLI_INSTALL_DIR}/node_modules/.bin/create-litho-app"
+          "${CLI_BIN}" preview-sdk --template sdk --directory "${SCAFFOLD_ROOT}"
+          "${CLI_BIN}" preview-contracts --template contracts --directory "${SCAFFOLD_ROOT}"
 
-          for f in artifacts/contracts/src/*.sol/*.json; do
-            [ -f "$f" ] || continue
-            [[ "$f" == *.dbg.json ]] && continue
-            NAME=$(basename "$f" .json)
+          CONTRACT_PROJECT="${SCAFFOLD_ROOT}/preview-contracts"
+          SDK_PROJECT="${SCAFFOLD_ROOT}/preview-sdk"
 
-            # Extract ABI
-            node -e "const a=JSON.parse(require('fs').readFileSync('$f','utf8'));require('fs').writeFileSync('${BUNDLE_DIR}/abi/${NAME}.abi.json',JSON.stringify(a.abi,null,2))"
-
-            # Extract bytecode
-            node -e "const a=JSON.parse(require('fs').readFileSync('$f','utf8'));require('fs').writeFileSync('${BUNDLE_DIR}/bytecode/${NAME}.bin',a.bytecode||'')"
-
-            # Copy full artifact as metadata
-            cp "$f" "${BUNDLE_DIR}/metadata/${NAME}.json"
-
-            echo "Bundled: ${NAME}"
+          for unexpected in artifacts cache dist node_modules typechain-types .turbo; do
+            if [[ -e "${CONTRACT_PROJECT}/${unexpected}" ]]; then
+              echo "Unexpected bundled artifact copied into the contracts template: ${unexpected}"
+              exit 1
+            fi
           done
 
-          # Add version manifest
-          cat > "${BUNDLE_DIR}/manifest.json" << MANIFEST_EOF
+          pnpm --dir "${SDK_PROJECT}" install --ignore-workspace
+          pnpm --dir "${SDK_PROJECT}" build
+          pnpm --dir "${SDK_PROJECT}" test
+
+          pnpm --dir "${CONTRACT_PROJECT}" install --ignore-workspace
+          pnpm --dir "${CONTRACT_PROJECT}" compile
+          pnpm --dir "${CONTRACT_PROJECT}" test:hardhat
+
+          cd "${SDK_CONSUMER_DIR}"
+          npm init -y >/dev/null 2>&1
+          pnpm add "${SDK_TARBALL}"
+          node --input-type=module -e "import { createClient } from '@lithosphere/sdk'; if (typeof createClient !== 'function') throw new Error('SDK export check failed');"
+
+      - name: Compile canonical contracts
+        working-directory: ./Makalu/contracts
+        run: pnpm compile
+
+      - name: Bundle contract artifacts
+        working-directory: ./Makalu/contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BUNDLE_NAME="lithosphere-contracts-v${RELEASE_VERSION}"
+          BUNDLE_DIR="${ASSET_DIR}/${BUNDLE_NAME}"
+
+          mkdir -p "${BUNDLE_DIR}/abi" "${BUNDLE_DIR}/bytecode" "${BUNDLE_DIR}/metadata"
+
+          for artifact in artifacts/contracts/src/*.sol/*.json; do
+            [[ -f "${artifact}" ]] || continue
+            [[ "${artifact}" == *.dbg.json ]] && continue
+
+            NAME="$(basename "${artifact}" .json)"
+
+            node -e "const fs=require('fs'); const a=JSON.parse(fs.readFileSync('${artifact}','utf8')); fs.writeFileSync('${BUNDLE_DIR}/abi/${NAME}.abi.json', JSON.stringify(a.abi, null, 2));"
+            node -e "const fs=require('fs'); const a=JSON.parse(fs.readFileSync('${artifact}','utf8')); fs.writeFileSync('${BUNDLE_DIR}/bytecode/${NAME}.bin', a.bytecode || '');"
+            cp "${artifact}" "${BUNDLE_DIR}/metadata/${NAME}.json"
+          done
+
+          cat > "${BUNDLE_DIR}/manifest.json" <<EOF
           {
-            "version": "${VERSION}",
+            "version": "${RELEASE_VERSION}",
+            "tag": "${RELEASE_TAG}",
             "chain": "lithosphere_700777-1",
             "compiler": "solc",
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "commit": "${{ github.sha }}"
+            "commit": "${GITHUB_SHA}",
+            "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           }
-          MANIFEST_EOF
+          EOF
 
-          # Create tarball
-          tar -czf "${BUNDLE_DIR}.tar.gz" "${BUNDLE_DIR}/"
+          tar -czf "${ASSET_DIR}/${BUNDLE_NAME}.tar.gz" -C "${ASSET_DIR}" "${BUNDLE_NAME}"
+          sha256sum "${ASSET_DIR}/${BUNDLE_NAME}.tar.gz" > "${ASSET_DIR}/${BUNDLE_NAME}.sha256"
+          rm -rf "${BUNDLE_DIR}"
 
-          # Generate SHA256 checksums
-          sha256sum "${BUNDLE_DIR}.tar.gz" > "${BUNDLE_DIR}.sha256"
-          cd "${BUNDLE_DIR}" && sha256sum abi/*.json bytecode/*.bin > ../checksums.txt && cd ..
+      - name: Generate release manifest
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
 
-          echo "BUNDLE_NAME=${BUNDLE_DIR}" >> $GITHUB_ENV
+          const assetDir = process.env.ASSET_DIR;
+          const releaseVersion = process.env.RELEASE_VERSION;
+          const manifestPath = path.join(assetDir, `release-manifest-v${releaseVersion}.json`);
+          const assetFiles = [
+            `create-litho-app-${releaseVersion}.tgz`,
+            `lithosphere-sdk-${releaseVersion}.tgz`,
+            `lithosphere-contracts-v${releaseVersion}.tar.gz`,
+            `lithosphere-contracts-v${releaseVersion}.sha256`,
+            `release-manifest-v${releaseVersion}.json`,
+            `checksums-v${releaseVersion}.txt`,
+          ];
 
-      - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ needs.semantic-release.outputs.new_release_version }}
-          files: |
-            Makalu/contracts/${{ env.BUNDLE_NAME }}.tar.gz
-            Makalu/contracts/${{ env.BUNDLE_NAME }}.sha256
-            Makalu/contracts/checksums.txt
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          const manifest = {
+            version: releaseVersion,
+            tag: process.env.RELEASE_TAG,
+            prerelease: process.env.RELEASE_PRERELEASE === 'true',
+            commit: process.env.GITHUB_SHA,
+            generatedAt: new Date().toISOString(),
+            nodeVersion: process.env.NODE_VERSION,
+            pnpmVersion: process.env.PNPM_VERSION,
+            assets: assetFiles,
+          };
 
-      - name: Upload as workflow artifact
+          fs.writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+      - name: Generate checksums
+        working-directory: ${{ env.ASSET_DIR }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          sha256sum \
+            "create-litho-app-${RELEASE_VERSION}.tgz" \
+            "lithosphere-sdk-${RELEASE_VERSION}.tgz" \
+            "lithosphere-contracts-v${RELEASE_VERSION}.tar.gz" \
+            "lithosphere-contracts-v${RELEASE_VERSION}.sha256" \
+            "release-manifest-v${RELEASE_VERSION}.json" \
+            > "checksums-v${RELEASE_VERSION}.txt"
+
+      - name: Generate release notes
+        shell: bash
+        run: |
+          cat > "${ASSET_DIR}/release-notes.md" <<EOF
+          # Lithosphere Developer Preview ${RELEASE_TAG}
+
+          This release is the first public GitHub developer preview for building on Lithosphere.
+
+          ## Included Assets
+
+          - \`create-litho-app-${RELEASE_VERSION}.tgz\`
+          - \`lithosphere-sdk-${RELEASE_VERSION}.tgz\`
+          - \`lithosphere-contracts-v${RELEASE_VERSION}.tar.gz\`
+          - \`release-manifest-v${RELEASE_VERSION}.json\`
+          - \`checksums-v${RELEASE_VERSION}.txt\`
+
+          ## Quick Start
+
+          1. Verify the assets with \`sha256sum -c checksums-v${RELEASE_VERSION}.txt\`.
+          2. Install the CLI: \`npm install -g ./create-litho-app-${RELEASE_VERSION}.tgz\`.
+          3. Scaffold a project: \`create-litho-app my-first-dapp --template contracts\`.
+
+          There is no standalone \`lithic-compiler\` package in this preview yet. Smart contract development remains Solidity-first in this repository.
+          EOF
+
+      - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: contract-artifacts-v${{ needs.semantic-release.outputs.new_release_version }}
+          name: developer-preview-release-${{ env.RELEASE_VERSION }}
           path: |
-            Makalu/contracts/${{ env.BUNDLE_NAME }}.tar.gz
-            Makalu/contracts/${{ env.BUNDLE_NAME }}.sha256
+            ${{ env.ASSET_DIR }}/*.tgz
+            ${{ env.ASSET_DIR }}/lithosphere-contracts-v${{ env.RELEASE_VERSION }}.tar.gz
+            ${{ env.ASSET_DIR }}/lithosphere-contracts-v${{ env.RELEASE_VERSION }}.sha256
+            ${{ env.ASSET_DIR }}/release-manifest-v${{ env.RELEASE_VERSION }}.json
+            ${{ env.ASSET_DIR }}/checksums-v${{ env.RELEASE_VERSION }}.txt
+            ${{ env.ASSET_DIR }}/release-notes.md
           retention-days: 90
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Lithosphere Developer Preview ${{ env.RELEASE_TAG }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          target_commitish: ${{ github.sha }}
+          body_path: ${{ env.ASSET_DIR }}/release-notes.md
+          prerelease: ${{ env.RELEASE_PRERELEASE }}
+          files: |
+            ${{ env.ASSET_DIR }}/*.tgz
+            ${{ env.ASSET_DIR }}/lithosphere-contracts-v${{ env.RELEASE_VERSION }}.tar.gz
+            ${{ env.ASSET_DIR }}/lithosphere-contracts-v${{ env.RELEASE_VERSION }}.sha256
+            ${{ env.ASSET_DIR }}/release-manifest-v${{ env.RELEASE_VERSION }}.json
+            ${{ env.ASSET_DIR }}/checksums-v${{ env.RELEASE_VERSION }}.txt

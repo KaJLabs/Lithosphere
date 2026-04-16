@@ -18,6 +18,18 @@ import ora from 'ora';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const CLI_VERSION = readPackageVersion();
+const EXCLUDED_TEMPLATE_PATH_PARTS = new Set([
+  '.turbo',
+  'artifacts',
+  'broadcast',
+  'cache',
+  'coverage',
+  'dist',
+  'forge-cache',
+  'node_modules',
+  'typechain-types',
+]);
 
 // Template definitions
 const TEMPLATES = {
@@ -52,7 +64,7 @@ const program = new Command();
 program
   .name('create-litho-app')
   .description('Scaffold new Lithosphere projects from templates')
-  .version('0.1.0')
+  .version(CLI_VERSION)
   .argument('[project-name]', 'Name of the project to create')
   .option('-t, --template <template>', 'Template to use (contracts, service, sdk)')
   .option('-d, --directory <dir>', 'Output directory (default: apps/)')
@@ -116,9 +128,8 @@ async function run(
 
     await fs.copy(templatePath, targetPath, {
       filter: (src: string) => {
-        // Exclude node_modules and dist
         const relativePath = path.relative(templatePath, src);
-        return !relativePath.includes('node_modules') && !relativePath.includes('dist');
+        return shouldIncludeTemplatePath(relativePath);
       },
     });
 
@@ -177,6 +188,26 @@ async function run(
 /*//////////////////////////////////////////////////////////////
                           HELPERS
 //////////////////////////////////////////////////////////////*/
+
+/**
+ * Read the package version from package.json so release tarballs report the correct version.
+ */
+function readPackageVersion(): string {
+  const packageJsonPath = path.resolve(__dirname, '..', 'package.json');
+
+  try {
+    if (fs.pathExistsSync(packageJsonPath)) {
+      const packageJson = fs.readJsonSync(packageJsonPath) as { version?: string };
+      if (packageJson.version) {
+        return packageJson.version;
+      }
+    }
+  } catch {
+    // Fall back to the default version when package metadata is unavailable.
+  }
+
+  return '0.1.0';
+}
 
 /**
  * Get project name from argument or prompt
@@ -247,15 +278,31 @@ async function getTemplate(template?: string): Promise<TemplateType> {
 }
 
 /**
+ * Exclude monorepo-only artifacts from copied templates.
+ */
+function shouldIncludeTemplatePath(relativePath: string): boolean {
+  if (!relativePath || relativePath === '.') {
+    return true;
+  }
+
+  return relativePath
+    .split(path.sep)
+    .every((segment) => segment && !EXCLUDED_TEMPLATE_PATH_PARTS.has(segment));
+}
+
+/**
  * Resolve the absolute path to a template
  */
 function resolveTemplatePath(template: TemplateType): string {
   const templateFolder = TEMPLATES[template].folder;
 
-  // When running from compiled dist, templates are relative to workspace root
-  // Try multiple possible locations
+  // 1. Bundled into the published package at build time.
+  const bundledPath = path.join(__dirname, 'templates', templateFolder);
+  if (fs.pathExistsSync(bundledPath)) {
+    return bundledPath;
+  }
 
-  // 1. From monorepo root (when running via pnpm)
+  // 2. From monorepo root (when running via pnpm)
   const monorepoRoot = findMonorepoRoot(process.cwd());
   if (monorepoRoot) {
     const templatesPath = path.join(monorepoRoot, 'templates', templateFolder);
@@ -264,25 +311,27 @@ function resolveTemplatePath(template: TemplateType): string {
     }
   }
 
-  // 2. Relative to current working directory
+  // 3. Relative to current working directory
   const cwdPath = path.join(process.cwd(), 'templates', templateFolder);
   if (fs.pathExistsSync(cwdPath)) {
     return cwdPath;
   }
 
-  // 3. Relative to the script location (go up from packages/create-litho-app/dist)
+  // 4. Relative to the script location (go up from packages/create-litho-app/dist)
   const scriptPath = path.resolve(__dirname, '..', '..', '..', 'templates', templateFolder);
   if (fs.pathExistsSync(scriptPath)) {
     return scriptPath;
   }
 
-  // 4. For development - relative to src
+  // 5. For development - relative to src
   const devPath = path.resolve(__dirname, '..', '..', 'templates', templateFolder);
   if (fs.pathExistsSync(devPath)) {
     return devPath;
   }
 
-  throw new Error(`Template "${template}" not found. Searched in:\n  - ${cwdPath}\n  - ${scriptPath}`);
+  throw new Error(
+    `Template "${template}" not found. Searched in:\n  - ${bundledPath}\n  - ${cwdPath}\n  - ${scriptPath}\n  - ${devPath}`
+  );
 }
 
 /**
