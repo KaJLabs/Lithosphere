@@ -52,6 +52,55 @@ function detectIsContract(account: ApiAddress): boolean {
   return account.isContract === true;
 }
 
+function hasDisplayBalance(
+  balance: string,
+  balanceSource: ApiAddress['balanceSource'] | undefined,
+): boolean {
+  return balanceSource !== 'unavailable' && !!balance && balance !== '0';
+}
+
+function formatAddressBalance(
+  balance: string,
+  balanceSource: ApiAddress['balanceSource'] | undefined,
+): string {
+  if (balanceSource === 'unavailable') return 'Unavailable';
+  return hasDisplayBalance(balance, balanceSource) ? formatLitho(balance) : '0 LITHO';
+}
+
+function BalanceSourceStatus({
+  balanceSource,
+}: {
+  balanceSource: ApiAddress['balanceSource'] | undefined;
+}) {
+  if (balanceSource === 'indexed') {
+    return (
+      <div className="mt-2">
+        <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[11px] font-medium text-amber-100">
+          Indexed fallback
+        </span>
+        <div className="mt-2 text-xs text-white/35">
+          Live RPC was unavailable for this address, so this balance may lag wallet state.
+        </div>
+      </div>
+    );
+  }
+
+  if (balanceSource === 'unavailable') {
+    return (
+      <div className="mt-2">
+        <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[11px] font-medium text-amber-100">
+          Live RPC unavailable
+        </span>
+        <div className="mt-2 text-xs text-white/35">
+          The explorer could not resolve a current native balance for this address.
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 /* ── Small helpers ────────────────────────────────────────────────────── */
 
 function CopyBtn({ text }: { text: string }) {
@@ -309,10 +358,18 @@ function TxTable({
 
 /* ── Holdings table ──────────────────────────────────────────────────── */
 
-function HoldingsSection({ balance, usdPrice }: { balance: string; usdPrice: number | null }) {
-  const hasBalance = balance && balance !== '0';
+function HoldingsSection({
+  balance,
+  balanceSource,
+  usdPrice,
+}: {
+  balance: string;
+  balanceSource: ApiAddress['balanceSource'];
+  usdPrice: number | null;
+}) {
+  const hasBalance = hasDisplayBalance(balance, balanceSource);
   let usdValue: string | null = null;
-  if (hasBalance && usdPrice != null) {
+  if (balanceSource === 'rpc' && hasBalance && usdPrice != null) {
     try {
       const raw = BigInt(balance);
       const lithoAmount = Number(raw) / 1e18;
@@ -324,9 +381,28 @@ function HoldingsSection({ balance, usdPrice }: { balance: string; usdPrice: num
   return (
     <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
       <div className="px-5 py-4 border-b border-white/10">
-        <h2 className="text-sm font-medium text-white/70 uppercase tracking-wide">Holdings</h2>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-medium text-white/70 uppercase tracking-wide">Holdings</h2>
+          {balanceSource === 'indexed' && (
+            <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[11px] font-medium text-amber-100">
+              Indexed fallback
+            </span>
+          )}
+          {balanceSource === 'unavailable' && (
+            <span className="inline-flex items-center rounded-full border border-amber-300/20 bg-amber-300/10 px-2.5 py-1 text-[11px] font-medium text-amber-100">
+              Live RPC unavailable
+            </span>
+          )}
+        </div>
       </div>
-      {hasBalance ? (
+      {balanceSource === 'unavailable' ? (
+        <div className="py-10 text-center text-white/40">
+          <div className="text-sm text-white/65">Native balance unavailable</div>
+          <div className="mt-1 text-xs text-white/35">
+            Explorer could not reach live RPC for this address.
+          </div>
+        </div>
+      ) : hasBalance ? (
         <>
           <div className="grid grid-cols-[1.2fr_1.6fr_1fr] sm:grid-cols-[1fr_0.6fr_1.4fr_1fr] gap-2 sm:gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-white/40 uppercase tracking-wide">
             <div>Name</div>
@@ -883,7 +959,10 @@ function WalletLayout({
     : account.cosmosAddress && account.cosmosAddress !== account.address
       ? account.cosmosAddress
       : null;
-  const altAddressLabel = altAddress?.startsWith('0x') ? 'EVM' : 'Cosmos';
+  const altAddressLabel = altAddress?.startsWith('0x') ? 'EVM' : 'Lithosphere';
+  const balanceSource = account.balanceSource;
+  const hasBalance = hasDisplayBalance(account.balance, balanceSource);
+  const showUsdValue = balanceSource === 'rpc' && hasBalance && usdPrice != null;
 
   return (
     <div className="text-white space-y-6">
@@ -927,9 +1006,9 @@ function WalletLayout({
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm text-white/45 mb-1">Balance</div>
           <div className="text-xl font-semibold">
-            {account.balance && account.balance !== '0' ? formatLitho(account.balance) : '0 LITHO'}
+            {formatAddressBalance(account.balance, balanceSource)}
           </div>
-          {account.balance && account.balance !== '0' && usdPrice != null && (
+          {showUsdValue && (
             <div className="text-sm text-white/40 mt-1 font-mono">
               {(() => {
                 try {
@@ -939,6 +1018,7 @@ function WalletLayout({
               })()}
             </div>
           )}
+          <BalanceSourceStatus balanceSource={balanceSource} />
         </div>
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm text-white/45 mb-1">{account.isValidator ? 'Blocks Proposed' : 'Transactions'}</div>
@@ -953,7 +1033,7 @@ function WalletLayout({
       </div>
 
       {/* ── Holdings ────────────────────────────────────────────────── */}
-      <HoldingsSection balance={account.balance} usdPrice={usdPrice} />
+      <HoldingsSection balance={account.balance} balanceSource={balanceSource} usdPrice={usdPrice} />
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
       <div className="border-b border-white/10">

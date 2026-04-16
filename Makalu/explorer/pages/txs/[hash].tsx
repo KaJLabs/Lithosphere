@@ -51,8 +51,8 @@ function AddressVariant({
   tone?: 'primary' | 'secondary';
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-      <div className="flex items-start justify-between gap-3">
+    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+      <div className="flex min-w-0 items-start justify-between gap-3">
         <span className="mt-0.5 shrink-0 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
           {label}
         </span>
@@ -70,7 +70,7 @@ function AddressVariant({
         <span className="block font-mono text-[13px] leading-5 sm:hidden">
           {truncateHash(address, 16, 8)}
         </span>
-        <span className="hidden max-w-full overflow-x-auto whitespace-nowrap font-mono text-[13px] leading-5 sm:block">
+        <span className="hidden max-w-full truncate font-mono text-[13px] leading-5 sm:block">
           {address}
         </span>
       </Link>

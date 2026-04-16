@@ -120,6 +120,14 @@ interface AddressForms {
   contractSearchAddrs: string[];
 }
 
+export type BalanceSource = 'rpc' | 'indexed' | 'unavailable';
+
+export interface NativeBalanceResolution {
+  balance: string;
+  balanceSource: BalanceSource;
+  rpcAttempted: boolean;
+}
+
 function resolveAddressForms(
   address: string,
   account?: Pick<AccountRow, 'address' | 'evm_address'> | null
@@ -453,13 +461,77 @@ async function evmRpcCall(method: string, params: unknown[]): Promise<unknown> {
 }
 
 /** Fetch live EVM balance if address is an EVM address and RPC is available */
-async function fetchLiveBalance(addr: string): Promise<string> {
-  if (!addr.startsWith('0x') || EVM_RPC_ENDPOINTS.length === 0) return '0';
+async function fetchLiveBalance(addr: string): Promise<string | null> {
+  if (!/^0x/i.test(addr) || EVM_RPC_ENDPOINTS.length === 0) return null;
   try {
     const result = await evmRpcCall('eth_getBalance', [addr, 'latest']);
     if (typeof result === 'string') return hexToDec(result);
   } catch {}
-  return '0';
+  return null;
+}
+
+export async function resolveNativeBalance(
+  evmAddress: string | null | undefined,
+  indexedBalance: string | null | undefined,
+  fetchBalance: (addr: string) => Promise<string | null> = fetchLiveBalance,
+): Promise<NativeBalanceResolution> {
+  const normalizedEvmAddress = typeof evmAddress === 'string' && /^0x/i.test(evmAddress)
+    ? evmAddress
+    : null;
+
+  if (normalizedEvmAddress) {
+    try {
+      const liveBalance = await fetchBalance(normalizedEvmAddress);
+      if (liveBalance != null) {
+        return {
+          balance: liveBalance,
+          balanceSource: 'rpc',
+          rpcAttempted: true,
+        };
+      }
+    } catch {}
+
+    if (indexedBalance != null) {
+      return {
+        balance: indexedBalance,
+        balanceSource: 'indexed',
+        rpcAttempted: true,
+      };
+    }
+
+    return {
+      balance: '0',
+      balanceSource: 'unavailable',
+      rpcAttempted: true,
+    };
+  }
+
+  if (indexedBalance != null) {
+    return {
+      balance: indexedBalance,
+      balanceSource: 'indexed',
+      rpcAttempted: false,
+    };
+  }
+
+  return {
+    balance: '0',
+    balanceSource: 'unavailable',
+    rpcAttempted: false,
+  };
+}
+
+function warnAddressBalanceFallback(
+  queryAddress: string,
+  resolution: NativeBalanceResolution,
+  evmAddress?: string | null,
+): void {
+  if (!resolution.rpcAttempted || resolution.balanceSource === 'rpc') return;
+
+  console.warn(
+    `[api] /address/${queryAddress} native balance fallback: ${resolution.balanceSource}`
+    + (evmAddress ? ` (evm=${evmAddress})` : ''),
+  );
 }
 
 type EvmExtra = { value?: string | null; gas_price?: string | null; from_address?: string | null; to_address?: string | null; input_data?: string | null; contract_address?: string | null; nonce?: number | null };
@@ -717,7 +789,8 @@ function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
 
 function mapAddress(
   r: AccountRow,
-  forms?: Pick<AddressForms, 'queryLower' | 'evmAddress' | 'cosmosAddress'>
+  forms?: Pick<AddressForms, 'queryLower' | 'evmAddress' | 'cosmosAddress'>,
+  balanceState?: Pick<NativeBalanceResolution, 'balance' | 'balanceSource'>
 ) {
   // If user queried by EVM address, show that as primary
   const isEvmQuery = forms?.queryLower?.startsWith('0x');
@@ -727,7 +800,8 @@ function mapAddress(
     address: isEvmQuery && evmAddr ? evmAddr : (cosmosAddr ?? r.address),
     evmAddress: evmAddr ?? undefined,
     cosmosAddress: cosmosAddr ?? undefined,
-    balance: r.balance ?? '0',
+    balance: balanceState?.balance ?? r.balance ?? '0',
+    balanceSource: balanceState?.balanceSource ?? 'indexed',
     txCount: Number(r.tx_count ?? 0),
     lastSeen: r.updated_at instanceof Date ? r.updated_at.toISOString() : String(r.updated_at),
   };
@@ -1067,13 +1141,10 @@ export function explorerRouter(): Router {
           [forms.contractSearchAddrs]
         ).catch(() => []);
 
-        const result: Record<string, unknown> = mapAddress(rows[0], forms);
+        const balanceState = await resolveNativeBalance(forms.evmAddress, rows[0].balance);
+        warnAddressBalanceFallback(forms.queryLower, balanceState, forms.evmAddress);
 
-        // Fetch live balance from RPC (more accurate than DB)
-        if (forms.evmAddress) {
-          const liveBalance = await fetchLiveBalance(forms.evmAddress);
-          if (liveBalance !== '0') result.balance = liveBalance;
-        }
+        const result: Record<string, unknown> = mapAddress(rows[0], forms, balanceState);
         if (tokenInfo[0]) {
           if (isHiddenToken({ symbol: tokenInfo[0].symbol, address: forms.evmAddress ?? forms.queryLower })) {
             res.status(404).json({ message: 'Address not found' });
@@ -1108,11 +1179,14 @@ export function explorerRouter(): Router {
           res.status(404).json({ message: 'Address not found' });
           return;
         }
+        const balanceState = await resolveNativeBalance(forms.evmAddress ?? c.address, null);
+        warnAddressBalanceFallback(forms.queryLower, balanceState, forms.evmAddress ?? c.address);
         res.json({
           address: forms.queryLower.startsWith('0x') ? (forms.evmAddress ?? c.address) : (forms.cosmosAddress ?? c.address),
           evmAddress: forms.evmAddress ?? c.address,
           cosmosAddress: forms.cosmosAddress,
-          balance: '0',
+          balance: balanceState.balance,
+          balanceSource: balanceState.balanceSource,
           txCount: 0,
           lastSeen: new Date().toISOString(),
           isContract: true,
@@ -1141,7 +1215,7 @@ export function explorerRouter(): Router {
 
       const count = parseInt(txCount[0]?.count ?? '0');
       if (count > 0) {
-        const [lastTx, liveBalance] = await Promise.all([
+        const [lastTx, balanceState] = await Promise.all([
           query<{ timestamp: Date | string | null }>(
             `SELECT MAX(timestamp) AS timestamp
              FROM (
@@ -1155,15 +1229,17 @@ export function explorerRouter(): Router {
              ) activity`,
             [forms.searchAddrs]
           ),
-          fetchLiveBalance(forms.evmAddress ?? forms.queryLower),
+          resolveNativeBalance(forms.evmAddress ?? forms.queryLower, null),
         ]);
+        warnAddressBalanceFallback(forms.queryLower, balanceState, forms.evmAddress ?? forms.queryLower);
         res.json({
           address: forms.queryLower.startsWith('0x')
             ? (forms.evmAddress ?? forms.queryLower)
             : (forms.cosmosAddress ?? forms.queryLower),
           evmAddress: forms.evmAddress,
           cosmosAddress: forms.cosmosAddress,
-          balance: liveBalance,
+          balance: balanceState.balance,
+          balanceSource: balanceState.balanceSource,
           txCount: count,
           lastSeen: toIsoString(lastTx[0]?.timestamp) ?? new Date().toISOString(),
         });
@@ -1181,6 +1257,7 @@ export function explorerRouter(): Router {
         res.json({
           address,
           balance: '0',
+          balanceSource: 'unavailable',
           txCount: 0,
           blocksProposed,
           isValidator: true,
@@ -1656,7 +1733,7 @@ export function explorerRouter(): Router {
 
         const totalSupplyWei = 1_000_000_000e18; // 1B LITHO in wei
         const holders = await Promise.all(rows.map(async (r) => {
-          const liveBal = await fetchLiveBalance(r.address);
+          const liveBal = (await fetchLiveBalance(r.address)) ?? '0';
           const balUlitho = weiToUlitho(liveBal);
           return {
             address: r.address,

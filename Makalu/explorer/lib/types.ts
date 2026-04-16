@@ -114,6 +114,7 @@ export interface ApiAddress {
   isValidator?: boolean;
   blocksProposed?: number;
   balance: string;
+  balanceSource: 'rpc' | 'indexed' | 'unavailable';
   txCount: number;
   lastSeen: string;
   isContract?: boolean;
