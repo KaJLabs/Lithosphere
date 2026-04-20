@@ -59,6 +59,15 @@ function clampOffset(val: unknown): number {
   return Math.floor(n);
 }
 
+// Accept either ?offset=N or ?page=N (1-indexed) from the client.
+// Older deployed explorers send page=N; current ones send offset=M.
+function resolveOffset(query: Request['query'], limit: number): number {
+  if (query.offset != null) return clampOffset(query.offset);
+  const page = Number(query.page);
+  if (Number.isFinite(page) && page > 1) return Math.floor(page - 1) * limit;
+  return 0;
+}
+
 function normalizeFaucetAmountInput(value: unknown): { value?: string; invalid: boolean } {
   if (value == null) {
     return { invalid: false };
@@ -900,7 +909,7 @@ export function explorerRouter(): Router {
   r.get('/blocks', async (req: Request, res: Response) => {
     try {
       const limit = clamp(req.query.limit);
-      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const offset = resolveOffset(req.query, limit);
       const rows = await query<BlockRow>(
         'SELECT * FROM blocks ORDER BY height DESC LIMIT $1 OFFSET $2',
         [limit, offset]
@@ -944,7 +953,7 @@ export function explorerRouter(): Router {
   r.get('/txs', async (req: Request, res: Response) => {
     try {
       const limit = clamp(req.query.limit);
-      const offset = Math.max(0, Number(req.query.offset) || 0);
+      const offset = resolveOffset(req.query, limit);
       const rows = await query<TxRow & { evm_hash: string | null; evm_input_data: string | null; evm_contract_address: string | null; evm_from_address: string | null; evm_to_address: string | null; evm_value: string | null; evm_gas_price: string | null; evm_nonce: number | null }>(
         `SELECT t.*, e.hash AS evm_hash, e.input_data AS evm_input_data, e.contract_address AS evm_contract_address, e.from_address AS evm_from_address, e.to_address AS evm_to_address, e.value AS evm_value, e.gas_price AS evm_gas_price, e.nonce AS evm_nonce
          FROM transactions t
@@ -1279,7 +1288,7 @@ export function explorerRouter(): Router {
     try {
       const { address } = req.params;
       const limit = clamp(req.query.limit, 25);
-      const offset = clampOffset(req.query.offset);
+      const offset = resolveOffset(req.query, limit);
       const initialForms = resolveAddressForms(address);
 
       // Resolve linked addresses: if querying by 0x, also search by litho1... and vice versa
@@ -1614,7 +1623,7 @@ export function explorerRouter(): Router {
     try {
       const { address } = req.params;
       const limit = clamp(req.query.limit, 25);
-      const offset = Number(req.query.offset) || 0;
+      const offset = resolveOffset(req.query, limit);
 
       if (address === 'native') {
         // Native LITHO: all chain transactions
@@ -1708,7 +1717,7 @@ export function explorerRouter(): Router {
     try {
       const { address } = req.params;
       const limit = clamp(req.query.limit, 25);
-      const offset = Number(req.query.offset) || 0;
+      const offset = resolveOffset(req.query, limit);
 
       if (address === 'native') {
         // Native LITHO: dynamically fetch for active EVM addresses (since indexer accounts lacks balances)

@@ -206,6 +206,25 @@ function attr(events: TxEvent[], eventType: string, key: string): string {
   return '';
 }
 
+/** Scan each `eventType` event as a group, collecting tuples of the requested keys. */
+function attrTuples(events: TxEvent[], eventType: string, keys: string[]): Record<string, string>[] {
+  const out: Record<string, string>[] = [];
+  for (const ev of events) {
+    if (ev.type !== eventType) continue;
+    const row: Record<string, string> = {};
+    for (const a of ev.attributes) {
+      const rawKey = a.key;
+      if (keys.includes(rawKey)) { row[rawKey] = a.value; continue; }
+      const decodedKey = tryBase64(rawKey);
+      if (decodedKey && keys.includes(decodedKey)) {
+        row[decodedKey] = tryBase64(a.value) ?? a.value;
+      }
+    }
+    if (Object.keys(row).length) out.push(row);
+  }
+  return out;
+}
+
 /** Fetch from CometBFT JSON-RPC. */
 async function rpcGet<T>(path: string): Promise<T> {
   const resp = await fetch(`${RPC_URL}${path}`, { signal: AbortSignal.timeout(30_000) });
@@ -611,13 +630,20 @@ async function indexTx(
   // Log EVM tx details for diagnostics (non-EVM txs are too frequent)
   if (isEvm) console.log(`[tx] EVM tx at height=${height} hash=${hash.substring(0, 16)}… action=${action}`);
 
-  // Sender / receiver / amount — pulled from emitted events (no protobuf needed)
+  // Sender / receiver / amount — pulled from emitted events (no protobuf needed).
+  // Cosmos SDK emits the fee transfer FIRST (sender → fee_collector), then the
+  // actual MsgSend transfer. Using the first match would surface fee_collector as
+  // the recipient and the fee amount as the value. We skip the fee transfer by
+  // matching against the tx fee string and prefer the last non-fee transfer.
   const sender   = attr(evts, 'message', 'sender')          ||
                    attr(evts, 'transfer', 'sender')          || '';
-  const receiver = attr(evts, 'coin_received', 'receiver')   ||
-                   attr(evts, 'transfer', 'recipient')        || '';
-  const rawAmt   = attr(evts, 'coin_received', 'amount')     ||
-                   attr(evts, 'transfer', 'amount')           || '0';
+
+  const feeStr   = attr(evts, 'tx', 'fee') || '';
+  const transfers = attrTuples(evts, 'transfer', ['sender', 'recipient', 'amount']);
+  const nonFee    = transfers.filter((t) => !feeStr || t.amount !== feeStr);
+  const primary   = nonFee[nonFee.length - 1] ?? transfers[transfers.length - 1];
+  const receiver = primary?.recipient ?? attr(evts, 'coin_received', 'receiver') ?? '';
+  const rawAmt   = primary?.amount    ?? attr(evts, 'coin_received', 'amount')    ?? '0';
 
   // Parse "1234567ulitho" → amount + denom
   const amtMatch = rawAmt.match(/^(\d+)([a-zA-Z/]+)$/);
@@ -625,7 +651,6 @@ async function indexTx(
   const denom    = amtMatch?.[2] ?? 'ulitho';
 
   // Fee
-  const feeStr   = attr(evts, 'tx', 'fee') || '';
   const feeMatch = feeStr.match(/^(\d+)([a-zA-Z/]+)$/);
   const fee      = feeMatch?.[1] ?? '0';
   const feeDenom = feeMatch?.[2] ?? 'ulitho';
