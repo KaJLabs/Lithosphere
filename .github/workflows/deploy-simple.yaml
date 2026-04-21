@@ -276,10 +276,14 @@ jobs:
 
       # ── Inject FAUCET_PRIVATE_KEY ──────────────────────────────────────────────
       - name: Inject Faucet Private Key
-        if: secrets.FAUCET_PRIVATE_KEY != ''
         env:
           FAUCET_PK: ${{ secrets.FAUCET_PRIVATE_KEY }}
         run: |
+          if [ -z "$FAUCET_PK" ]; then
+            echo "FAUCET_PRIVATE_KEY secret not set — skipping faucet key injection"
+            exit 0
+          fi
+
           jq -n --arg instance "$INSTANCE_ID" --arg pk "$FAUCET_PK" '{
             InstanceIds: [$instance],
             DocumentName: "AWS-RunShellScript",
