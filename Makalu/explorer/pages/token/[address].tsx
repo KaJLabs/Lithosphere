@@ -570,7 +570,7 @@ function InfoTab({ token }: { token: ApiTokenDetail }) {
           <InfoRow label="Type" value={isNative ? 'Native Chain Asset' : 'LEP-100 Token'} />
           <InfoRow label="Standard" value={token.standard ?? (isNative ? 'Native' : 'LEP-100')} />
           {isNative && <InfoRow label="Denom" value="ulitho" mono />}
-          <InfoRow label="Chain" value="lithosphere_700777-1" mono />
+          <InfoRow label="Chain" value="lithosphere_700777-2" mono />
           <InfoRow label="Chain ID" value="700777" mono />
           <InfoRow
             label="Total Supply"

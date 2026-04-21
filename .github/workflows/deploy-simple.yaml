@@ -158,6 +158,7 @@ jobs:
           fi
 
           echo "── Ensuring critical env vars..."
+          sed -i 's|lithosphere_700777-1|lithosphere_700777-2|g' .env 2>/dev/null || true
           sed -i 's|testnet-rpc\.lithosphere\.network|rpc.litho.ai|g' .env 2>/dev/null || true
           grep -q '^RPC_URL=' .env || echo 'RPC_URL=https://rpc.litho.ai' >> .env
           grep -q '^LCD_URL=' .env || echo 'LCD_URL=https://api.litho.ai' >> .env

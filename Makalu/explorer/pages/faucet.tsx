@@ -41,7 +41,7 @@ const NETWORK = {
   networkName: 'Lithosphere Makalu Testnet',
   rpcUrl: 'https://rpc.litho.ai',
   evmRpcUrl: 'https://rpc.litho.ai',
-  cosmosChainId: 'lithosphere_700777-1',
+  cosmosChainId: 'lithosphere_700777-2',
   evmChainIdDecimal: 700777,
   evmChainIdHex: '0xab169',
   explorer: 'https://makalu.litho.ai',

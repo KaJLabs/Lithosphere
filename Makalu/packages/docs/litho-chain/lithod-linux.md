@@ -74,7 +74,7 @@ lithod version
 ## Node Startup
 
 ```bash
-lithod init <moniker> --chain-id lithosphere_700777-1
+lithod init <moniker> --chain-id lithosphere_700777-2
 lithod start
 ```
 
