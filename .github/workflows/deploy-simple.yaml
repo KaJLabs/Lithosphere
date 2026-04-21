@@ -162,6 +162,10 @@ jobs:
           grep -q '^RPC_URL=' .env || echo 'RPC_URL=https://rpc.litho.ai' >> .env
           grep -q '^LCD_URL=' .env || echo 'LCD_URL=https://api.litho.ai' >> .env
           grep -q '^EVM_RPC_URL=' .env || echo 'EVM_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545' >> .env
+          sed -i 's|^FAUCET_RPC_URL=https://rpc.litho.ai.*|FAUCET_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545|' .env 2>/dev/null || true
+          grep -q '^FAUCET_RPC_URL=' .env || echo 'FAUCET_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545' >> .env
+          sed -i 's/^FAUCET_CHAIN_ID=.*/FAUCET_CHAIN_ID=700777/' .env 2>/dev/null || true
+          grep -q '^FAUCET_CHAIN_ID=' .env || echo 'FAUCET_CHAIN_ID=700777' >> .env
           # Prevent full re-index on every deploy/restart
           sed -i 's/^FORCE_REINDEX=1/FORCE_REINDEX=0/' .env 2>/dev/null || true
           grep -q '^FORCE_REINDEX=' .env || echo 'FORCE_REINDEX=0' >> .env
@@ -269,6 +273,39 @@ jobs:
             --instance-id "$INSTANCE_ID" \
             --query "Status" --output text)
           echo "Inject status: $STATUS"
+
+      # ── Inject FAUCET_PRIVATE_KEY ──────────────────────────────────────────────
+      - name: Inject Faucet Private Key
+        if: secrets.FAUCET_PRIVATE_KEY != ''
+        env:
+          FAUCET_PK: ${{ secrets.FAUCET_PRIVATE_KEY }}
+        run: |
+          jq -n --arg instance "$INSTANCE_ID" --arg pk "$FAUCET_PK" '{
+            InstanceIds: [$instance],
+            DocumentName: "AWS-RunShellScript",
+            TimeoutSeconds: 60,
+            Parameters: { commands: [
+              "cd /opt/lithosphere/Makalu",
+              "if grep -q '\''^FAUCET_PRIVATE_KEY='\'' .env; then sed -i '\''s|^FAUCET_PRIVATE_KEY=.*|FAUCET_PRIVATE_KEY=" + $pk + "|'\'' .env; else echo '\''FAUCET_PRIVATE_KEY=" + $pk + "'\'' >> .env; fi",
+              "echo FAUCET_PRIVATE_KEY injected",
+              "sudo docker compose up -d --force-recreate faucet",
+              "echo Faucet restarted"
+            ]}
+          }' > /tmp/ssm-faucet.json
+
+          COMMAND_ID=$(aws ssm send-command \
+            --cli-input-json file:///tmp/ssm-faucet.json \
+            --query "Command.CommandId" --output text)
+
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" || true
+
+          STATUS=$(aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "$INSTANCE_ID" \
+            --query "Status" --output text)
+          echo "Faucet inject status: $STATUS"
 
       # ── Health Checks ───────────────────────────────────────────────────────
       - name: Wait for Services

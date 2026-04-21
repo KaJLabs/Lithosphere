@@ -24,19 +24,19 @@ function CopyBtn({ text }: { text: string }) {
   return (
     <button
       onClick={copy}
-      className="ml-2 shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition"
-      title="Copy to clipboard"
+      aria-label="Copy to clipboard"
+      className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/50 hover:text-white/80 transition"
     >
-      {copied ? 'copied' : 'copy'}
+      {copied ? '✓' : 'copy'}
     </button>
   );
 }
 
 function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-white/5 py-3.5 min-w-0 last:border-0 sm:flex-row sm:items-start sm:gap-5">
-      <div className="shrink-0 text-sm text-white/45 sm:w-36">{label}</div>
-      <div className="flex-1 min-w-0 overflow-hidden text-sm text-white break-words">{children}</div>
+    <div className="flex flex-col gap-1 border-b border-white/5 py-3 min-w-0 last:border-0 sm:flex-row sm:items-start sm:gap-4">
+      <div className="shrink-0 text-xs font-medium uppercase tracking-wide text-white/35 sm:w-32 sm:pt-0.5 sm:text-sm sm:normal-case sm:tracking-normal sm:font-normal sm:text-white/45">{label}</div>
+      <div className="flex-1 min-w-0 text-sm text-white break-words">{children}</div>
     </div>
   );
 }
@@ -51,28 +51,23 @@ function AddressVariant({
   tone?: 'primary' | 'secondary';
 }) {
   return (
-    <div className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
-      <div className="flex min-w-0 items-start justify-between gap-3">
-        <span className="mt-0.5 shrink-0 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/40">
+    <div className="min-w-0 rounded-2xl border border-white/10 bg-black/20 px-3 py-2">
+      <div className="flex min-w-0 items-center justify-between gap-2">
+        <span className="shrink-0 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white/40">
           {label}
         </span>
         <CopyBtn text={address} />
       </div>
       <Link
         href={`/address/${address}`}
-        title={address}
-        className={`mt-2 block min-w-0 transition ${
+        className={`mt-1.5 block min-w-0 font-mono text-[12px] leading-5 break-all transition ${
           tone === 'primary'
             ? 'text-emerald-300 hover:text-emerald-200'
-            : 'text-white/60 hover:text-emerald-300'
+            : 'text-white/55 hover:text-emerald-300'
         }`}
       >
-        <span className="block font-mono text-[13px] leading-5 sm:hidden">
-          {truncateHash(address, 16, 8)}
-        </span>
-        <span className="hidden max-w-full truncate font-mono text-[13px] leading-5 sm:block">
-          {address}
-        </span>
+        <span className="sm:hidden">{truncateHash(address, 10, 6)}</span>
+        <span className="hidden sm:block">{address}</span>
       </Link>
     </div>
   );
@@ -235,14 +230,11 @@ export default function TransactionDetailPage() {
           <span className="text-white/70 font-mono">{truncateHash(displayTxHash)}</span>
         </div>
 
-        <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0">
-            <div className="text-sm text-white/45">Transaction Details</div>
-            <div className="mt-1 font-mono text-lg text-white/85 break-all">{displayTxHash}</div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Header: hash + badges */}
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center gap-2 mb-2">
             <span
-              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs font-medium ${
                 tx.success
                   ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-300'
                   : 'border-red-400/20 bg-red-400/10 text-red-300'
@@ -251,27 +243,34 @@ export default function TransactionDetailPage() {
               <span className={`h-1.5 w-1.5 rounded-full ${tx.success ? 'bg-emerald-400' : 'bg-red-400'}`} />
               {tx.success ? 'SUCCESS' : 'FAILED'}
             </span>
-            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${typeInfo.color}`}>
+            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${typeInfo.color}`}>
               {typeInfo.label}
             </span>
             {displayMethod && (
-              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-mono text-white/55">
+              <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-xs font-mono text-white/55">
                 {displayMethod}
               </span>
             )}
           </div>
+          <div className="flex items-start gap-2 min-w-0">
+            <div className="min-w-0">
+              <div className="text-[11px] uppercase tracking-wide text-white/35 mb-0.5">Transaction Hash</div>
+              <div className="font-mono text-sm text-white/80 break-all leading-relaxed">{displayTxHash}</div>
+            </div>
+            <CopyBtn text={displayTxHash} />
+          </div>
         </div>
 
         {/* ============================================================ */}
-        {/*  TWO-PANEL LAYOUT                                            */}
+        {/*  TWO-PANEL LAYOUT — tabs panel first on mobile               */}
         {/* ============================================================ */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 md:gap-6">
 
           {/* ---------------------------------------------------------- */}
-          {/*  LEFT PANEL: Transaction summary                            */}
+          {/*  LEFT PANEL: Transaction summary (below tabs on mobile)     */}
           {/* ---------------------------------------------------------- */}
-          <div className="lg:col-span-2 rounded-3xl border border-white/10 bg-white/5 p-6">
-            <h2 className="text-lg font-semibold mb-5">Summary</h2>
+          <div className="order-2 md:order-1 md:col-span-2 rounded-3xl border border-white/10 bg-white/5 p-4 md:p-6">
+            <h2 className="text-base font-semibold mb-4 md:text-lg md:mb-5">Summary</h2>
 
             {/* Status */}
             <InfoRow label="Status">
@@ -289,38 +288,46 @@ export default function TransactionDetailPage() {
 
             {/* Hash */}
             <InfoRow label="Hash">
-              <span className="font-mono">{txHash ? truncateHash(txHash, 14) : 'Unavailable'}</span>
-              {txHash && <CopyBtn text={txHash} />}
+              <span className="flex items-center gap-2">
+                <span className="font-mono text-[13px]">{txHash ? truncateHash(txHash, 12) : 'Unavailable'}</span>
+                {txHash && <CopyBtn text={txHash} />}
+              </span>
             </InfoRow>
 
             {/* Original Hash (if different) */}
             {alternateEvmHash && (
               <InfoRow label="EVM Hash">
-                <span className="font-mono">{truncateHash(alternateEvmHash, 14)}</span>
-                <CopyBtn text={alternateEvmHash} />
+                <span className="flex items-center gap-2">
+                  <span className="font-mono text-[13px]">{truncateHash(alternateEvmHash, 12)}</span>
+                  <CopyBtn text={alternateEvmHash} />
+                </span>
               </InfoRow>
             )}
 
             {/* Block */}
             <InfoRow label="Block">
-              <Link
-                href={`/blocks/${tx.blockHeight}`}
-                className="font-mono text-emerald-300 hover:text-emerald-200 transition"
-              >
-                #{formatNumber(tx.blockHeight)}
-              </Link>
-              {confirmations > 0 && (
-                <span className="ml-2 text-xs text-white/40">
-                  ({formatNumber(confirmations)} confirmations)
-                </span>
-              )}
+              <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <Link
+                  href={`/blocks/${tx.blockHeight}`}
+                  className="font-mono text-emerald-300 hover:text-emerald-200 transition"
+                >
+                  #{formatNumber(tx.blockHeight)}
+                </Link>
+                {confirmations > 0 && (
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-xs text-white/40">
+                    {formatNumber(confirmations)} confirmations
+                  </span>
+                )}
+              </span>
             </InfoRow>
 
             {/* Time */}
             {tx.timestamp && (
               <InfoRow label="Time">
-                <span className="text-white/70 text-xs">{timeAgo(tx.timestamp)}</span>
-                <span className="ml-2 text-white/30 text-xs">({formatTimestamp(tx.timestamp)})</span>
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <span className="text-white/75 text-xs font-medium">{timeAgo(tx.timestamp)}</span>
+                  <span className="text-white/35 text-xs">{formatTimestamp(tx.timestamp)}</span>
+                </span>
               </InfoRow>
             )}
 
@@ -345,13 +352,15 @@ export default function TransactionDetailPage() {
             {/* Contract created */}
             {tx.contractAddress && (
               <InfoRow label="Contract">
-                <Link
-                  href={`/address/${tx.contractAddress}`}
-                  className="font-mono text-emerald-300 hover:text-emerald-200 transition"
-                >
-                  {truncateHash(tx.contractAddress, 10)}
-                </Link>
-                <CopyBtn text={tx.contractAddress} />
+                <span className="flex items-center gap-2">
+                  <Link
+                    href={`/address/${tx.contractAddress}`}
+                    className="font-mono text-[13px] text-emerald-300 hover:text-emerald-200 transition"
+                  >
+                    {truncateHash(tx.contractAddress, 10)}
+                  </Link>
+                  <CopyBtn text={tx.contractAddress} />
+                </span>
               </InfoRow>
             )}
 
@@ -371,11 +380,11 @@ export default function TransactionDetailPage() {
           </div>
 
           {/* ---------------------------------------------------------- */}
-          {/*  RIGHT PANEL: Tabbed details                                */}
+          {/*  RIGHT PANEL: Tabbed details (first on mobile)             */}
           {/* ---------------------------------------------------------- */}
-          <div className="lg:col-span-3 rounded-3xl border border-white/10 bg-white/5">
+          <div className="order-1 md:order-2 md:col-span-3 rounded-3xl border border-white/10 bg-white/5">
             {/* Tab header */}
-            <div className="border-b border-white/10 px-6 pt-5 pb-0 flex gap-6 overflow-x-auto">
+            <div className="border-b border-white/10 px-4 md:px-6 pt-4 md:pt-5 pb-0 flex gap-4 md:gap-6 overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
@@ -394,31 +403,36 @@ export default function TransactionDetailPage() {
               ))}
             </div>
 
-            <div className="px-6 py-2">
+            <div className="px-4 md:px-6 py-1 md:py-2">
               {/* ---- Overview tab ---- */}
               {rightTab === 'overview' && (
                 <>
-                  {/* Value */}
+                  {/* Value — always shows native LITHO value */}
                   <InfoRow label="Value">
-                    {tx.tokenTransferAmount ? (
-                      <FormattedValueElement 
-                        formattedStr={`${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol || '(token)'}`}
-                        tokenAddress={tx.contractAddress}
-                      />
-                    ) : (
-                      <FormattedValueElement 
-                        formattedStr={formatValue(tx.value, tx.denom)} 
-                      />
-                    )}
+                    <FormattedValueElement formattedStr={formatValue(tx.value, tx.denom)} />
                   </InfoRow>
 
-                  {/* Token Transfer Amount (if decoded from input) */}
+                  {/* Token Transfer Amount (decoded from ERC-20 input) */}
                   {tx.tokenTransferAmount && (
                     <InfoRow label="Token Amount">
-                      <FormattedValueElement 
-                        formattedStr={`${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol || '(token)'}`}
-                        tokenAddress={tx.contractAddress}
-                      />
+                      {tx.tokenSymbol ? (
+                        <FormattedValueElement
+                          formattedStr={`${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`}
+                          tokenAddress={tx.contractAddress}
+                        />
+                      ) : tx.contractAddress ? (
+                        <span className="flex items-center gap-2">
+                          <span className="font-mono">{formatSupply(tx.tokenTransferAmount)}</span>
+                          <Link
+                            href={`/token/${tx.contractAddress}`}
+                            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs text-white/50 hover:text-emerald-300 transition"
+                          >
+                            {truncateHash(tx.contractAddress, 6, 4)}
+                          </Link>
+                        </span>
+                      ) : (
+                        <span className="font-mono">{formatSupply(tx.tokenTransferAmount)}</span>
+                      )}
                     </InfoRow>
                   )}
 
@@ -464,12 +478,16 @@ export default function TransactionDetailPage() {
                     <span className={`inline-flex items-center rounded-full border px-3 py-0.5 text-xs font-medium ${typeInfo.color}`}>
                       {typeInfo.label}
                     </span>
-                    {displayMethod && (
-                      <span className="ml-2 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-0.5 text-xs font-mono text-white/50">
+                  </InfoRow>
+
+                  {/* Method */}
+                  {displayMethod && (
+                    <InfoRow label="Method">
+                      <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-0.5 text-xs font-mono text-white/50">
                         {displayMethod}
                       </span>
-                    )}
-                  </InfoRow>
+                    </InfoRow>
+                  )}
 
                   {/* Memo */}
                   {tx.memo && (
