@@ -171,6 +171,16 @@ CREATE INDEX IF NOT EXISTS idx_transfers_contract ON token_transfers(contract_ad
 CREATE INDEX IF NOT EXISTS idx_transfers_from ON token_transfers(from_address);
 CREATE INDEX IF NOT EXISTS idx_transfers_to ON token_transfers(to_address);
 CREATE INDEX IF NOT EXISTS idx_transfers_block ON token_transfers(block_height);
+-- Idempotency: prevent duplicate inserts when re-indexing the same tx/log pair
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'token_transfers_tx_log_unique'
+    ) THEN
+        ALTER TABLE token_transfers
+        ADD CONSTRAINT token_transfers_tx_log_unique UNIQUE (tx_hash, log_index);
+    END IF;
+END$$;
 
 -- ============================================================================
 -- CONTRACTS TABLE

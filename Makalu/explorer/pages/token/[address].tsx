@@ -48,6 +48,79 @@ function CopyBtn({ text }: { text: string }) {
   );
 }
 
+/* ── Add-to-Wallet (EIP-747) ──────────────────────────────────────────── */
+
+type WatchAssetProvider = {
+  request: (args: { method: string; params: unknown }) => Promise<unknown>;
+};
+
+function AddToWalletBtn({
+  address,
+  symbol,
+  decimals,
+  image,
+}: {
+  address: string;
+  symbol: string;
+  decimals: number;
+  image?: string;
+}) {
+  const [status, setStatus] = useState<'idle' | 'adding' | 'added' | 'unavailable' | 'rejected'>('idle');
+
+  const handleAdd = useCallback(async () => {
+    const eth = (typeof window !== 'undefined'
+      ? (window as unknown as { ethereum?: WatchAssetProvider }).ethereum
+      : undefined);
+    if (!eth?.request) {
+      setStatus('unavailable');
+      setTimeout(() => setStatus('idle'), 2500);
+      return;
+    }
+
+    setStatus('adding');
+    try {
+      const added = await eth.request({
+        method: 'wallet_watchAsset',
+        params: {
+          type: 'ERC20',
+          options: {
+            address,
+            symbol: symbol.slice(0, 11),
+            decimals,
+            ...(image ? { image } : {}),
+          },
+        },
+      });
+      setStatus(added ? 'added' : 'rejected');
+    } catch {
+      setStatus('rejected');
+    } finally {
+      setTimeout(() => setStatus('idle'), 2500);
+    }
+  }, [address, symbol, decimals, image]);
+
+  const label =
+    status === 'adding' ? 'Adding…' :
+    status === 'added' ? 'Added to wallet' :
+    status === 'unavailable' ? 'No wallet detected' :
+    status === 'rejected' ? 'Not added' :
+    'Add to Wallet';
+
+  return (
+    <button
+      onClick={handleAdd}
+      disabled={status === 'adding'}
+      className="inline-flex items-center gap-1.5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-3 py-2 text-xs font-medium text-emerald-200 transition hover:bg-emerald-400/20 disabled:opacity-60"
+      title="Add this token to MetaMask or compatible wallet"
+    >
+      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+        <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v5.5h5.5a.75.75 0 010 1.5h-5.5v5.5a.75.75 0 01-1.5 0v-5.5h-5.5a.75.75 0 010-1.5h5.5v-5.5A.75.75 0 0110 3z" clipRule="evenodd" />
+      </svg>
+      {label}
+    </button>
+  );
+}
+
 function TableSkeleton({ rows = 8 }: { rows?: number }) {
   return (
     <div>
@@ -719,17 +792,26 @@ export default function TokenDetailPage() {
             </div>
           </div>
 
-          {/* Contract address on header */}
+          {/* Contract address + add-to-wallet on header */}
           {token.contractAddress && (
-            <div className="sm:ml-auto flex items-center gap-2 bg-white/5 rounded-2xl border border-white/10 px-4 py-2">
-              <span className="text-xs text-white/40">Contract:</span>
-              <Link
-                href={`/address/${token.contractAddress}`}
-                className="font-mono text-sm text-emerald-300 hover:text-emerald-200 transition"
-              >
-                {truncateHash(token.contractAddress, 10, 8)}
-              </Link>
-              <CopyBtn text={token.contractAddress} />
+            <div className="sm:ml-auto flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 bg-white/5 rounded-2xl border border-white/10 px-4 py-2">
+                <span className="text-xs text-white/40">Contract:</span>
+                <Link
+                  href={`/address/${token.contractAddress}`}
+                  className="font-mono text-sm text-emerald-300 hover:text-emerald-200 transition"
+                >
+                  {truncateHash(token.contractAddress, 10, 8)}
+                </Link>
+                <CopyBtn text={token.contractAddress} />
+              </div>
+              {!isNative && (
+                <AddToWalletBtn
+                  address={token.contractAddress}
+                  symbol={token.symbol}
+                  decimals={decimals}
+                />
+              )}
             </div>
           )}
         </div>

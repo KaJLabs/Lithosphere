@@ -693,6 +693,46 @@ async function indexTx(
 
 // ─── EVM Transaction Indexing ─────────────────────────────────────────────────
 
+// ERC20/LEP100 Transfer(address indexed from, address indexed to, uint256 value)
+const ERC20_TRANSFER_TOPIC =
+  '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+interface RpcEvmReceipt {
+  logs?: Array<{
+    address: string;
+    topics: string[];
+    data: string;
+    logIndex: string;
+  }>;
+}
+
+interface RpcEvmTx {
+  from: string;
+  to: string | null;
+  value: string;
+  gasPrice: string;
+  gas: string;
+  nonce: string;
+  input: string;
+}
+
+async function evmRpc<T>(method: string, params: unknown[]): Promise<T | null> {
+  if (!EVM_RPC_URL) return null;
+  const r = await fetch(EVM_RPC_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const j = await r.json() as { result?: T; error?: unknown };
+  return j.result ?? null;
+}
+
+function topicToAddress(topic: string | undefined): string | null {
+  if (!topic || topic.length < 42) return null;
+  return ('0x' + topic.slice(-40)).toLowerCase();
+}
+
 async function indexEvmTx(
   client: DbClient,
   evmHash: string,
@@ -712,37 +752,25 @@ async function indexEvmTx(
   let gasLimit = gasUsed;
   let nonce    = 0;
   let input    = '';
+  let receipt: RpcEvmReceipt | null = null;
 
-  // Enrich with EVM JSON-RPC details when available
+  // Enrich with EVM JSON-RPC details when available (tx + receipt in parallel)
   if (EVM_RPC_URL) {
     try {
-      const r = await fetch(EVM_RPC_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          jsonrpc: '2.0', id: 1,
-          method: 'eth_getTransactionByHash',
-          params: [evmHash],
-        }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      const j = await r.json() as {
-        result?: {
-          from: string; to: string | null; value: string;
-          gasPrice: string; gas: string; nonce: string; input: string;
-        };
-      };
-      if (j.result) {
-        const t = j.result;
-        fromAddr = (t.from  ?? fromAddr).toLowerCase();
-        toAddr   = t.to ? t.to.toLowerCase() : null;
-        // Use BigInt for value/gasPrice to avoid Number overflow (>2^53)
-        value    = String(BigInt(t.value    ?? '0x0'));
-        gasPrice = String(BigInt(t.gasPrice ?? '0x0'));
-        gasLimit = Number(BigInt(t.gas   ?? '0x0'));
-        nonce    = Number(BigInt(t.nonce ?? '0x0'));
-        input    = t.input ?? '';
+      const [tx, rcpt] = await Promise.all([
+        evmRpc<RpcEvmTx>('eth_getTransactionByHash', [evmHash]),
+        evmRpc<RpcEvmReceipt>('eth_getTransactionReceipt', [evmHash]),
+      ]);
+      if (tx) {
+        fromAddr = (tx.from ?? fromAddr).toLowerCase();
+        toAddr   = tx.to ? tx.to.toLowerCase() : null;
+        value    = String(BigInt(tx.value    ?? '0x0'));
+        gasPrice = String(BigInt(tx.gasPrice ?? '0x0'));
+        gasLimit = Number(BigInt(tx.gas   ?? '0x0'));
+        nonce    = Number(BigInt(tx.nonce ?? '0x0'));
+        input    = tx.input ?? '';
       }
+      receipt = rcpt;
     } catch (err) {
       console.warn(`[evm] RPC enrichment failed for ${evmHash}:`, err instanceof Error ? err.message : String(err));
     }
@@ -779,6 +807,155 @@ async function indexEvmTx(
       [contractAddr, fromAddr, evmHash, height]
     );
   }
+
+  // Index LEP100/ERC20 Transfer event logs into token_transfers
+  if (receipt?.logs?.length) {
+    await indexTransferLogs(client, evmHash, height, blockTime, receipt.logs);
+  }
+}
+
+async function indexTransferLogs(
+  client: DbClient,
+  evmHash: string,
+  height: number,
+  blockTime: string,
+  logs: NonNullable<RpcEvmReceipt['logs']>
+): Promise<void> {
+  let inserted = 0;
+  for (const log of logs) {
+    if (!log.topics?.length) continue;
+    if (log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC) continue;
+    // ERC20 has 3 topics (event + from + to); ERC721 has 4 (adds tokenId). Skip NFTs for now.
+    if (log.topics.length !== 3) continue;
+
+    const from = topicToAddress(log.topics[1]);
+    const to = topicToAddress(log.topics[2]);
+    if (!from || !to) continue;
+
+    let value = '0';
+    try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
+
+    const logIndex = log.logIndex ? Number(BigInt(log.logIndex)) : 0;
+
+    await client.query(
+      `INSERT INTO token_transfers
+         (tx_hash, log_index, contract_address, from_address, to_address, value, block_height, timestamp)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT ON CONSTRAINT token_transfers_tx_log_unique DO NOTHING`,
+      [evmHash, logIndex, log.address.toLowerCase(), from, to, value, height, blockTime]
+    );
+    inserted++;
+  }
+  if (inserted > 0) {
+    console.log(`[evm] Indexed ${inserted} Transfer log(s) for tx ${evmHash.substring(0, 16)}…`);
+  }
+}
+
+// ─── Token Transfer Backfill ──────────────────────────────────────────────────
+//
+// One-shot self-heal that runs at startup: if we have evm_transactions but no
+// token_transfers (e.g., after rolling out Transfer-log indexing to a DB that
+// was already indexed), scan the EVM log history via eth_getLogs in chunks and
+// populate token_transfers directly. Avoids a full re-index of every block.
+//
+// Idempotency: tracked via indexer_state.token_transfers_backfill_completed.
+// Re-runnable safely because of the UNIQUE (tx_hash, log_index) constraint.
+
+interface EvmLog {
+  address: string;
+  topics: string[];
+  data: string;
+  logIndex: string;
+  transactionHash: string;
+  blockNumber: string;
+}
+
+async function backfillTokenTransfers(): Promise<void> {
+  if (!EVM_RPC_URL) {
+    console.log('[backfill] Token transfers: skipped (EVM_RPC_URL not set)');
+    return;
+  }
+
+  const marker = await getIndexerState('token_transfers_backfill_completed').catch(() => null);
+  if (marker === '1') return;
+
+  const [transferRow, evmRow] = await Promise.all([
+    pool.query<{ count: string }>('SELECT COUNT(*) AS count FROM token_transfers').catch(() => ({ rows: [{ count: '0' }] })),
+    pool.query<{ count: string }>('SELECT COUNT(*) AS count FROM evm_transactions').catch(() => ({ rows: [{ count: '0' }] })),
+  ]);
+  const transferTotal = parseInt(transferRow.rows[0]?.count ?? '0');
+  const evmTotal = parseInt(evmRow.rows[0]?.count ?? '0');
+
+  if (evmTotal === 0) {
+    // Nothing to backfill; don't mark as complete — let the next EVM activity trigger re-check.
+    return;
+  }
+  if (transferTotal > 0) {
+    // Already have data — assume previously-completed backfill. Mark and skip.
+    await setIndexerState('token_transfers_backfill_completed', '1').catch(() => {});
+    return;
+  }
+
+  const rangeQ = await pool.query<{ min_height: string | null; max_height: string | null }>(
+    'SELECT MIN(block_height) AS min_height, MAX(block_height) AS max_height FROM evm_transactions'
+  );
+  const minH = parseInt(rangeQ.rows[0]?.min_height ?? '0');
+  const maxH = parseInt(rangeQ.rows[0]?.max_height ?? '0');
+  if (!minH || !maxH) return;
+
+  console.log(`[backfill] Token transfers: scanning blocks ${minH}..${maxH} for Transfer logs`);
+  const CHUNK = 5000;
+  let totalInserted = 0;
+  let totalScanned = 0;
+
+  for (let chunkStart = minH; chunkStart <= maxH; chunkStart += CHUNK) {
+    const chunkEnd = Math.min(chunkStart + CHUNK - 1, maxH);
+    try {
+      const logs = await evmRpc<EvmLog[]>('eth_getLogs', [{
+        fromBlock: '0x' + chunkStart.toString(16),
+        toBlock: '0x' + chunkEnd.toString(16),
+        topics: [ERC20_TRANSFER_TOPIC],
+      }]);
+
+      if (!logs || !Array.isArray(logs) || logs.length === 0) continue;
+      totalScanned += logs.length;
+
+      const heights = [...new Set(logs.map((l) => Number(BigInt(l.blockNumber))))];
+      const tsQ = await pool.query<{ height: string; block_time: Date }>(
+        'SELECT height, block_time FROM blocks WHERE height = ANY($1::bigint[])',
+        [heights]
+      );
+      const tsMap = new Map<number, Date>(tsQ.rows.map((r) => [parseInt(r.height), r.block_time]));
+
+      for (const log of logs) {
+        if (log.topics.length !== 3) continue; // skip NFTs
+        const fromAddr = topicToAddress(log.topics[1]);
+        const toAddr = topicToAddress(log.topics[2]);
+        if (!fromAddr || !toAddr) continue;
+        let value = '0';
+        try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
+        const blockHeight = Number(BigInt(log.blockNumber));
+        const ts = tsMap.get(blockHeight);
+        if (!ts) continue; // block not indexed locally — skip
+        const logIndex = log.logIndex ? Number(BigInt(log.logIndex)) : 0;
+
+        const r = await pool.query(
+          `INSERT INTO token_transfers
+             (tx_hash, log_index, contract_address, from_address, to_address, value, block_height, timestamp)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+           ON CONFLICT ON CONSTRAINT token_transfers_tx_log_unique DO NOTHING`,
+          [log.transactionHash, logIndex, log.address.toLowerCase(), fromAddr, toAddr, value, blockHeight, ts]
+        );
+        totalInserted += r.rowCount ?? 0;
+      }
+      console.log(`[backfill] Chunk ${chunkStart}..${chunkEnd}: scanned ${logs.length} logs, ${totalInserted} inserted so far`);
+    } catch (err) {
+      console.warn(`[backfill] Chunk ${chunkStart}..${chunkEnd} failed:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  await setIndexerState('token_transfers_backfill_completed', '1').catch(() => {});
+  console.log(`[backfill] Token transfers complete: ${totalInserted}/${totalScanned} transfers inserted`);
 }
 
 // ─── Account Upsert ───────────────────────────────────────────────────────────
@@ -958,6 +1135,24 @@ async function main(): Promise<void> {
     ON CONFLICT (key) DO NOTHING
   `);
 
+  // Runtime migration: token_transfers unique constraint (idempotent re-indexing guard).
+  // New DBs get this from init.sql; existing prod DBs may be missing it.
+  try {
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'token_transfers_tx_log_unique'
+        ) THEN
+          ALTER TABLE token_transfers
+          ADD CONSTRAINT token_transfers_tx_log_unique UNIQUE (tx_hash, log_index);
+        END IF;
+      END$$;
+    `);
+  } catch (err) {
+    console.warn('[migration] token_transfers unique constraint failed:', err instanceof Error ? err.message : String(err));
+  }
+
   const shouldForceReset = process.env.FORCE_REINDEX === '1' || process.env.FORCE_REINDEX === 'true';
   await ensureChainConsistency(shouldForceReset);
   await seedStaticData();
@@ -991,6 +1186,15 @@ async function main(): Promise<void> {
     }
   } catch (err) {
     console.warn('[indexer] EVM backfill check failed:', err instanceof Error ? err.message : String(err));
+  }
+
+  // Token Transfer backfill: scan historical EVM logs for Transfer events.
+  // Runs once per DB (tracked via indexer_state). Needed when Transfer-log
+  // indexing is rolled out on top of a DB that was already indexed.
+  try {
+    await backfillTokenTransfers();
+  } catch (err) {
+    console.warn('[indexer] Token transfer backfill failed:', err instanceof Error ? err.message : String(err));
   }
 
   // Initial validator load

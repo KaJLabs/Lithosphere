@@ -1514,25 +1514,18 @@ export function explorerRouter(): Router {
         res.status(404).json({ message: 'Token contract not found' });
         return;
       }
+      const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
       const [holderCount, transferCount] = await Promise.all([
         query<CountRow>(
-          `SELECT COUNT(*) AS count FROM (
-             SELECT DISTINCT from_address AS addr FROM evm_transactions WHERE LOWER(to_address) = $1
+          `SELECT COUNT(DISTINCT addr) AS count FROM (
+             SELECT from_address AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
              UNION
-             SELECT DISTINCT to_address AS addr FROM evm_transactions WHERE LOWER(from_address) = $1
-             UNION
-             SELECT DISTINCT sender AS addr FROM transactions WHERE LOWER(receiver) = $1
-             UNION
-             SELECT DISTINCT receiver AS addr FROM transactions WHERE LOWER(sender) = $1
-           ) holders`,
-          [addrLower]
+             SELECT to_address   AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
+           ) h WHERE addr != $2`,
+          [addrLower, ZERO_ADDR]
         ).catch(() => [{ count: '0' }]),
         query<CountRow>(
-          `SELECT COUNT(*) AS count FROM (
-             SELECT hash FROM transactions WHERE LOWER(sender) = $1 OR LOWER(receiver) = $1
-             UNION
-             SELECT hash FROM evm_transactions WHERE LOWER(from_address) = $1 OR LOWER(to_address) = $1
-           ) all_txs`,
+          `SELECT COUNT(*) AS count FROM token_transfers WHERE LOWER(contract_address) = $1`,
           [addrLower]
         ).catch(() => [{ count: '0' }]),
       ]);
@@ -1675,28 +1668,28 @@ export function explorerRouter(): Router {
           offset,
         });
       } else {
-        // LEP100: transactions involving this contract
+        // LEP100: Transfer events from token_transfers (indexed from EVM logs)
         const addrLower = address.toLowerCase();
         const [rows, countResult] = await Promise.all([
-          query<{ hash: string; from_address: string; to_address: string | null; value: string | null; block_height: string; timestamp: Date }>(
-            `SELECT e.hash, e.from_address, e.to_address, e.value, e.block_height, e.timestamp
-             FROM evm_transactions e
-             WHERE LOWER(e.from_address) = $1 OR LOWER(e.to_address) = $1 OR LOWER(e.contract_address) = $1
-             ORDER BY e.block_height DESC LIMIT $2 OFFSET $3`,
+          query<{ tx_hash: string; from_address: string; to_address: string; value: string; block_height: string; timestamp: Date }>(
+            `SELECT tx_hash, from_address, to_address, value, block_height, timestamp
+             FROM token_transfers
+             WHERE LOWER(contract_address) = $1
+             ORDER BY block_height DESC, log_index DESC
+             LIMIT $2 OFFSET $3`,
             [addrLower, limit, offset]
           ),
           query<CountRow>(
-            `SELECT COUNT(*) AS count FROM evm_transactions
-             WHERE LOWER(from_address) = $1 OR LOWER(to_address) = $1 OR LOWER(contract_address) = $1`,
+            `SELECT COUNT(*) AS count FROM token_transfers WHERE LOWER(contract_address) = $1`,
             [addrLower]
           ),
         ]);
         res.json({
           transfers: rows.map((r) => ({
-            txHash: pickValidTxHash(r.hash) ?? '',
+            txHash: pickValidTxHash(r.tx_hash) ?? '',
             fromAddress: r.from_address,
-            toAddress: r.to_address ?? '',
-            value: weiToUlitho(r.value),
+            toAddress: r.to_address,
+            value: r.value,
             blockHeight: Number(r.block_height),
             timestamp: r.timestamp instanceof Date ? r.timestamp.toISOString() : String(r.timestamp),
           })),
@@ -1765,33 +1758,68 @@ export function explorerRouter(): Router {
           offset,
         });
       } else {
-        // LEP100: derive holders from evm_transactions involving this contract
+        // LEP100: derive holder balances from indexed Transfer events
+        // balance(addr) = Σ value where to = addr − Σ value where from = addr
+        // Uses NUMERIC(78,0) for exact big-int aggregation.
         const addrLower = address.toLowerCase();
+        const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+
+        const [supplyRow] = await query<{ total_supply: string | null }>(
+          `SELECT total_supply FROM contracts WHERE LOWER(address) = $1`,
+          [addrLower]
+        ).catch(() => [{ total_supply: null }]);
+        const totalSupplyStr = supplyRow?.total_supply ?? '0';
+
         const [rows, countResult] = await Promise.all([
-          query<{ address: string; tx_count: string }>(
-            `SELECT addr AS address, COUNT(*) AS tx_count FROM (
-               SELECT from_address AS addr FROM evm_transactions WHERE LOWER(to_address) = $1 OR LOWER(contract_address) = $1
+          query<{ address: string; balance: string }>(
+            `WITH flows AS (
+               SELECT to_address   AS addr,  value::numeric  AS amt
+               FROM token_transfers WHERE LOWER(contract_address) = $1
                UNION ALL
-               SELECT to_address AS addr FROM evm_transactions WHERE LOWER(from_address) = $1
-             ) interactions WHERE addr IS NOT NULL
-             GROUP BY addr ORDER BY tx_count DESC LIMIT $2 OFFSET $3`,
-            [addrLower, limit, offset]
+               SELECT from_address AS addr, -value::numeric  AS amt
+               FROM token_transfers WHERE LOWER(contract_address) = $1
+             )
+             SELECT addr AS address, SUM(amt)::text AS balance
+             FROM flows
+             WHERE addr IS NOT NULL AND addr != $2
+             GROUP BY addr
+             HAVING SUM(amt) > 0
+             ORDER BY SUM(amt) DESC
+             LIMIT $3 OFFSET $4`,
+            [addrLower, ZERO_ADDR, limit, offset]
           ),
           query<CountRow>(
-            `SELECT COUNT(DISTINCT addr) AS count FROM (
-               SELECT from_address AS addr FROM evm_transactions WHERE LOWER(to_address) = $1 OR LOWER(contract_address) = $1
+            `WITH flows AS (
+               SELECT to_address   AS addr,  value::numeric  AS amt
+               FROM token_transfers WHERE LOWER(contract_address) = $1
                UNION ALL
-               SELECT to_address AS addr FROM evm_transactions WHERE LOWER(from_address) = $1
-             ) interactions WHERE addr IS NOT NULL`,
-            [addrLower]
+               SELECT from_address AS addr, -value::numeric  AS amt
+               FROM token_transfers WHERE LOWER(contract_address) = $1
+             )
+             SELECT COUNT(*) AS count FROM (
+               SELECT addr FROM flows
+               WHERE addr IS NOT NULL AND addr != $2
+               GROUP BY addr HAVING SUM(amt) > 0
+             ) h`,
+            [addrLower, ZERO_ADDR]
           ),
         ]);
+
+        let totalSupply = 0n;
+        try { totalSupply = BigInt(totalSupplyStr || '0'); } catch { /* keep 0 */ }
+
         res.json({
-          holders: rows.map((r) => ({
-            address: r.address,
-            balance: r.tx_count, // Using tx count as proxy since we don't track ERC20 balances
-            percentage: 0,
-          })),
+          holders: rows.map((r) => {
+            let pct = 0;
+            try {
+              if (totalSupply > 0n) {
+                const bal = BigInt(r.balance);
+                // percent with 4-decimal precision via scaled integer math
+                pct = Number((bal * 1_000_000n) / totalSupply) / 10_000;
+              }
+            } catch { /* keep 0 */ }
+            return { address: r.address, balance: r.balance, percentage: pct };
+          }),
           total: parseInt(countResult[0]?.count ?? '0'),
           limit,
           offset,
