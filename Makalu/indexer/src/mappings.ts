@@ -159,17 +159,33 @@ const GENESIS_ACCOUNTS: SeedAccount[] = [
   { address: 'litho187m5cwfthxyspdzrpqvzs9c6f6k5gzenw8lkq2', evmAddress: '0x3fb74c392BB98900b443081828171a4Ead440B33', balance: '70000000000000000000000000', accountNumber: 15 },
 ];
 
+// Canonical LEP100 addresses deployed 2026-04-21 on lithosphere_700777-2 (live chain).
+// Deployer: 0x10ed4F004Fe708014ae27Bcc20c9Ed9df3f4eadF
 const SEEDED_TOKENS: SeedToken[] = [
-  { address: '0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe', name: 'Wrapped Lithosphere', symbol: 'wLITHO', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0x468022F17CAFEBD43C18f68D53c66a1a7f0E5249', name: 'Lithosphere LitBTC', symbol: 'LitBTC', decimals: 8, totalSupply: '21000000000000000' },
-  { address: '0x9611436ea7B4764Eeb1E31B83A5bF03c835Eb3e8', name: 'Lithosphere Algo', symbol: 'LAX', decimals: 6, totalSupply: '10000000000000000' },
-  { address: '0x8187b232BDa461d17EA519Ba6898F7b220AAf2e2', name: 'Jot Art', symbol: 'JOT', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0xE7eBf52bD714348984Fb00b4c99d9e994D60DF49', name: 'Colle AI', symbol: 'COLLE', decimals: 18, totalSupply: '5000000000000000000000000000' },
-  { address: '0x7a29252B13367800dD78FED47afFaB86a615c844', name: 'Imagen Network', symbol: 'IMAGE', decimals: 18, totalSupply: '10000000000000000000000000000' },
-  { address: '0x9984ad7a774218B263D74BD8A5FFEDa7DD6Fe020', name: 'AGII', symbol: 'AGII', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0x07039884740F4DB0f71BD3bCF87a3FfA0B85A26F', name: 'Built AI', symbol: 'BLDR', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0xa25c2a49893B0296977E2E70Da56AF47241d592F', name: 'FurGPT', symbol: 'FGPT', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0xDEE12eD9C5A1F7c29f3ab3961B892a8434A97EFa', name: 'Mansa AI', symbol: 'MUSA', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x93d74580a7b63a5B1FE5Aae05b7470bf9317aF9A', name: 'Wrapped Lithosphere', symbol: 'wLITHO', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0xeC2B25393287025dbcdDb30659E689678c478337', name: 'Lithosphere LitBTC', symbol: 'LitBTC', decimals: 8, totalSupply: '2100000000000000' },
+  { address: '0x0292C22AFC5DF714d51273BF16F9Fc3f17d97e7E', name: 'Lithosphere Algo', symbol: 'LAX', decimals: 6, totalSupply: '10000000000000' },
+  { address: '0xC0725568E86DCF6abE5729903bDF6FF999Ad52BD', name: 'Jot Art', symbol: 'JOT', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x25F70D427EB96b784ff2d0B458B6Aa5f6D251346', name: 'Colle AI', symbol: 'COLLE', decimals: 18, totalSupply: '5000000000000000000000000000' },
+  { address: '0xdB7b1F4b735e9f8096a44657599c9F6882ba0B0D', name: 'Imagen Network', symbol: 'IMAGE', decimals: 18, totalSupply: '10000000000000000000000000000' },
+  { address: '0xDB04AD818614a329110bdDA30c7c5e8C1Be61e45', name: 'AGII', symbol: 'AGII', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0xb47B81370934Db2461759BD29796100fdD35e3E9', name: 'Built AI', symbol: 'BLDR', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x71ce67fCf5D130473F46DBaD05f3260A8390dE73', name: 'FurGPT', symbol: 'FGPT', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x72791d72B6097D487cEC58605A62396c50C08b69', name: 'Mansa AI', symbol: 'MUSA', decimals: 18, totalSupply: '1000000000000000000000000000' },
+];
+
+// Pre-reset addresses from lithosphere_700777-1 — evicted on startup by migrateTokenAddresses().
+const STALE_TOKEN_ADDRESSES = [
+  '0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe',
+  '0x468022F17CAFEBD43C18f68D53c66a1a7f0E5249',
+  '0x9611436ea7B4764Eeb1E31B83A5bF03c835Eb3e8',
+  '0x8187b232BDa461d17EA519Ba6898F7b220AAf2e2',
+  '0xE7eBf52bD714348984Fb00b4c99d9e994D60DF49',
+  '0x7a29252B13367800dD78FED47afFaB86a615c844',
+  '0x9984ad7a774218B263D74BD8A5FFEDa7DD6Fe020',
+  '0x07039884740F4DB0f71BD3bCF87a3FfA0B85A26F',
+  '0xa25c2a49893B0296977E2E70Da56AF47241d592F',
+  '0xDEE12eD9C5A1F7c29f3ab3961B892a8434A97EFa',
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -472,6 +488,14 @@ async function seedGenesisAccounts(): Promise<void> {
   }
 }
 
+async function migrateTokenAddresses(): Promise<void> {
+  if (STALE_TOKEN_ADDRESSES.length === 0) return;
+  const placeholders = STALE_TOKEN_ADDRESSES.map((_, i) => `$${i + 1}`).join(', ');
+  const addrs = STALE_TOKEN_ADDRESSES.map(a => a.toLowerCase());
+  await pool.query(`DELETE FROM token_transfers WHERE lower(contract_address) IN (${placeholders})`, addrs);
+  await pool.query(`DELETE FROM contracts WHERE lower(address) IN (${placeholders}) AND contract_type = 'token'`, addrs);
+}
+
 async function seedTokenContracts(): Promise<void> {
   for (const token of SEEDED_TOKENS) {
     await pool.query(
@@ -492,6 +516,7 @@ async function seedStaticData(): Promise<void> {
   }
 
   try {
+    await migrateTokenAddresses();
     await seedTokenContracts();
     const tokenCount = await pool.query("SELECT COUNT(*) AS count FROM contracts WHERE contract_type = 'token'");
     console.log(`[indexer] LEP100 tokens seeded: ${tokenCount.rows[0]?.count ?? 0} tokens in contracts table`);

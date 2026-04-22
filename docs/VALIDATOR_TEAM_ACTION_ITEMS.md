@@ -108,64 +108,28 @@ If the deploy runs before this rename, it will create a new `/opt/lithosphere/Ma
 
 ---
 
-## 10. HTTPS EVM JSON-RPC proxy (NEW — reported 2026-04-22)
+## 10. EVM RPC routing — diagnosis corrected (2026-04-23)
 
-**Severity**: High — blocks EVM wallet UX on Makalu.
+**Original severity**: High (raised 2026-04-22). **Status**: Dev-side root cause resolved; infra ask reduced.
 
-**Problem**:
-`https://rpc.litho.ai` is currently routed to the Cosmos Tendermint RPC on Sentry 1. It answers `eth_chainId` correctly (`0xab169` = 700777) but returns empty `0x` for every other EVM method — `eth_getCode`, `eth_call`, `eth_getLogs`, etc. When a user adds the Makalu network to MetaMask / Trust / Rabby (using the explorer's advertised `rpcUrl: https://rpc.litho.ai`) and then pastes a LEP100 token contract address, the wallet calls `eth_getCode`, gets `0x`, and concludes "this is not a contract" — refusing to auto-fetch `name/symbol/decimals`.
+**Corrected diagnosis** (per your reply dated 2026-04-22):
+Our original report had the diagnosis inverted. `rpc.litho.ai` IS the live EVM JSON-RPC for `lithosphere_700777-2`. The NLB serves the abandoned `700777-1` fork. The `0x` returns we observed for `eth_getCode` on `0xEB6cfcC…` were correct — that address does not exist on the live chain; it was deployed pre-reset on `700777-1`.
 
-All 10 LEP100 tokens are **verified deployed on-chain** (confirmed via the NLB endpoint which returns ~2.3 KB of bytecode per address and correct `symbol()` return values). The failure is purely a client-side RPC-routing issue.
+**Actual root cause (dev side)**: The `SEEDED_TOKENS` constant in `Makalu/indexer/src/mappings.ts` had all 10 pre-reset contract addresses. The explorer's `/tokens` page was displaying those stale addresses. When users pasted them into MetaMask, `eth_getCode` on `rpc.litho.ai` returned `0x` because the contracts genuinely don't exist on `700777-2`.
 
-**Evidence** (from 2026-04-22):
-```
-# rpc.litho.ai — half-broken
-$ curl -sS -X POST https://rpc.litho.ai -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
-→ {"jsonrpc":"2.0","id":1,"result":"0xab169"}                    # correct
+**Dev-side fixes applied (2026-04-23)**:
+- Updated all 10 `SEEDED_TOKENS` to canonical `700777-2` addresses (deployer `0x10ed4F…`)
+- Added `migrateTokenAddresses()` startup step to evict stale DB rows on next deploy
+- Updated `EVM_RPC_URL` and `FAUCET_RPC_URL` in `.env.mainnet` from NLB → `https://rpc.litho.ai`
+- `WalletContext.tsx` already used `rpc.litho.ai` — no change needed there
 
-$ curl -sS -X POST https://rpc.litho.ai -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_getCode","params":["0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe","latest"],"id":1}'
-→ {"jsonrpc":"2.0","id":1,"result":"0x"}                          # WRONG — should return bytecode
+**Remaining infra ask**: `evm-rpc.litho.ai` as a dedicated EVM subdomain is still welcome for industry convention, but no longer blocking wallet UX. When you stand it up, please point it at `mtest-sentry-01:8545` (live chain), not the NLB.
 
-# NLB :8545 — works correctly
-$ curl -sS -X POST http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545 \
-    -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_getCode","params":["0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe","latest"],"id":1}'
-→ {"jsonrpc":"2.0","id":1,"result":"0x608060405234801561001057600080fd5b50…"}
-```
-
-**Blocker to direct fix in the explorer**: the NLB is plain HTTP. Browsers block mixed content from `https://makalu.litho.ai`, so we cannot just swap the `rpcUrl` to the raw NLB URL in `Makalu/explorer/context/WalletContext.tsx`.
-
-**What we need from you** (preferred — pick one):
-
-### Option A (preferred): stand up `evm-rpc.litho.ai` HTTPS proxy
-Same pattern already in use for `rpc.litho.ai` and `api.litho.ai`:
-- Create `evm-rpc.litho.ai` DNS A record pointing at Sentry 1
-- TLS-terminate on Sentry 1 nginx (Let's Encrypt cert, same issuance flow as the others)
-- Reverse-proxy all POST requests to Ethermint JSON-RPC on `:8545` of the validator/sentry (or keep the NLB as the upstream — whichever is the intended stable target)
-- Enable CORS `Access-Control-Allow-Origin: *` so the explorer frontend can also make direct reads if needed
-- Recommended: rate limit comparable to `rpc.litho.ai`
-
-Once live, the dev team will update:
-- `Makalu/explorer/context/WalletContext.tsx:17` → `rpcUrl: 'https://evm-rpc.litho.ai'`
-- Explorer-facing chain-config / docs / "Add to MetaMask" helpers
-- `Makalu/.env.mainnet` EVM_RPC_URL (optional — indexer can stay on the internal NLB)
-
-### Option B: fix rpc.litho.ai's nginx to proxy `eth_*` correctly
-Adjust the Sentry 1 nginx so the existing `rpc.litho.ai` host properly proxies EVM JSON-RPC methods (currently it forwards to CometBFT :26657 which doesn't implement `eth_getCode`/`eth_call`). Target is the Ethermint JSON-RPC port on the same node (`:8545`). This keeps the existing URL but requires method-aware routing or running a side-service that speaks both.
-
-**Option A is cleaner** (separates concerns, no behavior change on `rpc.litho.ai`, matches industry convention of a dedicated EVM-RPC subdomain).
-
-**Success criteria** (what we'll test before flipping the explorer):
+**Verification** (after our next deploy):
 ```bash
-$ curl -sS -X POST https://evm-rpc.litho.ai -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_getCode","params":["0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe","latest"],"id":1}'
-# Must return a non-0x bytecode string (>100 chars)
-
-$ curl -sS -X POST https://evm-rpc.litho.ai -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
-# Must return 0xab169
+$ curl -sS -X POST https://rpc.litho.ai -H 'Content-Type: application/json' \
+    -d '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x93d74580a7b63a5B1FE5Aae05b7470bf9317aF9A","latest"],"id":1}'
+# Must return ~2KB bytecode (wLITHO on 700777-2)
 ```
 
 ---
@@ -178,8 +142,8 @@ $ curl -sS -X POST https://evm-rpc.litho.ai -H 'Content-Type: application/json' 
 | Deploy status API fixes | Critical | Run ansible playbook on Sentry-1 |
 | Seed node list + topology guidance | High | Publish for external validators |
 | Binary provenance (builds, SBOM, fork docs) | High | Publish reproducible build instructions |
-| **HTTPS EVM JSON-RPC proxy (`evm-rpc.litho.ai`)** | **High** | **Stand up HTTPS proxy → NLB:8545 — blocks wallet token UX** |
-| NLB rename | Medium | Next maintenance window |
+| EVM wallet UX (token addresses) | ~~High~~ **Resolved** | Dev-side fix: canonical addresses + EVM_RPC_URL updated |
+| NLB decommission / re-target | Medium | Per your revised plan for item #4 |
 | Rate limit / anti-spam numbers | Medium | Provide authoritative config values |
 | gRPC/WSS TLS status | Medium | Confirm endpoint TLS configuration |
 | GitHub issue triage | Medium | Close or update #4 and #5 |
