@@ -493,7 +493,7 @@ async function migrateTokenAddresses(): Promise<void> {
   const placeholders = STALE_TOKEN_ADDRESSES.map((_, i) => `$${i + 1}`).join(', ');
   const addrs = STALE_TOKEN_ADDRESSES.map(a => a.toLowerCase());
   await pool.query(`DELETE FROM token_transfers WHERE lower(contract_address) IN (${placeholders})`, addrs);
-  await pool.query(`DELETE FROM contracts WHERE lower(address) IN (${placeholders}) AND contract_type = 'token'`, addrs);
+  await pool.query(`DELETE FROM contracts WHERE lower(address) IN (${placeholders})`, addrs);
 }
 
 async function seedTokenContracts(): Promise<void> {
@@ -501,7 +501,13 @@ async function seedTokenContracts(): Promise<void> {
     await pool.query(
       `INSERT INTO contracts (address, name, symbol, decimals, total_supply, contract_type)
        VALUES ($1, $2, $3, $4, $5, 'token')
-       ON CONFLICT (address) DO NOTHING`,
+       ON CONFLICT (address) DO UPDATE SET
+         name = EXCLUDED.name,
+         symbol = EXCLUDED.symbol,
+         decimals = EXCLUDED.decimals,
+         total_supply = EXCLUDED.total_supply,
+         contract_type = 'token',
+         updated_at = NOW()`,
       [token.address, token.name, token.symbol, token.decimals, token.totalSupply]
     );
   }
