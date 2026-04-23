@@ -162,9 +162,10 @@ jobs:
           sed -i 's|testnet-rpc\.lithosphere\.network|rpc.litho.ai|g' .env 2>/dev/null || true
           grep -q '^RPC_URL=' .env || echo 'RPC_URL=https://rpc.litho.ai' >> .env
           grep -q '^LCD_URL=' .env || echo 'LCD_URL=https://api.litho.ai' >> .env
-          grep -q '^EVM_RPC_URL=' .env || echo 'EVM_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545' >> .env
-          sed -i 's|^FAUCET_RPC_URL=https://rpc.litho.ai.*|FAUCET_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545|' .env 2>/dev/null || true
-          grep -q '^FAUCET_RPC_URL=' .env || echo 'FAUCET_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453.elb.us-east-1.amazonaws.com:8545' >> .env
+          sed -i 's|^EVM_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453\.elb\.us-east-1\.amazonaws\.com:8545.*|EVM_RPC_URL=https://rpc.litho.ai|' .env 2>/dev/null || true
+          grep -q '^EVM_RPC_URL=' .env || echo 'EVM_RPC_URL=https://rpc.litho.ai' >> .env
+          sed -i 's|^FAUCET_RPC_URL=http://litho-mainnet-rpc-nlb-90cbce98dabd2453\.elb\.us-east-1\.amazonaws\.com:8545.*|FAUCET_RPC_URL=https://rpc.litho.ai|' .env 2>/dev/null || true
+          grep -q '^FAUCET_RPC_URL=' .env || echo 'FAUCET_RPC_URL=https://rpc.litho.ai' >> .env
           sed -i 's/^FAUCET_CHAIN_ID=.*/FAUCET_CHAIN_ID=700777/' .env 2>/dev/null || true
           grep -q '^FAUCET_CHAIN_ID=' .env || echo 'FAUCET_CHAIN_ID=700777' >> .env
           # Prevent full re-index on every deploy/restart
