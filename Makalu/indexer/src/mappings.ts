@@ -163,7 +163,7 @@ const GENESIS_ACCOUNTS: SeedAccount[] = [
 // Deployer: 0x10ed4F004Fe708014ae27Bcc20c9Ed9df3f4eadF
 const SEEDED_TOKENS: SeedToken[] = [
   { address: '0x93d74580a7b63a5B1FE5Aae05b7470bf9317aF9A', name: 'Wrapped Lithosphere', symbol: 'wLITHO', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0x0292C22AFC5DF714d51273BF16F9Fc3f17d97e7E', name: 'Lithosphere Algo', symbol: 'LAX', decimals: 6, totalSupply: '10000000000000' },
+  { address: '0x0292C22AFC5DF714d51273BF16F9Fc3f17d97e7E', name: 'Lithosphere Algo', symbol: 'LAX', decimals: 18, totalSupply: '10000000000000000000000000000' },
   { address: '0xC0725568E86DCF6abE5729903bDF6FF999Ad52BD', name: 'Jot Art', symbol: 'JOT', decimals: 18, totalSupply: '1000000000000000000000000000' },
   { address: '0x25F70D427EB96b784ff2d0B458B6Aa5f6D251346', name: 'Colle AI', symbol: 'COLLE', decimals: 18, totalSupply: '5000000000000000000000000000' },
   { address: '0xdB7b1F4b735e9f8096a44657599c9F6882ba0B0D', name: 'Imagen Network', symbol: 'IMAGE', decimals: 18, totalSupply: '10000000000000000000000000000' },
