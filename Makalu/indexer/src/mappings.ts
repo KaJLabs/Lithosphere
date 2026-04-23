@@ -163,7 +163,6 @@ const GENESIS_ACCOUNTS: SeedAccount[] = [
 // Deployer: 0x10ed4F004Fe708014ae27Bcc20c9Ed9df3f4eadF
 const SEEDED_TOKENS: SeedToken[] = [
   { address: '0x93d74580a7b63a5B1FE5Aae05b7470bf9317aF9A', name: 'Wrapped Lithosphere', symbol: 'wLITHO', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0xeC2B25393287025dbcdDb30659E689678c478337', name: 'Lithosphere LitBTC', symbol: 'LitBTC', decimals: 8, totalSupply: '2100000000000000' },
   { address: '0x0292C22AFC5DF714d51273BF16F9Fc3f17d97e7E', name: 'Lithosphere Algo', symbol: 'LAX', decimals: 6, totalSupply: '10000000000000' },
   { address: '0xC0725568E86DCF6abE5729903bDF6FF999Ad52BD', name: 'Jot Art', symbol: 'JOT', decimals: 18, totalSupply: '1000000000000000000000000000' },
   { address: '0x25F70D427EB96b784ff2d0B458B6Aa5f6D251346', name: 'Colle AI', symbol: 'COLLE', decimals: 18, totalSupply: '5000000000000000000000000000' },
@@ -174,10 +173,15 @@ const SEEDED_TOKENS: SeedToken[] = [
   { address: '0x72791d72B6097D487cEC58605A62396c50C08b69', name: 'Mansa AI', symbol: 'MUSA', decimals: 18, totalSupply: '1000000000000000000000000000' },
 ];
 
+// Contracts intentionally excluded from the explorer/indexer token surface.
+const REMOVED_TOKEN_ADDRESSES = [
+  '0xeC2B25393287025dbcdDb30659E689678c478337',
+  '0x468022F17CAFEBD43C18f68D53c66a1a7f0E5249',
+];
+
 // Pre-reset addresses from lithosphere_700777-1 — evicted on startup by migrateTokenAddresses().
 const STALE_TOKEN_ADDRESSES = [
   '0xEB6cfcC84F35D6b20166cD6149Fed712ED2a7Cfe',
-  '0x468022F17CAFEBD43C18f68D53c66a1a7f0E5249',
   '0x9611436ea7B4764Eeb1E31B83A5bF03c835Eb3e8',
   '0x8187b232BDa461d17EA519Ba6898F7b220AAf2e2',
   '0xE7eBf52bD714348984Fb00b4c99d9e994D60DF49',
@@ -188,7 +192,13 @@ const STALE_TOKEN_ADDRESSES = [
   '0xDEE12eD9C5A1F7c29f3ab3961B892a8434A97EFa',
 ];
 
+const REMOVED_TOKEN_ADDRESS_SET = new Set(REMOVED_TOKEN_ADDRESSES.map((address) => address.toLowerCase()));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function isRemovedTokenAddress(address: string | null | undefined): boolean {
+  return !!address && REMOVED_TOKEN_ADDRESS_SET.has(address.toLowerCase());
+}
 
 /** Safely decode a CometBFT base64-encoded attribute. Returns null if not valid base64. */
 function tryBase64(s: string): string | null {
@@ -489,9 +499,10 @@ async function seedGenesisAccounts(): Promise<void> {
 }
 
 async function migrateTokenAddresses(): Promise<void> {
-  if (STALE_TOKEN_ADDRESSES.length === 0) return;
-  const placeholders = STALE_TOKEN_ADDRESSES.map((_, i) => `$${i + 1}`).join(', ');
-  const addrs = STALE_TOKEN_ADDRESSES.map(a => a.toLowerCase());
+  const prunedAddresses = [...new Set([...STALE_TOKEN_ADDRESSES, ...REMOVED_TOKEN_ADDRESSES].map((address) => address.toLowerCase()))];
+  if (prunedAddresses.length === 0) return;
+  const placeholders = prunedAddresses.map((_, i) => `$${i + 1}`).join(', ');
+  const addrs = prunedAddresses;
   await pool.query(`DELETE FROM token_transfers WHERE lower(contract_address) IN (${placeholders})`, addrs);
   await pool.query(`DELETE FROM contracts WHERE lower(address) IN (${placeholders})`, addrs);
 }
@@ -830,7 +841,7 @@ async function indexEvmTx(
   );
 
   // Track contract deployments
-  if (contractAddr && fromAddr) {
+  if (contractAddr && fromAddr && !isRemovedTokenAddress(contractAddr)) {
     await client.query(
       `INSERT INTO contracts (address, creator, creation_tx, creation_block)
        VALUES ($1, $2, $3, $4)
@@ -858,6 +869,7 @@ async function indexTransferLogs(
     if (log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC) continue;
     // ERC20 has 3 topics (event + from + to); ERC721 has 4 (adds tokenId). Skip NFTs for now.
     if (log.topics.length !== 3) continue;
+    if (isRemovedTokenAddress(log.address)) continue;
 
     const from = topicToAddress(log.topics[1]);
     const to = topicToAddress(log.topics[2]);
@@ -960,6 +972,7 @@ async function backfillTokenTransfers(): Promise<void> {
 
       for (const log of logs) {
         if (log.topics.length !== 3) continue; // skip NFTs
+        if (isRemovedTokenAddress(log.address)) continue;
         const fromAddr = topicToAddress(log.topics[1]);
         const toAddr = topicToAddress(log.topics[2]);
         if (!fromAddr || !toAddr) continue;
