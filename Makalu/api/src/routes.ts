@@ -16,7 +16,7 @@ import {
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
-const HIDDEN_TOKEN_SYMBOLS = new Set(['LitBTC']);
+const HIDDEN_TOKEN_SYMBOLS = new Set<string>();
 const HIDDEN_TOKEN_ADDRESSES = new Set(['0x468022f17cafebd43c18f68d53c66a1a7f0e5249']);
 const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
 const SYNCING_LAG_THRESHOLD = 1000;
