@@ -4,7 +4,7 @@
   "status": "live",
   "networkType": "testnet",
   "prettyName": "Lithosphere Makalu",
-  "chainId": "lithosphere_700777-1",
+  "chainId": "lithosphere_700777-2",
   "evmChainId": 700777,
   "evmChainIdHex": "0xab169",
   "bech32Prefix": "litho",
@@ -12,7 +12,7 @@
   "nativeDenom": "ulitho",
   "displayDenom": "LITHO",
   "decimals": 18,
-  "blockTime": "~3s",
+  "blockTime": "~2s",
   "consensus": "CometBFT (LinBFT)",
   "framework": "Cosmos-SDK (Ethermint/Evmos fork)",
   "vmCompatibility": "EVM (Solidity, LithoVM)",
@@ -31,13 +31,24 @@
     ],
     "grpc": [
       {
-        "address": "grpc.litho.ai:9090",
-        "provider": "Lithosphere Foundation"
+        "address": "31.97.39.138:9090",
+        "provider": "Lithosphere Foundation",
+        "note": "Direct plaintext gRPC. grpc.litho.ai DNS pending."
       }
     ],
     "evmJsonRpc": [
       {
+        "address": "https://evm-rpc.litho.ai",
+        "provider": "Lithosphere Foundation"
+      },
+      {
         "address": "https://rpc.litho.ai",
+        "provider": "Lithosphere Foundation"
+      }
+    ],
+    "evmWebSocket": [
+      {
+        "address": "wss://rpc.litho.ai/websocket",
         "provider": "Lithosphere Foundation"
       }
     ]
@@ -54,7 +65,7 @@
   "walletConfig": {
     "chainId": "0xab169",
     "chainName": "Lithosphere Makalu",
-    "rpcUrls": ["https://rpc.litho.ai"],
+    "rpcUrls": ["https://evm-rpc.litho.ai", "https://rpc.litho.ai"],
     "nativeCurrency": {
       "name": "LITHO",
       "symbol": "LITHO",
@@ -67,5 +78,5 @@
     "amounts": ["10", "25", "50"],
     "cooldownHours": 24
   },
-  "updatedAt": "2026-04-13"
+  "updatedAt": "2026-04-24"
 }
