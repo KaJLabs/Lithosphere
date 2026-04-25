@@ -288,8 +288,8 @@ export default function TransactionDetailPage() {
 
             {/* Hash */}
             <InfoRow label="Hash">
-              <span className="flex items-center gap-2">
-                <span className="font-mono text-[13px]">{txHash ? truncateHash(txHash, 12) : 'Unavailable'}</span>
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 truncate font-mono text-[13px]">{txHash ? truncateHash(txHash, 12) : 'Unavailable'}</span>
                 {txHash && <CopyBtn text={txHash} />}
               </span>
             </InfoRow>
@@ -297,8 +297,8 @@ export default function TransactionDetailPage() {
             {/* Original Hash (if different) */}
             {alternateEvmHash && (
               <InfoRow label="EVM Hash">
-                <span className="flex items-center gap-2">
-                  <span className="font-mono text-[13px]">{truncateHash(alternateEvmHash, 12)}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <span className="min-w-0 truncate font-mono text-[13px]">{truncateHash(alternateEvmHash, 12)}</span>
                   <CopyBtn text={alternateEvmHash} />
                 </span>
               </InfoRow>
@@ -407,10 +407,12 @@ export default function TransactionDetailPage() {
               {/* ---- Overview tab ---- */}
               {rightTab === 'overview' && (
                 <>
-                  {/* Value — always shows native LITHO value */}
-                  <InfoRow label="Value">
-                    <FormattedValueElement formattedStr={formatValue(tx.value, tx.denom)} />
-                  </InfoRow>
+                  {/* Value — hide when zero and a token transfer carries the value */}
+                  {(!tx.tokenTransferAmount || tx.value !== '0') && (
+                    <InfoRow label="Value">
+                      <FormattedValueElement formattedStr={formatValue(tx.value, tx.denom)} />
+                    </InfoRow>
+                  )}
 
                   {/* Token Transfer Amount (decoded from ERC-20 input) */}
                   {tx.tokenTransferAmount && (
@@ -430,6 +432,8 @@ export default function TransactionDetailPage() {
                             {truncateHash(tx.contractAddress, 6, 4)}
                           </Link>
                         </span>
+                      ) : tx.denom ? (
+                        <FormattedValueElement formattedStr={formatValue(tx.tokenTransferAmount, tx.denom)} />
                       ) : (
                         <span className="font-mono">{formatSupply(tx.tokenTransferAmount)}</span>
                       )}
