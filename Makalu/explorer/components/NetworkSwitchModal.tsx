@@ -1,10 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useState, useEffect, useCallback } from 'react';
-import {
-  useWeb3ModalAccount,
-  useWeb3ModalProvider,
-  useDisconnect,
-} from '@web3modal/ethers/react';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 
 const MAKALU_CHAIN_ID = 700777;
 const MAKALU_CHAIN_HEX = '0xab169';
@@ -21,21 +17,15 @@ type EthereumProvider = {
   request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
 };
 
-/**
- * NetworkSwitchModal
- *
- * Renders a portal modal whenever the connected wallet is on a chain other
- * than Lithosphere Makalu Testnet (chainId 700777).
- *
- * - If the chain is already in the wallet → prompts to switch.
- * - If the chain is missing (error 4902) → prompts to add + switch.
- * - Dismissing (X) hides the modal for the current session; it reappears
- *   if the user switches away from Makalu again or reconnects.
- */
 export default function NetworkSwitchModal() {
-  const { address, isConnected, chainId } = useWeb3ModalAccount();
-  const { walletProvider } = useWeb3ModalProvider();
-  const { disconnect } = useDisconnect();
+  const { logout, authenticated } = usePrivy();
+  const { wallets } = useWallets();
+
+  const activeWallet = wallets[0] ?? null;
+  const address = activeWallet?.address;
+  const chainIdRaw = activeWallet?.chainId;
+  const chainId = chainIdRaw ? parseInt(chainIdRaw.replace(/^eip155:/, ''), 10) : null;
+  const isConnected = authenticated && !!address;
 
   const [dismissed, setDismissed] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -45,7 +35,7 @@ export default function NetworkSwitchModal() {
     setMounted(true);
   }, []);
 
-  // Reset dismissed state when the user disconnects or lands on Makalu
+  // Reset dismissed when user disconnects or lands on Makalu
   useEffect(() => {
     if (!isConnected || chainId === MAKALU_CHAIN_ID) {
       setDismissed(false);
@@ -56,63 +46,64 @@ export default function NetworkSwitchModal() {
     mounted &&
     isConnected &&
     Boolean(address) &&
+    chainId !== null &&
     chainId !== MAKALU_CHAIN_ID &&
     !dismissed;
 
   const handleSwitch = useCallback(async () => {
-    const injected =
-      typeof window !== 'undefined'
-        ? (window as Window & { ethereum?: EthereumProvider }).ethereum
-        : undefined;
-    const provider =
-      (walletProvider as EthereumProvider | undefined) ?? injected;
-    if (!provider?.request) return;
+    if (!activeWallet) return;
 
     setSwitching(true);
     try {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: MAKALU_CHAIN_HEX }],
-      });
-    } catch (err: unknown) {
-      const code =
-        typeof err === 'object' && err !== null && 'code' in err
-          ? Number((err as { code?: number | string }).code)
-          : undefined;
-      const message =
-        err instanceof Error ? err.message : String(err ?? '');
-      const chainMissing =
-        code === 4902 || /4902|unrecognized chain|not been added/i.test(message);
+      await activeWallet.switchChain(MAKALU_CHAIN_ID);
+    } catch {
+      // Fallback: use raw EthereumProvider for external wallets
+      try {
+        const provider = await activeWallet.getEthereumProvider() as EthereumProvider;
 
-      if (chainMissing) {
         try {
           await provider.request({
-            method: 'wallet_addEthereumChain',
-            params: [MAKALU_CHAIN_FOR_WALLET],
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: MAKALU_CHAIN_HEX }],
           });
-        } catch (addErr: unknown) {
-          const addCode =
-            typeof addErr === 'object' &&
-            addErr !== null &&
-            'code' in addErr
-              ? Number((addErr as { code?: number | string }).code)
+        } catch (switchErr: unknown) {
+          const code =
+            typeof switchErr === 'object' && switchErr !== null && 'code' in switchErr
+              ? Number((switchErr as { code?: number | string }).code)
               : undefined;
-          if (addCode !== 4001) {
-            console.error('Failed to add Makalu network:', addErr);
+          const message = switchErr instanceof Error ? switchErr.message : String(switchErr ?? '');
+          const chainMissing =
+            code === 4902 || /4902|unrecognized chain|not been added/i.test(message);
+
+          if (chainMissing) {
+            try {
+              await provider.request({
+                method: 'wallet_addEthereumChain',
+                params: [MAKALU_CHAIN_FOR_WALLET],
+              });
+            } catch (addErr: unknown) {
+              const addCode =
+                typeof addErr === 'object' && addErr !== null && 'code' in addErr
+                  ? Number((addErr as { code?: number | string }).code)
+                  : undefined;
+              if (addCode !== 4001) console.error('Failed to add Makalu network:', addErr);
+            }
+          } else if (code !== 4001) {
+            console.error('Failed to switch to Makalu network:', switchErr);
           }
         }
-      } else if (code !== 4001) {
-        console.error('Failed to switch to Makalu network:', err);
+      } catch (provErr) {
+        console.error('Failed to get wallet provider:', provErr);
       }
     } finally {
       setSwitching(false);
     }
-  }, [walletProvider]);
+  }, [activeWallet]);
 
   const handleDisconnect = useCallback(async () => {
     setDismissed(false);
-    await disconnect();
-  }, [disconnect]);
+    await logout();
+  }, [logout]);
 
   if (!shouldShow || typeof document === 'undefined') return null;
 
@@ -174,7 +165,6 @@ export default function NetworkSwitchModal() {
             disabled={switching}
             className="mt-6 flex w-full items-center gap-4 rounded-2xl bg-white/[0.05] px-4 py-3.5 text-left transition hover:bg-white/[0.10] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {/* Network icon */}
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[#1a2030]">
               <svg
                 className="h-5 w-5 text-white/80"
@@ -185,7 +175,6 @@ export default function NetworkSwitchModal() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                {/* Hub / network icon */}
                 <circle cx="12" cy="5" r="1.5" />
                 <circle cx="5" cy="19" r="1.5" />
                 <circle cx="19" cy="19" r="1.5" />
@@ -200,9 +189,7 @@ export default function NetworkSwitchModal() {
             </span>
 
             {switching ? (
-              <span className="text-xs text-white/40 animate-pulse">
-                Switching…
-              </span>
+              <span className="text-xs text-white/40 animate-pulse">Switching…</span>
             ) : (
               <svg
                 className="h-4 w-4 text-white/30"
@@ -211,11 +198,7 @@ export default function NetworkSwitchModal() {
                 stroke="currentColor"
                 strokeWidth={2}
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M9 18l6-6-6-6"
-                />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
               </svg>
             )}
           </button>
@@ -247,9 +230,7 @@ export default function NetworkSwitchModal() {
                 <path d="M9 20H5a2 2 0 01-2-2V6a2 2 0 012-2h4" />
               </svg>
             </span>
-            <span className="font-semibold text-[15px] text-white/65">
-              Disconnect
-            </span>
+            <span className="font-semibold text-[15px] text-white/65">Disconnect</span>
           </button>
         </div>
       </div>
