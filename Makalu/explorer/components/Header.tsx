@@ -7,7 +7,7 @@ import {
   useWeb3ModalAccount,
   useWeb3ModalProvider,
   useDisconnect,
-} from '@web3modal/ethers';
+} from '@web3modal/ethers/react';
 import SearchBar from './SearchBar';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatValue } from '@/lib/format';

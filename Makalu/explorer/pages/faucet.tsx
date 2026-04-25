@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers';
+import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { isEvmAddress } from '@/lib/format';
 import { isEvmTxHash } from '@/lib/tx';
