@@ -12,6 +12,7 @@ collectDefaultMetrics({ prefix: 'litho_api_' });
 
 const app = express();
 const EXPLORER_INTERNAL_URL = process.env.EXPLORER_INTERNAL_URL || 'http://explorer:3000';
+const EXPLORER_PROXY_TIMEOUT_MS = 15_000;
 const STRIPPED_PROXY_HEADERS = new Set([
   'connection',
   'content-encoding',
@@ -55,6 +56,7 @@ async function proxyExplorerRequest(req: Request, res: Response) {
     method: req.method,
     headers: buildExplorerProxyHeaders(req),
     redirect: 'manual',
+    signal: AbortSignal.timeout(EXPLORER_PROXY_TIMEOUT_MS),
   });
 
   res.status(upstream.status);
@@ -130,9 +132,12 @@ async function start() {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       console.error(`[explorer-proxy] ${req.method} ${req.originalUrl} failed: ${message}`);
-      res.status(502).json({
+      const isTimeout = error instanceof Error && error.name === 'TimeoutError';
+      res.status(isTimeout ? 504 : 502).json({
         error: 'Explorer unavailable',
-        message: 'Could not reach the explorer frontend.',
+        message: isTimeout
+          ? 'Explorer frontend timed out.'
+          : 'Could not reach the explorer frontend.',
       });
     }
   });

@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 
 let _pool: Pool | null = null;
+const DATABASE_QUERY_TIMEOUT_MS = 15_000;
 
 export function getPool(): Pool {
   if (!_pool) {
@@ -9,6 +10,8 @@ export function getPool(): Pool {
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 3000,
+      query_timeout: DATABASE_QUERY_TIMEOUT_MS,
+      statement_timeout: DATABASE_QUERY_TIMEOUT_MS,
       ssl: process.env.DATABASE_URL?.includes('sslmode=disable')
         ? false
         : { rejectUnauthorized: false },

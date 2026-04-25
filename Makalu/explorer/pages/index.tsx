@@ -22,6 +22,7 @@ const MAKALU_CHAIN = {
 };
 
 const MAKALU_CHAIN_ID = parseInt(MAKALU_CHAIN.chainId, 16); // 700777
+const SSR_API_TIMEOUT_MS = 8_000;
 
 interface HomeProps {
   initialStats: StatsSummary | null;
@@ -570,9 +571,21 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
 export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
   const apiBase = process.env.API_INTERNAL_URL ?? 'http://api:4000';
 
+  async function fetchJsonWithTimeout<T>(path: string): Promise<T> {
+    const response = await fetch(`${apiBase}${path}`, {
+      signal: AbortSignal.timeout(SSR_API_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return response.json() as Promise<T>;
+  }
+
   const [statsResult, validatorsResult] = await Promise.allSettled([
-    fetch(`${apiBase}/api/stats/summary`).then((r) => r.json() as Promise<StatsSummary>),
-    fetch(`${apiBase}/api/validators`).then((r) => r.json() as Promise<ApiValidator[]>),
+    fetchJsonWithTimeout<StatsSummary>('/api/stats/summary'),
+    fetchJsonWithTimeout<ApiValidator[]>('/api/validators'),
   ]);
 
   return {

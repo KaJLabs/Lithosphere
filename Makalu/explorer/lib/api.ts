@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+const API_REQUEST_TIMEOUT_MS = 15_000;
+
 /**
  * Fetch from the REST API.
  * Nginx routes /api/* to our Express API on :8080 (mapped from :4000).
  */
 export async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`/api${path}`);
+  const res = await fetch(`/api${path}`, {
+    signal: AbortSignal.timeout(API_REQUEST_TIMEOUT_MS),
+  });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     // API returns JSON error bodies like {"statusCode":404,"message":"Block not found"}
