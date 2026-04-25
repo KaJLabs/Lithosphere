@@ -121,11 +121,6 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
       value: statsLoading ? '—' : `#${formatNumber(stats?.tipHeight ?? 0)}`,
     },
     {
-      label: 'TPS',
-      value: statsLoading ? '—' : String((stats?.tps1m || stats?.tps5m) ?? 0),
-      subtitle: '1M+ TPS Full Capacity',
-    },
-    {
       label: 'Validators',
       value: Array.isArray(validators) ? String(validators.length) : '—',
     },

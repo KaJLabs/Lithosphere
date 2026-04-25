@@ -35,7 +35,7 @@ function isHiddenToken(token: { symbol?: string | null; address?: string | null 
     || (address ? HIDDEN_TOKEN_ADDRESSES.has(address) : false);
 }
 
-type AssetType = 'native' | 'LEP100' | 'ERC-721';
+type AssetType = 'native' | 'LEP100' | 'LEP100-6';
 
 function isNftContractType(contractType: string | null | undefined): boolean {
   return contractType?.toLowerCase() === 'nft';
@@ -46,7 +46,7 @@ function isFungibleContractType(contractType: string | null | undefined, symbol?
 }
 
 function getAssetType(contractType: string | null | undefined, symbol?: string | null): AssetType {
-  if (isNftContractType(contractType)) return 'ERC-721';
+  if (isNftContractType(contractType)) return 'LEP100-6';
   if (isFungibleContractType(contractType, symbol)) return 'LEP100';
   return 'LEP100';
 }
@@ -59,8 +59,8 @@ function getAssetStandard(type: AssetType): string {
   switch (type) {
     case 'native':
       return 'Native';
-    case 'ERC-721':
-      return 'ERC-721';
+    case 'LEP100-6':
+      return 'LEP100-6';
     case 'LEP100':
     default:
       return 'LEP-100';
@@ -949,16 +949,8 @@ export function explorerRouter(): Router {
 
   r.get('/stats/summary', async (_req: Request, res: Response) => {
     try {
-      const [syncSummary, tx1m, tx5m, totalTxs, walletCount, avgBlockTime] = await Promise.all([
+      const [syncSummary, totalTxs, walletCount, avgBlockTime] = await Promise.all([
         getSyncSummary(),
-        query<CountRow>(
-          `SELECT COUNT(*) AS count FROM transactions
-           WHERE timestamp > NOW() - INTERVAL '1 minute'`
-        ),
-        query<CountRow>(
-          `SELECT COUNT(*) AS count FROM transactions
-           WHERE timestamp > NOW() - INTERVAL '5 minutes'`
-        ),
         query<CountRow>('SELECT COUNT(*) AS count FROM transactions'),
         query<CountRow>(
           `SELECT COUNT(*) AS count FROM (
@@ -976,12 +968,8 @@ export function explorerRouter(): Router {
            ) sub WHERE diff IS NOT NULL`
         ).catch(() => [{ avg_seconds: '0' }]),
       ]);
-      const txs1m = parseInt(tx1m[0]?.count ?? '0');
-      const txs5m = parseInt(tx5m[0]?.count ?? '0');
       res.json({
         ...syncSummary,
-        tps1m: Math.round((txs1m / 60) * 100) / 100,
-        tps5m: Math.round((txs5m / 300) * 100) / 100,
         totalTransactions: parseInt(totalTxs[0]?.count ?? '0'),
         walletAddresses: parseInt(walletCount[0]?.count ?? '0'),
         avgBlockTime: Math.round(parseFloat(avgBlockTime[0]?.avg_seconds ?? '0') * 10) / 10,

@@ -9,8 +9,6 @@ export interface StatsSummary {
   syncLagBlocks: number;
   isSyncing: boolean;
   inconsistentBlocks: number;
-  tps1m: number;
-  tps5m: number;
   totalTransactions: number;
   walletAddresses: number;
   avgBlockTime: number;
@@ -88,7 +86,7 @@ export interface ApiToken {
   totalSupply?: string;
   holders?: number | null;
   transfers?: number | null;
-  type: 'native' | 'LEP100' | 'ERC-721';
+  type: 'native' | 'LEP100' | 'LEP100-6';
 }
 
 export interface ApiTxList {
@@ -131,7 +129,7 @@ export interface ApiTokenDetail {
   symbol: string;
   decimals: number;
   totalSupply?: string;
-  type: 'native' | 'LEP100' | 'ERC-721';
+  type: 'native' | 'LEP100' | 'LEP100-6';
   creator?: string;
   creationTx?: string;
   creationBlock?: number;
