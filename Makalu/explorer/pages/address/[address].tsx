@@ -31,16 +31,16 @@ const ADDRESS_TX_PAGE_SIZE = 25;
 const ADDRESS_TX_GRID_CLASS = 'lg:grid-cols-[minmax(0,1.8fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.8fr)]';
 
 function isNftTokenDetail(tokenDetail: ApiTokenDetail | null | undefined): boolean {
-  return tokenDetail?.type === 'ERC-721';
+  return tokenDetail?.type === 'LEP100-6';
 }
 
 function getTokenStandardLabel(tokenDetail: ApiTokenDetail | null | undefined): string {
   if (tokenDetail?.standard) return tokenDetail.standard;
-  return isNftTokenDetail(tokenDetail) ? 'ERC-721' : 'LEP-100';
+  return isNftTokenDetail(tokenDetail) ? 'LEP100-6' : 'LEP-100';
 }
 
 function getTokenTypeLabel(tokenDetail: ApiTokenDetail | null | undefined): string {
-  return isNftTokenDetail(tokenDetail) ? 'ERC-721 Collection' : 'LEP-100 Token';
+  return isNftTokenDetail(tokenDetail) ? 'LEP100-6 Collection' : 'LEP-100 Token';
 }
 
 function formatOptionalSupply(raw: string | null | undefined, decimals: number): string {
@@ -641,7 +641,7 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
         <div className="p-5">
           {isNft ? (
             <div className="rounded-xl bg-black/30 border border-white/5 p-4 text-sm text-white/50">
-              ABI preview in this explorer is currently wired for LEP-100 contracts. Use source verification or an external ABI tool for this ERC-721 collection.
+              ABI preview in this explorer is currently wired for LEP-100 contracts. Use source verification or an external ABI tool for this LEP100-6 collection.
             </div>
           ) : (
             <pre className="rounded-xl bg-black/30 border border-white/5 p-4 font-mono text-xs text-white/60 overflow-auto max-h-80 whitespace-pre-wrap">
@@ -661,7 +661,7 @@ function InteractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
     return (
       <div className="p-6">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/60">
-          Direct contract interaction in this explorer is only wired for LEP-100 contracts. Use an ERC-721-aware wallet or contract console for this collection.
+          Direct contract interaction in this explorer is only wired for LEP-100 contracts. Use an LEP100-6-aware wallet or contract console for this collection.
         </div>
       </div>
     );

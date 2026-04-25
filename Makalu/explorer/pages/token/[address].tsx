@@ -31,12 +31,12 @@ function isNativeAsset(token: Pick<ApiTokenDetail, 'type'>): boolean {
 }
 
 function isNftAsset(token: Pick<ApiTokenDetail, 'type'>): boolean {
-  return token.type === 'ERC-721';
+  return token.type === 'LEP100-6';
 }
 
 function getAssetBadgeLabel(token: Pick<ApiTokenDetail, 'type'>): string {
   if (isNativeAsset(token)) return 'Native';
-  if (isNftAsset(token)) return 'ERC-721';
+  if (isNftAsset(token)) return 'LEP100-6';
   return 'LEP-100';
 }
 
@@ -59,7 +59,7 @@ function getAssetTypeLabel(token: Pick<ApiTokenDetail, 'type'>): string {
 function getAssetStandard(token: Pick<ApiTokenDetail, 'type' | 'standard'>): string {
   if (token.standard) return token.standard;
   if (isNativeAsset(token)) return 'Native';
-  if (isNftAsset(token)) return 'ERC-721';
+  if (isNftAsset(token)) return 'LEP100-6';
   return 'LEP-100';
 }
 

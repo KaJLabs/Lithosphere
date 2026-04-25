@@ -38,10 +38,10 @@ function TokenTypeBadge({ type }: { type: ApiToken['type'] }) {
       </span>
     );
   }
-  if (type === 'ERC-721') {
+  if (type === 'LEP100-6') {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
-        ERC-721
+        LEP100-6
       </span>
     );
   }
