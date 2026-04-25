@@ -414,29 +414,42 @@ export default function TransactionDetailPage() {
                     </InfoRow>
                   )}
 
-                  {/* Token Transfer Amount (decoded from ERC-20 input) */}
+                  {/* LEP100 Tokens Transferred */}
                   {tx.tokenTransferAmount && (
-                    <InfoRow label="Token Amount">
-                      {tx.tokenSymbol ? (
-                        <FormattedValueElement
-                          formattedStr={`${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`}
-                          tokenAddress={tx.contractAddress}
-                        />
-                      ) : tx.contractAddress ? (
-                        <span className="flex items-center gap-2">
-                          <span className="font-mono">{formatSupply(tx.tokenTransferAmount)}</span>
-                          <Link
-                            href={`/token/${tx.contractAddress}`}
-                            className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs text-white/50 hover:text-emerald-300 transition"
-                          >
-                            {truncateHash(tx.contractAddress, 6, 4)}
+                    <InfoRow label="LEP100 Tokens Transferred">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                        <span className="text-white/40 text-xs">▶ From</span>
+                        {tx.fromAddr ? (
+                          <Link href={`/address/${tx.fromAddr}`} className="font-mono text-xs text-emerald-300 hover:text-emerald-200 transition">
+                            {truncateHash(tx.fromAddr, 8, 6)}
                           </Link>
-                        </span>
-                      ) : tx.denom ? (
-                        <FormattedValueElement formattedStr={formatValue(tx.tokenTransferAmount, tx.denom)} />
-                      ) : (
-                        <span className="font-mono">{formatSupply(tx.tokenTransferAmount)}</span>
-                      )}
+                        ) : <span className="text-white/30 text-xs">—</span>}
+                        <span className="text-white/40 text-xs">To</span>
+                        {tx.toAddr ? (
+                          <Link href={`/address/${tx.toAddr}`} className="font-mono text-xs text-emerald-300 hover:text-emerald-200 transition">
+                            {truncateHash(tx.toAddr, 8, 6)}
+                          </Link>
+                        ) : <span className="text-white/30 text-xs">—</span>}
+                        <span className="text-white/40 text-xs">For</span>
+                        {tx.tokenSymbol ? (
+                          <FormattedValueElement
+                            formattedStr={`${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`}
+                            tokenAddress={tx.contractAddress}
+                          />
+                        ) : tx.contractAddress ? (
+                          <span className="flex items-center gap-1.5">
+                            <span className="font-semibold">{formatSupply(tx.tokenTransferAmount)}</span>
+                            <Link
+                              href={`/token/${tx.contractAddress}`}
+                              className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs text-white/50 hover:text-emerald-300 transition"
+                            >
+                              {truncateHash(tx.contractAddress, 6, 4)}
+                            </Link>
+                          </span>
+                        ) : (
+                          <FormattedValueElement formattedStr={formatValue(tx.tokenTransferAmount, tx.denom ?? 'ulitho')} />
+                        )}
+                      </div>
                     </InfoRow>
                   )}
 
