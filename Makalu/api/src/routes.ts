@@ -850,6 +850,20 @@ function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: stri
   };
 }
 
+async function enrichTokenInfo<T extends { tokenTransferAmount?: string | null; evmToAddr?: string; contractAddress?: string }>(mapped: T): Promise<T> {
+  if (!mapped.tokenTransferAmount || mapped.contractAddress || !mapped.evmToAddr) return mapped;
+  try {
+    const rows = await query<{ symbol: string | null; name: string | null }>(
+      `SELECT symbol, name FROM contracts WHERE LOWER(address) = LOWER($1) LIMIT 1`,
+      [mapped.evmToAddr]
+    );
+    if (rows[0]?.symbol) {
+      return { ...mapped, tokenSymbol: rows[0].symbol, contractAddress: mapped.evmToAddr };
+    }
+  } catch { /* non-critical — return unmapped */ }
+  return mapped;
+}
+
 function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
   const safeHash = pickValidTxHash(cosmosTx?.hash ?? evm.cosmos_tx_hash, evm.hash);
   const safeEvmHash = normalizeEvmTxHash(evm.hash) ?? undefined;
@@ -1091,7 +1105,8 @@ export function explorerRouter(): Router {
         let evmExtra: EvmExtra = { input_data: rows[0].evm_input_data, contract_address: rows[0].evm_contract_address, from_address: rows[0].evm_from_address, to_address: rows[0].evm_to_address, value: rows[0].evm_value, gas_price: rows[0].evm_gas_price, nonce: rows[0].evm_nonce };
         if (rows[0].evm_hash) evmExtra = await enrichEvmFromRpc(rows[0].evm_hash, evmExtra);
         const fee = computeFeeUlitho(rows[0].evm_gas_used ?? rows[0].gas_used, evmExtra.gas_price);
-        res.json({ ...mapTx(rows[0], rows[0].evm_hash, evmExtra), ...(fee ? { feePaid: fee } : {}) });
+        const base1 = { ...mapTx(rows[0], rows[0].evm_hash, evmExtra), ...(fee ? { feePaid: fee } : {}) };
+        res.json(await enrichTokenInfo(base1));
         return;
       }
 
@@ -1104,7 +1119,8 @@ export function explorerRouter(): Router {
         let evmExtra: EvmExtra = { input_data: rows2[0].evm_input_data, contract_address: rows2[0].evm_contract_address, from_address: rows2[0].evm_from_address, to_address: rows2[0].evm_to_address, value: rows2[0].evm_value, gas_price: rows2[0].evm_gas_price, nonce: rows2[0].evm_nonce };
         if (rows2[0].evm_hash) evmExtra = await enrichEvmFromRpc(rows2[0].evm_hash, evmExtra);
         const fee = computeFeeUlitho(rows2[0].evm_gas_used ?? rows2[0].gas_used, evmExtra.gas_price);
-        res.json({ ...mapTx(rows2[0], rows2[0].evm_hash, evmExtra), ...(fee ? { feePaid: fee } : {}) });
+        const base2 = { ...mapTx(rows2[0], rows2[0].evm_hash, evmExtra), ...(fee ? { feePaid: fee } : {}) };
+        res.json(await enrichTokenInfo(base2));
         return;
       }
 
@@ -1128,7 +1144,8 @@ export function explorerRouter(): Router {
         const mapped = mapEvmTx(enrichedEvm, cosmosTx[0]);
         // Compute fee from gasUsed * gasPrice
         const fee = computeFeeUlitho(enrichedEvm.gas_used, enrichedEvm.gas_price);
-        res.json(fee ? { ...mapped, feePaid: fee } : mapped);
+        const base3 = fee ? { ...mapped, feePaid: fee } : mapped;
+        res.json(await enrichTokenInfo(base3));
         return;
       }
 
