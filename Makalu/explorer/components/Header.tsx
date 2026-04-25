@@ -63,10 +63,11 @@ export default function Header() {
   const moreRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const walletMenuRef = useRef<HTMLDivElement>(null);
-  const { open } = useWeb3Modal();
+  const { open } = useAppKit();
   const { disconnect } = useDisconnect();
-  const { address, isConnected, chainId } = useWeb3ModalAccount();
-  const { walletProvider } = useWeb3ModalProvider();
+  const { address, isConnected } = useAppKitAccount();
+  const { chainId } = useAppKitNetwork();
+  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
   const isOnMakalu = chainId === MAKALU_CHAIN_ID;
   const balanceText = balanceLoading ? 'Refreshing...' : (lithoBalance ?? 'Unavailable');
 
