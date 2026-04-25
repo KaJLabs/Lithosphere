@@ -168,6 +168,10 @@ jobs:
           grep -q '^FAUCET_RPC_URL=' .env || echo 'FAUCET_RPC_URL=https://rpc.litho.ai' >> .env
           sed -i 's/^FAUCET_CHAIN_ID=.*/FAUCET_CHAIN_ID=700777/' .env 2>/dev/null || true
           grep -q '^FAUCET_CHAIN_ID=' .env || echo 'FAUCET_CHAIN_ID=700777' >> .env
+          if [ -f "$ENV_FILE" ] && grep -q '^FAUCET_TOKEN_ASSETS=' "$ENV_FILE"; then
+            sed -i '/^FAUCET_TOKEN_ASSETS=/d' .env 2>/dev/null || true
+            grep '^FAUCET_TOKEN_ASSETS=' "$ENV_FILE" >> .env
+          fi
           # Prevent full re-index on every deploy/restart
           sed -i 's/^FORCE_REINDEX=1/FORCE_REINDEX=0/' .env 2>/dev/null || true
           grep -q '^FORCE_REINDEX=' .env || echo 'FORCE_REINDEX=0' >> .env
