@@ -27,10 +27,11 @@ const ethersConfig = defaultConfig({
   enableCoinbase: true,
   rpcUrl: 'https://rpc.litho.ai',
   defaultChainId: 700777,
+  auth: { email: false, socials: [] },
 });
 
 try {
-  const modalOptions = {
+  createWeb3Modal({
     ethersConfig,
     chains,
     projectId: PROJECT_ID,
@@ -39,13 +40,11 @@ try {
       '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0',
       'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e18e4a0eb6f0f94bd4',
     ],
-    themeMode: 'dark' as const,
+    themeMode: 'dark',
     themeVariables: {
       '--w3m-accent': '#34d399',
     },
-  };
-  // `features` disables email/social login — supported at runtime but not in TS types for 5.1.11
-  createWeb3Modal(Object.assign(modalOptions, { features: { email: false, socials: false } }));
+  });
 } catch (error) {
   console.log('Web3Modal init:', error instanceof Error ? error.message : 'already initialized');
 }
