@@ -820,10 +820,18 @@ export default function TokenDetailPage() {
               </div>
             )}
             <div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl font-semibold">{token.name}</h1>
-                {token.verified && (
-                  <svg className="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                {token.verified ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
+                    Verified
+                  </span>
+                ) : token.type !== 'native' && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-0.5 text-xs font-medium text-yellow-300">
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
+                    Unverified
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-3 mt-1">
@@ -885,9 +893,9 @@ export default function TokenDetailPage() {
             <div className="text-xs text-white/30 mt-1">{token.transfers == null ? 'pending index' : 'total'}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
-            <div className="text-sm text-white/45 mb-1">Decimals</div>
-            <div className="text-xl font-semibold">{decimals}</div>
-            <div className="text-xs text-white/30 mt-1">{getAssetStandard(token)}</div>
+            <div className="text-sm text-white/45 mb-1">Standard</div>
+            <div className="text-xl font-semibold">{getAssetStandard(token)}</div>
+            <div className="text-xs text-white/30 mt-1">{decimals} decimals</div>
           </div>
         </div>
 
@@ -938,6 +946,10 @@ export default function TokenDetailPage() {
               </div>
             </div>
           )}
+          <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4 border-b border-white/5">
+            <div className="sm:w-44 shrink-0 text-sm text-white/45">Decimals</div>
+            <div className="flex-1 text-sm font-mono text-white">{decimals}</div>
+          </div>
           {token.createdAt && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4 border-b border-white/5">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Created</div>
