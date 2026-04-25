@@ -338,12 +338,13 @@ VALUES
 ON CONFLICT (address) DO NOTHING;
 
 -- ============================================================================
--- LEP100 TOKENS (9 deployed tokens on Lithosphere Makalu)
+-- LEP100 TOKENS (10 deployed tokens on Lithosphere Makalu)
 -- ============================================================================
 
 INSERT INTO contracts (address, name, symbol, decimals, total_supply, contract_type)
 VALUES
   ('0x93d74580a7b63a5B1FE5Aae05b7470bf9317aF9A', 'Wrapped Lithosphere', 'wLITHO', 18, '1000000000000000000000000000', 'token'),
+  ('0xeC2B25393287025dbcdDb30659E689678c478337', 'Lithosphere LitBTC', 'LitBTC', 18, '21000000000000000000000000', 'token'),
   ('0x0292C22AFC5DF714d51273BF16F9Fc3f17d97e7E', 'Lithosphere Algo', 'LAX', 18, '10000000000000000000000000000', 'token'),
   ('0xC0725568E86DCF6abE5729903bDF6FF999Ad52BD', 'Jot Art', 'JOT', 18, '1000000000000000000000000000', 'token'),
   ('0x25F70D427EB96b784ff2d0B458B6Aa5f6D251346', 'Colle AI', 'COLLE', 18, '5000000000000000000000000000', 'token'),
@@ -359,6 +360,6 @@ DO $$
 BEGIN
     RAISE NOTICE 'LITHOSCAN database initialized successfully at %', NOW();
     RAISE NOTICE 'Genesis accounts seeded: 15 accounts from address_mapping_litho.csv';
-    RAISE NOTICE 'LEP100 tokens seeded: 9 tokens (wLITHO, LAX, JOT, COLLE, IMAGE, AGII, BLDR, FGPT, MUSA)';
+    RAISE NOTICE 'LEP100 tokens seeded: 10 tokens (wLITHO, LitBTC, LAX, JOT, COLLE, IMAGE, AGII, BLDR, FGPT, MUSA)';
 END
 $$;
