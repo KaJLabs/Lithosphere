@@ -39,6 +39,10 @@ try {
       '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
       'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e18e4a0eb6f0f94bd4', // Coinbase
     ],
+    features: {
+      email: false,
+      socials: false,
+    },
     themeMode: 'dark',
     themeVariables: {
       '--w3m-accent': '#34d399',
