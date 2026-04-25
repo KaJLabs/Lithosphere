@@ -30,24 +30,22 @@ const ethersConfig = defaultConfig({
 });
 
 try {
-  createWeb3Modal({
+  const modalOptions = {
     ethersConfig,
     chains,
     projectId: PROJECT_ID,
     featuredWalletIds: [
-      'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
-      '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
-      'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e18e4a0eb6f0f94bd4', // Coinbase
+      'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96',
+      '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0',
+      'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e18e4a0eb6f0f94bd4',
     ],
-    features: {
-      email: false,
-      socials: false,
-    },
-    themeMode: 'dark',
+    themeMode: 'dark' as const,
     themeVariables: {
       '--w3m-accent': '#34d399',
     },
-  });
+  };
+  // `features` disables email/social login — supported at runtime but not in TS types for 5.1.11
+  createWeb3Modal(Object.assign(modalOptions, { features: { email: false, socials: false } }));
 } catch (error) {
   console.log('Web3Modal init:', error instanceof Error ? error.message : 'already initialized');
 }
