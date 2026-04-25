@@ -1,21 +1,23 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  createWeb3Modal,
-  defaultConfig,
-  useWeb3Modal,
-  useWeb3ModalAccount,
-  useDisconnect,
-} from '@web3modal/ethers/react';
+import { createAppKit, useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react';
+import { EthersAdapter } from '@reown/appkit-adapter-ethers';
+import { defineChain } from '@reown/appkit/networks';
 
 const PROJECT_ID = '4d5085c5fd29c034f63f9256013dcd09';
 
-const MAKALU_CHAIN = {
-  chainId: 700777,
-  name: 'Lithosphere Makalu Testnet',
-  currency: 'LITHO',
-  explorerUrl: 'https://makalu.litho.ai',
-  rpcUrl: 'https://rpc.litho.ai',
-};
+const makaluChain = defineChain({
+  id: 700777,
+  name: 'Lithosphere Makalu',
+  nativeCurrency: { name: 'LITHO', symbol: 'LITHO', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.litho.ai'] },
+  },
+  blockExplorers: {
+    default: { name: 'Makalu Explorer', url: 'https://makalu.litho.ai' },
+  },
+  caipNetworkId: 'eip155:700777',
+  chainNamespace: 'eip155',
+});
 
 const metadata = {
   name: 'Lithosphere Makalu Testnet Explorer',
@@ -24,23 +26,19 @@ const metadata = {
   icons: ['https://makalu.litho.ai/makalu-testnet-favicon.png'],
 };
 
-const ethersConfig = defaultConfig({
-  metadata,
-  defaultChainId: MAKALU_CHAIN.chainId,
-  rpcUrl: MAKALU_CHAIN.rpcUrl,
-  chains: [MAKALU_CHAIN],
-  enableInjected: true,  // MetaMask, Brave, etc.
-  enableCoinbase: true,  // Coinbase Wallet
-  enableEIP6963: true,   // Auto-detect all installed wallets
-});
+const ethersAdapter = new EthersAdapter();
 
-// Initialize Web3Modal once (try/catch handles HMR re-initialization)
 try {
-  createWeb3Modal({
-    ethersConfig,
-    chains: [MAKALU_CHAIN],
+  createAppKit({
+    adapters: [ethersAdapter],
+    networks: [makaluChain],
     projectId: PROJECT_ID,
-    enableAnalytics: true,
+    metadata,
+    features: {
+      email: true,
+      socials: ['google', 'x', 'discord', 'farcaster', 'github'],
+      emailShowWallets: true,
+    },
     featuredWalletIds: [
       'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96', // MetaMask
       '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0', // Trust Wallet
@@ -52,7 +50,7 @@ try {
     },
   });
 } catch (error) {
-  console.log('Web3Modal init:', error instanceof Error ? error.message : 'already initialized');
+  console.log('AppKit init:', error instanceof Error ? error.message : 'already initialized');
 }
 
 interface WalletContextType {
@@ -66,8 +64,8 @@ interface WalletContextType {
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
 export function WalletProvider({ children }: { children: React.ReactNode }) {
-  const { open } = useWeb3Modal();
-  const { address, chainId, isConnected } = useWeb3ModalAccount();
+  const { open } = useAppKit();
+  const { address, chainId, isConnected } = useAppKitAccount();
   const { disconnect } = useDisconnect();
   const [mounted, setMounted] = useState(false);
 
@@ -75,8 +73,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
-  // Render children immediately but suppress hydration mismatch by not
-  // exposing wallet state until the client mounts.
   if (!mounted) {
     return <>{children}</>;
   }
@@ -84,7 +80,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const value: WalletContextType = {
     address: address || null,
     isConnected: isConnected || false,
-    chainId: chainId || null,
+    chainId: chainId ? Number(chainId) : null,
     open,
     disconnect,
   };

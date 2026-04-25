@@ -3,11 +3,13 @@ import { useRouter } from 'next/router';
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  useWeb3Modal,
-  useWeb3ModalAccount,
-  useWeb3ModalProvider,
+  useAppKit,
+  useAppKitAccount,
+  useAppKitNetwork,
+  useAppKitProvider,
   useDisconnect,
-} from '@web3modal/ethers/react';
+} from '@reown/appkit/react';
+import type { Eip1193Provider } from 'ethers';
 import SearchBar from './SearchBar';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatValue } from '@/lib/format';

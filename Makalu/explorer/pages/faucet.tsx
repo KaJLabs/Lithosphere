@@ -1,7 +1,7 @@
 import Head from 'next/head';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useWeb3Modal } from '@web3modal/ethers/react';
-import { useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
+import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider } from '@reown/appkit/react';
+import type { Eip1193Provider } from 'ethers';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { isEvmAddress } from '@/lib/format';
 import { isEvmTxHash } from '@/lib/tx';
@@ -202,9 +202,10 @@ function ThemedSelect({
 }
 
 export default function FaucetPage() {
-  const { open } = useWeb3Modal();
-  const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
-  const { walletProvider } = useWeb3ModalProvider();
+  const { open } = useAppKit();
+  const { address: walletAddress, isConnected } = useAppKitAccount();
+  const { chainId } = useAppKitNetwork();
+  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
   const [address, setAddress] = useState('');
   const [assets, setAssets] = useState<FaucetAssetConfig[]>(FALLBACK_ASSETS);
   const [assetId, setAssetId] = useState(FALLBACK_ASSETS[0].id);
@@ -319,7 +320,7 @@ export default function FaucetPage() {
   async function promptNetworkAdd() {
     const provider = walletProvider ?? (window.ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined);
     if (!provider) return;
-    if (chainId === MAKALU_CHAIN_ID) return;
+    if (Number(chainId) === MAKALU_CHAIN_ID) return;
     setIsAddingNetwork(true);
     try {
       await provider.request({
@@ -341,7 +342,7 @@ export default function FaucetPage() {
   }
 
   async function addOrSwitchMakalu() {
-    if (chainId === MAKALU_CHAIN_ID) return;
+    if (Number(chainId) === MAKALU_CHAIN_ID) return;
 
     if (!isConnected) {
       pendingNetworkAdd.current = true;
@@ -650,12 +651,12 @@ export default function FaucetPage() {
               <div className="mt-6 flex flex-wrap gap-3">
                 <button
                   onClick={addOrSwitchMakalu}
-                  disabled={isAddingNetwork || chainId === MAKALU_CHAIN_ID}
+                  disabled={isAddingNetwork || Number(chainId) === MAKALU_CHAIN_ID}
                   className={PRIMARY_CTA_CLASSES}
                 >
                   {isAddingNetwork
                     ? 'Adding...'
-                    : chainId === MAKALU_CHAIN_ID
+                    : Number(chainId) === MAKALU_CHAIN_ID
                       ? 'Makalu Connected'
                       : isConnected
                         ? 'Switch to Makalu'

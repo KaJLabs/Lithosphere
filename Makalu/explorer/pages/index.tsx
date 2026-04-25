@@ -8,7 +8,8 @@ import { getPreferredTxHash } from '@/lib/tx';
 import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiTokenDetail } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
-import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
+import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider } from '@reown/appkit/react';
+import type { Eip1193Provider } from 'ethers';
 import { useState, useEffect, useRef } from 'react';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
@@ -29,9 +30,10 @@ interface HomeProps {
 }
 
 export default function Home({ initialStats, initialValidators }: HomeProps) {
-  const { open } = useWeb3Modal();
-  const { address, isConnected, chainId } = useWeb3ModalAccount();
-  const { walletProvider } = useWeb3ModalProvider();
+  const { open } = useAppKit();
+  const { address, isConnected } = useAppKitAccount();
+  const { chainId } = useAppKitNetwork();
+  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
   const [isAddingNetwork, setIsAddingNetwork] = useState(false);
   // Track if user clicked Add/Switch so we can auto-continue after wallet connects
   const pendingNetworkAdd = useRef(false);
@@ -49,7 +51,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
     const provider = walletProvider ?? (window.ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined);
     if (!provider) return;
 
-    if (chainId === MAKALU_CHAIN_ID) return; // already on Makalu
+    if (Number(chainId) === MAKALU_CHAIN_ID) return; // already on Makalu
 
     setIsAddingNetwork(true);
     try {
@@ -74,7 +76,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
 
   /** Main button handler: open web3modal if not connected, then add network natively */
   async function addOrSwitchMakalu() {
-    if (chainId === MAKALU_CHAIN_ID) return;
+    if (Number(chainId) === MAKALU_CHAIN_ID) return;
 
     if (!isConnected) {
       pendingNetworkAdd.current = true;
@@ -192,12 +194,12 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                 </Link>
                 <button
                   onClick={addOrSwitchMakalu}
-                  disabled={isAddingNetwork || chainId === MAKALU_CHAIN_ID}
+                  disabled={isAddingNetwork || Number(chainId) === MAKALU_CHAIN_ID}
                   className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-5 py-3 text-sm font-medium text-emerald-300 hover:bg-emerald-400/20 transition disabled:opacity-60"
                 >
                   {isAddingNetwork
                     ? 'Adding Network...'
-                    : chainId === MAKALU_CHAIN_ID
+                    : Number(chainId) === MAKALU_CHAIN_ID
                       ? '✓ Makalu Connected'
                       : isConnected
                         ? 'Switch to Makalu'

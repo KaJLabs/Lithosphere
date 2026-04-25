@@ -128,8 +128,8 @@ Our original report had the diagnosis inverted. `rpc.litho.ai` IS the live EVM J
 **Verification** (after our next deploy):
 ```bash
 $ curl -sS -X POST https://rpc.litho.ai -H 'Content-Type: application/json' \
-    -d '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x93d74580a7b63a5B1FE5Aae05b7470bf9317aF9A","latest"],"id":1}'
-# Must return ~2KB bytecode (wLITHO on 700777-2)
+    -d '{"jsonrpc":"2.0","method":"eth_getCode","params":["0x599a7E135f1790ae117b4EdDc0422D24Bc766161","latest"],"id":1}'
+# Must return ~2KB bytecode (active 2026-04-24 wLITHO deployment)
 ```
 
 ---
