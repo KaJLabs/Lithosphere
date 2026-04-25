@@ -8,7 +8,7 @@ import { getPreferredTxHash } from '@/lib/tx';
 import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiToken } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { useState, useEffect, useRef } from 'react';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
@@ -29,13 +29,9 @@ interface HomeProps {
 }
 
 export default function Home({ initialStats, initialValidators }: HomeProps) {
-  const { login, authenticated } = usePrivy();
-  const { wallets } = useWallets();
-  const activeWallet = wallets[0] ?? null;
-  const address = activeWallet?.address ?? undefined;
-  const chainIdRaw = activeWallet?.chainId;
-  const chainId = chainIdRaw ? parseInt(chainIdRaw.replace(/^eip155:/, ''), 10) : undefined;
-  const isConnected = authenticated && !!address;
+  const { open } = useWeb3Modal();
+  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const [isAddingNetwork, setIsAddingNetwork] = useState(false);
   // Track if user clicked Add/Switch so we can auto-continue after wallet connects
   const pendingNetworkAdd = useRef(false);
@@ -50,41 +46,39 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
 
   /** Prompt wallet to switch/add Makalu network */
   async function promptNetworkAdd() {
-    if (!activeWallet) return;
-    if (Number(chainId) === MAKALU_CHAIN_ID) return;
+    const provider = walletProvider ?? (window.ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined);
+    if (!provider) return;
+
+    if (Number(chainId) === MAKALU_CHAIN_ID) return; // already on Makalu
 
     setIsAddingNetwork(true);
     try {
-      await activeWallet.switchChain(MAKALU_CHAIN_ID);
-    } catch {
-      try {
-        const provider = await activeWallet.getEthereumProvider() as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
-        try {
-          await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: MAKALU_CHAIN.chainId }] });
-        } catch (switchError: unknown) {
-          const code = typeof switchError === 'object' && switchError !== null && 'code' in switchError
-            ? Number((switchError as { code?: number | string }).code) : undefined;
-          if (code === 4902) {
-            await provider.request({ method: 'wallet_addEthereumChain', params: [MAKALU_CHAIN] });
-          } else if (code !== 4001) {
-            console.error('Network switch error:', switchError);
-          }
-        }
-      } catch (provErr) {
-        console.error('Failed to get wallet provider:', provErr);
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: MAKALU_CHAIN.chainId }],
+      });
+    } catch (switchError: any) {
+      if (switchError?.code === 4902) {
+        // Chain not in wallet yet — add it
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [MAKALU_CHAIN],
+        });
+      } else if (switchError?.code !== 4001) {
+        console.error('Network switch error:', switchError);
       }
     } finally {
       setIsAddingNetwork(false);
     }
   }
 
-  /** Main button handler: open Privy login if not connected, then add network */
+  /** Main button handler: open web3modal if not connected, then add network natively */
   async function addOrSwitchMakalu() {
     if (Number(chainId) === MAKALU_CHAIN_ID) return;
 
     if (!isConnected) {
       pendingNetworkAdd.current = true;
-      login();
+      await open({ view: 'Connect' });
       return;
     }
 

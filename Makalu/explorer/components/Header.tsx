@@ -2,10 +2,19 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import {
+  useWeb3Modal,
+  useWeb3ModalAccount,
+  useWeb3ModalProvider,
+  useDisconnect,
+} from '@web3modal/ethers/react';
 import SearchBar from './SearchBar';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatValue } from '@/lib/format';
+
+type EthereumRequestProvider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
 
 const MAKALU_CHAIN_ID = 700777;
 const BALANCE_POLL_INTERVAL_MS = 15000;
@@ -52,13 +61,10 @@ export default function Header() {
   const moreRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const walletMenuRef = useRef<HTMLDivElement>(null);
-  const { login, logout, authenticated } = usePrivy();
-  const { wallets } = useWallets();
-  const activeWallet = wallets[0] ?? null;
-  const address = activeWallet?.address ?? undefined;
-  const chainIdRaw = activeWallet?.chainId;
-  const chainId = chainIdRaw ? parseInt(chainIdRaw.replace(/^eip155:/, ''), 10) : undefined;
-  const isConnected = authenticated && !!address;
+  const { open } = useWeb3Modal();
+  const { disconnect } = useDisconnect();
+  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const isOnMakalu = chainId === MAKALU_CHAIN_ID;
   const balanceText = balanceLoading ? 'Refreshing...' : (lithoBalance ?? 'Unavailable');
 
@@ -140,46 +146,86 @@ export default function Header() {
     let cancelled = false;
 
     const fetchBalance = async (showLoader: boolean) => {
-      if (showLoader && !cancelled) setBalanceLoading(true);
+      if (showLoader && !cancelled) {
+        setBalanceLoading(true);
+      }
 
       try {
-        const response = await fetch('https://rpc.litho.ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            jsonrpc: '2.0',
+        let hexBalance: string | null = null;
+
+        const injectedProvider =
+          typeof window !== 'undefined'
+            ? (window as Window & { ethereum?: EthereumRequestProvider }).ethereum
+            : undefined;
+
+        const provider =
+          (walletProvider as EthereumRequestProvider | undefined) ?? injectedProvider;
+
+        if (provider?.request && chainId === MAKALU_CHAIN_ID) {
+          const result = await provider.request({
             method: 'eth_getBalance',
             params: [address, 'latest'],
-            id: 1,
-          }),
-        });
+          });
+          if (typeof result === 'string') {
+            hexBalance = result;
+          }
+        }
 
-        if (!response.ok) throw new Error('RPC error');
+        // Fallback to public RPC to keep balance visible even when wallet is on another chain.
+        if (!hexBalance) {
+          const response = await fetch('https://rpc.litho.ai', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              method: 'eth_getBalance',
+              params: [address, 'latest'],
+              id: 1,
+            }),
+          });
 
-        const data: { result?: unknown } = await response.json();
-        if (typeof data.result !== 'string') throw new Error('Balance unavailable');
+          if (response.ok) {
+            const data: { result?: unknown } = await response.json();
+            if (typeof data.result === 'string') {
+              hexBalance = data.result;
+            }
+          }
+        }
 
-        const hex = data.result.startsWith('0x') ? data.result : `0x${data.result}`;
-        const formattedBalance = formatValue(BigInt(hex).toString());
+        if (!hexBalance) {
+          throw new Error('Balance unavailable');
+        }
 
-        if (!cancelled) setLithoBalance(formattedBalance);
+        const normalizedHex = hexBalance.startsWith('0x') ? hexBalance : `0x${hexBalance}`;
+        const wei = BigInt(normalizedHex);
+        const formattedBalance = formatValue(wei.toString());
+
+        if (!cancelled) {
+          setLithoBalance(formattedBalance);
+        }
       } catch (error) {
         console.error('Failed to fetch LITHO balance:', error);
-        if (!cancelled) setLithoBalance(null);
+        if (!cancelled) {
+          setLithoBalance(null);
+        }
       } finally {
-        if (showLoader && !cancelled) setBalanceLoading(false);
+        if (showLoader && !cancelled) {
+          setBalanceLoading(false);
+        }
       }
     };
 
     void fetchBalance(true);
 
-    const intervalId = setInterval(() => void fetchBalance(false), BALANCE_POLL_INTERVAL_MS);
+    const intervalId = setInterval(() => {
+      void fetchBalance(false);
+    }, BALANCE_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       clearInterval(intervalId);
     };
-  }, [address, isConnected]);
+  }, [address, chainId, isConnected, walletProvider]);
 
   const balanceDisplay = balanceLoading
     ? '...'
@@ -313,7 +359,7 @@ export default function Header() {
               type="button"
               onClick={async () => {
                 setWalletMenuOpen(false);
-                await logout();
+                await disconnect();
               }}
               className="flex w-full items-center justify-between rounded-2xl bg-white/[0.02] px-4 py-3 text-left text-[15px] font-medium text-white/50 transition hover:bg-white/[0.06] hover:text-white/85"
             >
@@ -421,7 +467,7 @@ export default function Header() {
                 type="button"
                 onClick={() => {
                   if (!isConnected) {
-                    login();
+                    void open({ view: 'Connect' });
                     return;
                   }
                   setWalletMenuOpen((prev) => !prev);
@@ -504,7 +550,9 @@ export default function Header() {
               {!isConnected ? (
                 <button
                   type="button"
-                  onClick={() => { login(); }}
+                  onClick={() => {
+                    void open({ view: 'Connect' });
+                  }}
                   className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm font-medium text-white transition hover:border-white/20"
                 >
                   Connect Wallet
@@ -532,7 +580,7 @@ export default function Header() {
                       type="button"
                       onClick={() => {
                         setMenuOpen(false);
-                        login();
+                        void open({ view: 'Networks' });
                       }}
                       className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/85 transition hover:border-white/20"
                     >
@@ -542,7 +590,7 @@ export default function Header() {
                       type="button"
                       onClick={async () => {
                         setMenuOpen(false);
-                        await logout();
+                        await disconnect();
                       }}
                       className="rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-2 text-sm text-red-300 transition hover:bg-red-400/10"
                     >

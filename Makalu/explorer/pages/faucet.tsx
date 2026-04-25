@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { isEvmAddress } from '@/lib/format';
 import { isEvmTxHash } from '@/lib/tx';
@@ -201,13 +201,9 @@ function ThemedSelect({
 }
 
 export default function FaucetPage() {
-  const { login, authenticated } = usePrivy();
-  const { wallets } = useWallets();
-  const activeWallet = wallets[0] ?? null;
-  const walletAddress = activeWallet?.address ?? undefined;
-  const chainIdRaw = activeWallet?.chainId;
-  const chainId = chainIdRaw ? parseInt(chainIdRaw.replace(/^eip155:/, ''), 10) : undefined;
-  const isConnected = authenticated && !!walletAddress;
+  const { open } = useWeb3Modal();
+  const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
   const [assets, setAssets] = useState<FaucetAssetConfig[]>(FALLBACK_ASSETS);
   const [assetId, setAssetId] = useState(FALLBACK_ASSETS[0].id);
@@ -320,27 +316,23 @@ export default function FaucetPage() {
   }, [isConnected]);
 
   async function promptNetworkAdd() {
-    if (!activeWallet) return;
+    const provider = walletProvider ?? (window.ethereum as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> } | undefined);
+    if (!provider) return;
     if (Number(chainId) === MAKALU_CHAIN_ID) return;
     setIsAddingNetwork(true);
     try {
-      await activeWallet.switchChain(MAKALU_CHAIN_ID);
-    } catch {
-      try {
-        const provider = await activeWallet.getEthereumProvider() as { request: (args: { method: string; params?: unknown[] }) => Promise<unknown> };
-        try {
-          await provider.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: MAKALU_CHAIN.chainId }] });
-        } catch (switchError: unknown) {
-          const code = typeof switchError === 'object' && switchError !== null && 'code' in switchError
-            ? Number((switchError as { code?: number | string }).code) : undefined;
-          if (code === 4902) {
-            await provider.request({ method: 'wallet_addEthereumChain', params: [MAKALU_CHAIN] });
-          } else if (code !== 4001) {
-            console.error('Network switch error:', switchError);
-          }
-        }
-      } catch (provErr) {
-        console.error('Failed to get wallet provider:', provErr);
+      await provider.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: MAKALU_CHAIN.chainId }],
+      });
+    } catch (switchError: any) {
+      if (switchError?.code === 4902) {
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [MAKALU_CHAIN],
+        });
+      } else if (switchError?.code !== 4001) {
+        console.error('Network switch error:', switchError);
       }
     } finally {
       setIsAddingNetwork(false);
@@ -352,7 +344,7 @@ export default function FaucetPage() {
 
     if (!isConnected) {
       pendingNetworkAdd.current = true;
-      login();
+      await open({ view: 'Connect' });
       return;
     }
 
@@ -470,7 +462,7 @@ export default function FaucetPage() {
                     if (isConnected) {
                       window.dispatchEvent(new CustomEvent('open-wallet-menu'));
                     } else {
-                      login();
+                      void open({ view: 'Connect' });
                     }
                   }}
                   className={PRIMARY_CTA_CLASSES}
@@ -584,7 +576,7 @@ export default function FaucetPage() {
                       if (isConnected) {
                         window.dispatchEvent(new CustomEvent('open-wallet-menu'));
                       } else {
-                        login();
+                        void open({ view: 'Connect' });
                       }
                     }}
                     className={PRIMARY_CTA_CLASSES}
