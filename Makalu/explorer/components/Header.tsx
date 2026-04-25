@@ -3,13 +3,11 @@ import { useRouter } from 'next/router';
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  useAppKit,
-  useAppKitAccount,
-  useAppKitNetwork,
-  useAppKitProvider,
+  useWeb3Modal,
+  useWeb3ModalAccount,
+  useWeb3ModalProvider,
   useDisconnect,
-} from '@reown/appkit/react';
-import type { Eip1193Provider } from 'ethers';
+} from '@web3modal/ethers';
 import SearchBar from './SearchBar';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatValue } from '@/lib/format';
@@ -63,11 +61,10 @@ export default function Header() {
   const moreRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const walletMenuRef = useRef<HTMLDivElement>(null);
-  const { open } = useAppKit();
+  const { open } = useWeb3Modal();
   const { disconnect } = useDisconnect();
-  const { address, isConnected } = useAppKitAccount();
-  const { chainId } = useAppKitNetwork();
-  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
+  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const isOnMakalu = chainId === MAKALU_CHAIN_ID;
   const balanceText = balanceLoading ? 'Refreshing...' : (lithoBalance ?? 'Unavailable');
 

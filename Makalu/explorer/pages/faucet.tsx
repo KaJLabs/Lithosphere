@@ -1,7 +1,6 @@
 import Head from 'next/head';
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider } from '@reown/appkit/react';
-import type { Eip1193Provider } from 'ethers';
+import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { isEvmAddress } from '@/lib/format';
 import { isEvmTxHash } from '@/lib/tx';
@@ -202,10 +201,9 @@ function ThemedSelect({
 }
 
 export default function FaucetPage() {
-  const { open } = useAppKit();
-  const { address: walletAddress, isConnected } = useAppKitAccount();
-  const { chainId } = useAppKitNetwork();
-  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
+  const { open } = useWeb3Modal();
+  const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const [address, setAddress] = useState('');
   const [assets, setAssets] = useState<FaucetAssetConfig[]>(FALLBACK_ASSETS);
   const [assetId, setAssetId] = useState(FALLBACK_ASSETS[0].id);

@@ -8,8 +8,7 @@ import { getPreferredTxHash } from '@/lib/tx';
 import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiTokenDetail } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
-import { useAppKit, useAppKitAccount, useAppKitNetwork, useAppKitProvider } from '@reown/appkit/react';
-import type { Eip1193Provider } from 'ethers';
+import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers';
 import { useState, useEffect, useRef } from 'react';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
@@ -30,10 +29,9 @@ interface HomeProps {
 }
 
 export default function Home({ initialStats, initialValidators }: HomeProps) {
-  const { open } = useAppKit();
-  const { address, isConnected } = useAppKitAccount();
-  const { chainId } = useAppKitNetwork();
-  const { walletProvider } = useAppKitProvider<Eip1193Provider>('eip155');
+  const { open } = useWeb3Modal();
+  const { address, isConnected, chainId } = useWeb3ModalAccount();
+  const { walletProvider } = useWeb3ModalProvider();
   const [isAddingNetwork, setIsAddingNetwork] = useState(false);
   // Track if user clicked Add/Switch so we can auto-continue after wallet connects
   const pendingNetworkAdd = useRef(false);
