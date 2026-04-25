@@ -30,11 +30,18 @@ function getAvatarColor(symbol: string): string {
 
 const ITEMS_PER_PAGE = 25;
 
-function TokenTypeBadge({ type }: { type: 'native' | 'LEP100' }) {
+function TokenTypeBadge({ type }: { type: ApiToken['type'] }) {
   if (type === 'native') {
     return (
       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-300 border border-emerald-500/20">
         native
+      </span>
+    );
+  }
+  if (type === 'ERC-721') {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
+        ERC-721
       </span>
     );
   }

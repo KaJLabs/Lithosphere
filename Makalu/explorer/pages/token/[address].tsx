@@ -26,6 +26,51 @@ type TabKey = (typeof TABS)[number]['key'];
 const PER_PAGE = 25;
 const TOKEN_TRANSFERS_GRID_CLASS = 'lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,0.8fr)]';
 
+function isNativeAsset(token: Pick<ApiTokenDetail, 'type'>): boolean {
+  return token.type === 'native';
+}
+
+function isNftAsset(token: Pick<ApiTokenDetail, 'type'>): boolean {
+  return token.type === 'ERC-721';
+}
+
+function getAssetBadgeLabel(token: Pick<ApiTokenDetail, 'type'>): string {
+  if (isNativeAsset(token)) return 'Native';
+  if (isNftAsset(token)) return 'ERC-721';
+  return 'LEP-100';
+}
+
+function getAssetBadgeClasses(token: Pick<ApiTokenDetail, 'type'>): string {
+  if (isNativeAsset(token)) {
+    return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20';
+  }
+  if (isNftAsset(token)) {
+    return 'bg-amber-500/10 text-amber-300 border-amber-500/20';
+  }
+  return 'bg-violet-500/10 text-violet-300 border-violet-500/20';
+}
+
+function getAssetTypeLabel(token: Pick<ApiTokenDetail, 'type'>): string {
+  if (isNativeAsset(token)) return 'Native Chain Asset';
+  if (isNftAsset(token)) return 'NFT Collection';
+  return 'LEP-100 Token';
+}
+
+function getAssetStandard(token: Pick<ApiTokenDetail, 'type' | 'standard'>): string {
+  if (token.standard) return token.standard;
+  if (isNativeAsset(token)) return 'Native';
+  if (isNftAsset(token)) return 'ERC-721';
+  return 'LEP-100';
+}
+
+function formatCount(value: number | null | undefined): string {
+  return value == null ? '--' : formatNumber(value);
+}
+
+function formatSupplyValue(raw: string | null | undefined, decimals: number): string {
+  return raw ? formatSupply(raw, decimals) : '--';
+}
+
 /* ── Small helpers ────────────────────────────────────────────────────── */
 
 function CopyBtn({ text }: { text: string }) {
@@ -169,7 +214,7 @@ function PageSkeleton() {
 
 /* ── Transfers Tab ────────────────────────────────────────────────────── */
 
-function TransfersTab({ address, decimals, symbol }: { address: string; decimals: number; symbol: string }) {
+function TransfersTab({ address, decimals, symbol, isNft }: { address: string; decimals: number; symbol: string; isNft?: boolean }) {
   const [page, setPage] = useState(0);
   const offset = page * PER_PAGE;
   const { data, loading } = useApi<ApiTokenTransferList>(
@@ -203,7 +248,7 @@ function TransfersTab({ address, decimals, symbol }: { address: string; decimals
             <div>Tx Hash</div>
             <div>From</div>
             <div>To</div>
-            <div className="text-right">Value</div>
+            <div className="text-right">{isNft ? 'Token ID' : 'Value'}</div>
             <div className="text-right">Age</div>
           </div>
 
@@ -252,9 +297,9 @@ function TransfersTab({ address, decimals, symbol }: { address: string; decimals
                 </div>
 
                 <div className="flex min-w-0 items-center lg:justify-end">
-                  <span className="mr-2 w-12 shrink-0 text-xs text-white/40 lg:hidden">Value</span>
+                  <span className="mr-2 w-12 shrink-0 text-xs text-white/40 lg:hidden">{isNft ? 'Token ID' : 'Value'}</span>
                   <span className="block min-w-0 text-sm font-mono text-white/80">
-                    {formatValue(tx.value)}
+                    {tx.tokenId != null ? `#${tx.tokenId}` : formatValue(tx.value)}
                   </span>
                 </div>
 
@@ -529,7 +574,7 @@ function ContractTab({ token }: { token: ApiTokenDetail }) {
           <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
             <div className="sm:w-44 shrink-0 text-sm text-white/45">Token Standard</div>
             <div className="flex-1 text-sm text-white">
-              {token.standard ?? (token.type === 'native' ? 'Native' : 'LEP-100')}
+              {getAssetStandard(token)}
             </div>
           </div>
         </div>
@@ -614,7 +659,8 @@ function RolesSection({ contractAddress }: { contractAddress: string }) {
 /* ── Info Tab ─────────────────────────────────────────────────────────── */
 
 function InfoTab({ token }: { token: ApiTokenDetail }) {
-  const isNative = token.type === 'native';
+  const isNative = isNativeAsset(token);
+  const isNft = isNftAsset(token);
   const rawCreationTx = typeof token.creationTx === 'string' ? token.creationTx.trim() : '';
   const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
   const hasCreationTx = rawCreationTx.length > 0;
@@ -630,7 +676,7 @@ function InfoTab({ token }: { token: ApiTokenDetail }) {
       )}
 
       {/* Roles (LEP-100 AccessControl) */}
-      {token.contractAddress && <RolesSection contractAddress={token.contractAddress} />}
+      {token.contractAddress && !isNft && <RolesSection contractAddress={token.contractAddress} />}
 
       {/* Token Profile */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
@@ -640,18 +686,18 @@ function InfoTab({ token }: { token: ApiTokenDetail }) {
           <InfoRow label="Name" value={token.name} />
           <InfoRow label="Symbol" value={token.symbol} mono />
           <InfoRow label="Decimals" value={String(token.decimals)} mono />
-          <InfoRow label="Type" value={isNative ? 'Native Chain Asset' : 'LEP-100 Token'} />
-          <InfoRow label="Standard" value={token.standard ?? (isNative ? 'Native' : 'LEP-100')} />
+          <InfoRow label="Type" value={getAssetTypeLabel(token)} />
+          <InfoRow label="Standard" value={getAssetStandard(token)} />
           {isNative && <InfoRow label="Denom" value="ulitho" mono />}
           <InfoRow label="Chain" value="lithosphere_700777-2" mono />
           <InfoRow label="Chain ID" value="700777" mono />
           <InfoRow
             label="Total Supply"
-            value={`${formatSupply(token.totalSupply, token.decimals)} ${token.symbol}`}
+            value={token.totalSupply ? `${formatSupply(token.totalSupply, token.decimals)} ${token.symbol}` : '--'}
             mono
           />
-          <InfoRow label="Holders" value={formatNumber(token.holders)} />
-          <InfoRow label="Total Transfers" value={formatNumber(token.transfers)} />
+          <InfoRow label="Holders" value={formatCount(token.holders)} />
+          <InfoRow label="Total Transfers" value={formatCount(token.transfers)} />
           {token.contractAddress && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Contract Address</div>
@@ -739,7 +785,8 @@ export default function TokenDetailPage() {
     );
   }
 
-  const isNative = token.type === 'native';
+  const isNative = isNativeAsset(token);
+  const isNft = isNftAsset(token);
   const decimals = token.decimals ?? 18;
   const rawCreationTx = typeof token.creationTx === 'string' ? token.creationTx.trim() : '';
   const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
@@ -782,11 +829,9 @@ export default function TokenDetailPage() {
               <div className="flex items-center gap-3 mt-1">
                 <span className="text-lg text-white/50">{token.symbol}</span>
                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                  isNative
-                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20'
-                    : 'bg-violet-500/10 text-violet-300 border-violet-500/20'
+                  getAssetBadgeClasses(token)
                 }`}>
-                  {isNative ? 'Native' : 'LEP-100'}
+                  {getAssetBadgeLabel(token)}
                 </span>
               </div>
             </div>
@@ -805,7 +850,7 @@ export default function TokenDetailPage() {
                 </Link>
                 <CopyBtn text={token.contractAddress} />
               </div>
-              {!isNative && (
+              {!isNative && !isNft && (
                 <AddToWalletBtn
                   address={token.contractAddress}
                   symbol={token.symbol}
@@ -821,28 +866,28 @@ export default function TokenDetailPage() {
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm text-white/45 mb-1">Total Supply</div>
             <div className="text-xl font-semibold font-mono">
-              {formatSupply(token.totalSupply, decimals)}
+              {formatSupplyValue(token.totalSupply, decimals)}
             </div>
             <div className="text-xs text-white/30 mt-1">{token.symbol}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm text-white/45 mb-1">Holders</div>
             <div className="text-xl font-semibold">
-              {formatNumber(token.holders)}
+              {formatCount(token.holders)}
             </div>
-            <div className="text-xs text-white/30 mt-1">addresses</div>
+            <div className="text-xs text-white/30 mt-1">{token.holders == null ? 'pending index' : 'addresses'}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm text-white/45 mb-1">Transfers</div>
             <div className="text-xl font-semibold">
-              {formatNumber(token.transfers)}
+              {formatCount(token.transfers)}
             </div>
-            <div className="text-xs text-white/30 mt-1">total</div>
+            <div className="text-xs text-white/30 mt-1">{token.transfers == null ? 'pending index' : 'total'}</div>
           </div>
           <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
             <div className="text-sm text-white/45 mb-1">Decimals</div>
             <div className="text-xl font-semibold">{decimals}</div>
-            <div className="text-xs text-white/30 mt-1">{token.standard ?? (isNative ? 'Native' : 'LEP-100')}</div>
+            <div className="text-xs text-white/30 mt-1">{getAssetStandard(token)}</div>
           </div>
         </div>
 
@@ -911,7 +956,7 @@ export default function TokenDetailPage() {
           {!token.contractAddress && !token.creator && !hasCreationTx && !token.description && (
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Type</div>
-              <div className="flex-1 text-sm text-white">{isNative ? 'Native Chain Asset' : 'LEP-100 Token'}</div>
+              <div className="flex-1 text-sm text-white">{getAssetTypeLabel(token)}</div>
             </div>
           )}
         </div>
@@ -933,10 +978,10 @@ export default function TokenDetailPage() {
                     }`}
                   >
                     {t.label}
-                    {t.key === 'transfers' && token.transfers > 0 && (
+                    {t.key === 'transfers' && (token.transfers ?? 0) > 0 && (
                       <span className="ml-1.5 text-xs text-white/35">({formatNumber(token.transfers)})</span>
                     )}
-                    {t.key === 'holders' && token.holders > 0 && (
+                    {t.key === 'holders' && (token.holders ?? 0) > 0 && (
                       <span className="ml-1.5 text-xs text-white/35">({formatNumber(token.holders)})</span>
                     )}
                   </button>
@@ -949,7 +994,7 @@ export default function TokenDetailPage() {
         {/* ── Tab Content ─────────────────────────────────────────────── */}
         <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
           {activeTab === 'transfers' && (
-            <TransfersTab address={address} decimals={decimals} symbol={token.symbol} />
+            <TransfersTab address={address} decimals={decimals} symbol={token.symbol} isNft={isNft} />
           )}
 
           {activeTab === 'holders' && (

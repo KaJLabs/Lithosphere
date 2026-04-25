@@ -10,7 +10,9 @@ import express from 'express';
 const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
 // Derive LCD from RPC: https://rpc.litho.ai → https://api.litho.ai
 const LCD_URL = (process.env.REST_URL || process.env.LCD_URL || RPC_URL.replace('://rpc.', '://api.')).replace(/\/$/, '');
-const EVM_RPC_URL = process.env.EVM_RPC_URL || null;
+const EVM_RPC_URL = (process.env.EVM_RPC_URL || '').replace(/\/$/, '');
+const PUBLIC_EVM_RPC_URL = (process.env.PUBLIC_EVM_RPC_URL || '').replace(/\/$/, '');
+const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL, PUBLIC_EVM_RPC_URL].filter(Boolean))];
 const START_BLOCK = parseInt(process.env.START_BLOCK || process.env.INDEXER_START_BLOCK || '1');
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || process.env.INDEXER_BATCH_SIZE || '100');
 const POLL_MS = 6000;           // Wait between polls when caught up
@@ -277,6 +279,11 @@ async function setLastIndexedBlock(height: number): Promise<void> {
     [String(height)]
   );
   gIndexed.set(height);
+}
+
+async function setLastIndexedEvmBlock(height: number): Promise<void> {
+  if (EVM_RPC_ENDPOINTS.length === 0) return;
+  await setIndexerState('last_indexed_evm_block', String(height));
 }
 
 async function getIndexerState(key: string): Promise<string | null> {
@@ -760,15 +767,37 @@ interface RpcEvmTx {
 }
 
 async function evmRpc<T>(method: string, params: unknown[]): Promise<T | null> {
-  if (!EVM_RPC_URL) return null;
-  const r = await fetch(EVM_RPC_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
-    signal: AbortSignal.timeout(10_000),
-  });
-  const j = await r.json() as { result?: T; error?: unknown };
-  return j.result ?? null;
+  if (EVM_RPC_ENDPOINTS.length === 0) return null;
+
+  for (const endpoint of EVM_RPC_ENDPOINTS) {
+    try {
+      const r = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!r.ok) {
+        console.warn(`[evm] ${method} HTTP ${r.status} from ${endpoint}`);
+        continue;
+      }
+      const j = await r.json() as { result?: T; error?: { message?: string } | unknown };
+      if (j.error) {
+        const msg = typeof j.error === 'object' && j.error && 'message' in j.error
+          ? String((j.error as { message?: string }).message ?? 'unknown error')
+          : String(j.error);
+        console.warn(`[evm] ${method} RPC error from ${endpoint}: ${msg}`);
+        continue;
+      }
+      if (j.result != null) {
+        return j.result;
+      }
+    } catch (err) {
+      console.warn(`[evm] ${method} request failed via ${endpoint}:`, err instanceof Error ? err.message : String(err));
+    }
+  }
+
+  return null;
 }
 
 function topicToAddress(topic: string | undefined): string | null {
@@ -798,7 +827,7 @@ async function indexEvmTx(
   let receipt: RpcEvmReceipt | null = null;
 
   // Enrich with EVM JSON-RPC details when available (tx + receipt in parallel)
-  if (EVM_RPC_URL) {
+  if (EVM_RPC_ENDPOINTS.length > 0) {
     try {
       const [tx, rcpt] = await Promise.all([
         evmRpc<RpcEvmTx>('eth_getTransactionByHash', [evmHash]),
@@ -868,24 +897,29 @@ async function indexTransferLogs(
   for (const log of logs) {
     if (!log.topics?.length) continue;
     if (log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC) continue;
-    // ERC20 has 3 topics (event + from + to); ERC721 has 4 (adds tokenId). Skip NFTs for now.
-    if (log.topics.length !== 3) continue;
+    const isNft = log.topics.length === 4;
+    if (log.topics.length !== 3 && !isNft) continue;
 
     const from = topicToAddress(log.topics[1]);
     const to = topicToAddress(log.topics[2]);
     if (!from || !to) continue;
 
     let value = '0';
-    try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
+    let tokenId: string | null = null;
+    if (isNft) {
+      try { tokenId = String(BigInt(log.topics[3])); } catch { continue; }
+    } else {
+      try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
+    }
 
     const logIndex = log.logIndex ? Number(BigInt(log.logIndex)) : 0;
 
     await client.query(
       `INSERT INTO token_transfers
-         (tx_hash, log_index, contract_address, from_address, to_address, value, block_height, timestamp)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         (tx_hash, log_index, contract_address, from_address, to_address, value, token_id, block_height, timestamp)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT ON CONSTRAINT token_transfers_tx_log_unique DO NOTHING`,
-      [evmHash, logIndex, log.address.toLowerCase(), from, to, value, height, blockTime]
+      [evmHash, logIndex, log.address.toLowerCase(), from, to, value, tokenId, height, blockTime]
     );
     inserted++;
   }
@@ -914,8 +948,8 @@ interface EvmLog {
 }
 
 async function backfillTokenTransfers(): Promise<void> {
-  if (!EVM_RPC_URL) {
-    console.log('[backfill] Token transfers: skipped (EVM_RPC_URL not set)');
+  if (EVM_RPC_ENDPOINTS.length === 0) {
+    console.log('[backfill] Token transfers: skipped (no EVM RPC endpoint available)');
     return;
   }
 
@@ -971,12 +1005,18 @@ async function backfillTokenTransfers(): Promise<void> {
       const tsMap = new Map<number, Date>(tsQ.rows.map((r) => [parseInt(r.height), r.block_time]));
 
       for (const log of logs) {
-        if (log.topics.length !== 3) continue; // skip NFTs
+        const isNft = log.topics.length === 4;
+        if (log.topics.length !== 3 && !isNft) continue;
         const fromAddr = topicToAddress(log.topics[1]);
         const toAddr = topicToAddress(log.topics[2]);
         if (!fromAddr || !toAddr) continue;
         let value = '0';
-        try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
+        let tokenId: string | null = null;
+        if (isNft) {
+          try { tokenId = String(BigInt(log.topics[3])); } catch { continue; }
+        } else {
+          try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
+        }
         const blockHeight = Number(BigInt(log.blockNumber));
         const ts = tsMap.get(blockHeight);
         if (!ts) continue; // block not indexed locally — skip
@@ -984,10 +1024,10 @@ async function backfillTokenTransfers(): Promise<void> {
 
         const r = await pool.query(
           `INSERT INTO token_transfers
-             (tx_hash, log_index, contract_address, from_address, to_address, value, block_height, timestamp)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+             (tx_hash, log_index, contract_address, from_address, to_address, value, token_id, block_height, timestamp)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
            ON CONFLICT ON CONSTRAINT token_transfers_tx_log_unique DO NOTHING`,
-          [log.transactionHash, logIndex, log.address.toLowerCase(), fromAddr, toAddr, value, blockHeight, ts]
+          [log.transactionHash, logIndex, log.address.toLowerCase(), fromAddr, toAddr, value, tokenId, blockHeight, ts]
         );
         totalInserted += r.rowCount ?? 0;
       }
@@ -1104,7 +1144,7 @@ async function recordNetworkStats(): Promise<void> {
 // ─── Main Loop ────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log(`[indexer] RPC=${RPC_URL}  LCD=${LCD_URL}  EVM_RPC=${EVM_RPC_URL ?? '(disabled)'}  START=${START_BLOCK}  BATCH=${BATCH_SIZE}`);
+  console.log(`[indexer] RPC=${RPC_URL}  LCD=${LCD_URL}  EVM_RPC=${EVM_RPC_ENDPOINTS.join(', ') || '(disabled)'}  START=${START_BLOCK}  BATCH=${BATCH_SIZE}`);
 
   // Wait for PostgreSQL
   for (let i = 1; i <= 15; i++) {
@@ -1218,6 +1258,7 @@ async function main(): Promise<void> {
           const h = parseInt(row.block_height);
           try {
             await indexBlock(h);
+            await setLastIndexedEvmBlock(h);
             console.log(`[indexer] EVM backfill: re-processed block ${h}`);
           } catch (err) {
             console.warn(`[indexer] EVM backfill block ${h} failed:`, err instanceof Error ? err.message : String(err));
@@ -1276,6 +1317,7 @@ async function main(): Promise<void> {
       for (let h = from + 1; h <= to; h++) {
         await indexBlock(h);
         await setLastIndexedBlock(h);
+        await setLastIndexedEvmBlock(h);
         gLag.set(Math.max(0, chainTip - h));
       }
 

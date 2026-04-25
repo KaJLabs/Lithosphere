@@ -5,7 +5,7 @@ import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, timeAgo, truncateHash, formatValue, formatSupply } from '@/lib/format';
 import { getPreferredTxHash } from '@/lib/tx';
-import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiTokenDetail } from '@/lib/types';
+import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiToken } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
 import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
@@ -100,7 +100,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
     initialData: initialValidators ?? undefined,
   });
 
-  const { data: tokensData, loading: tokensLoading } = useApi<ApiTokenDetail[]>('/tokens', {
+  const { data: tokensData, loading: tokensLoading } = useApi<ApiToken[]>('/tokens', {
     pollInterval: POLL_INTERVAL,
   });
 
@@ -444,8 +444,8 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
               <div className="mb-5 flex items-center justify-between">
                 <div>
-                  <div className="text-sm text-white/55">LEP100 Assets</div>
-                  <h2 className="mt-1 text-2xl font-semibold">Top Tokens</h2>
+                  <div className="text-sm text-white/55">Onchain Assets</div>
+                  <h2 className="mt-1 text-2xl font-semibold">Top Assets</h2>
                 </div>
                 <Link
                   href="/tokens"

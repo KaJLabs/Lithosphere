@@ -86,9 +86,9 @@ export interface ApiToken {
   decimals: number;
   contractAddress?: string;
   totalSupply?: string;
-  holders?: number;
-  transfers?: number;
-  type: 'native' | 'LEP100';
+  holders?: number | null;
+  transfers?: number | null;
+  type: 'native' | 'LEP100' | 'ERC-721';
 }
 
 export interface ApiTxList {
@@ -131,13 +131,13 @@ export interface ApiTokenDetail {
   symbol: string;
   decimals: number;
   totalSupply?: string;
-  type: 'native' | 'LEP100';
+  type: 'native' | 'LEP100' | 'ERC-721';
   creator?: string;
   creationTx?: string;
   creationBlock?: number;
   createdAt?: string;
-  holders: number;
-  transfers: number;
+  holders: number | null;
+  transfers: number | null;
   contractAddress?: string | null;
   standard?: string;
   description?: string;
@@ -149,6 +149,7 @@ export interface ApiTokenTransfer {
   fromAddress: string;
   toAddress: string;
   value: string;
+  tokenId?: string | null;
   blockHeight: number;
   timestamp: string;
 }

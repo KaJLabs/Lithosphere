@@ -30,6 +30,23 @@ type TabKey = WalletTabKey | TokenTabKey;
 const ADDRESS_TX_PAGE_SIZE = 25;
 const ADDRESS_TX_GRID_CLASS = 'lg:grid-cols-[minmax(0,1.8fr)_minmax(0,0.85fr)_minmax(0,1.35fr)_minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,0.85fr)_minmax(0,0.8fr)]';
 
+function isNftTokenDetail(tokenDetail: ApiTokenDetail | null | undefined): boolean {
+  return tokenDetail?.type === 'ERC-721';
+}
+
+function getTokenStandardLabel(tokenDetail: ApiTokenDetail | null | undefined): string {
+  if (tokenDetail?.standard) return tokenDetail.standard;
+  return isNftTokenDetail(tokenDetail) ? 'ERC-721' : 'LEP-100';
+}
+
+function getTokenTypeLabel(tokenDetail: ApiTokenDetail | null | undefined): string {
+  return isNftTokenDetail(tokenDetail) ? 'ERC-721 Collection' : 'LEP-100 Token';
+}
+
+function formatOptionalSupply(raw: string | null | undefined, decimals: number): string {
+  return raw ? formatSupply(raw, decimals) : '--';
+}
+
 /* ── Standard LEP-100 ABI (ERC-20 compatible) ────────────────────────── */
 
 const LEP100_ABI = [
@@ -544,6 +561,7 @@ function HoldersTab({ addr }: { addr: string }) {
 
 function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiTokenDetail | null }) {
   const verified = tokenDetail?.verified ?? false;
+  const isNft = isNftTokenDetail(tokenDetail);
   const rawCreationTx = typeof tokenDetail?.creationTx === 'string' ? tokenDetail.creationTx.trim() : '';
   const creationTxHash = isValidTransactionHash(rawCreationTx) ? rawCreationTx : null;
   const hasCreationTx = rawCreationTx.length > 0;
@@ -610,18 +628,26 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
           )}
           <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
             <div className="sm:w-44 shrink-0 text-sm text-white/45">Token Standard</div>
-            <div className="flex-1 text-sm text-white">LEP-100</div>
+            <div className="flex-1 text-sm text-white">{getTokenStandardLabel(tokenDetail)}</div>
           </div>
         </div>
       </div>
 
       {/* ABI */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
-        <div className="px-5 py-3 border-b border-white/10 text-sm font-medium text-white/60">Contract ABI (LEP-100 Standard)</div>
+        <div className="px-5 py-3 border-b border-white/10 text-sm font-medium text-white/60">
+          {isNft ? 'Contract ABI' : 'Contract ABI (LEP-100 Standard)'}
+        </div>
         <div className="p-5">
-          <pre className="rounded-xl bg-black/30 border border-white/5 p-4 font-mono text-xs text-white/60 overflow-auto max-h-80 whitespace-pre-wrap">
-            {JSON.stringify(LEP100_ABI, null, 2)}
-          </pre>
+          {isNft ? (
+            <div className="rounded-xl bg-black/30 border border-white/5 p-4 text-sm text-white/50">
+              ABI preview in this explorer is currently wired for LEP-100 contracts. Use source verification or an external ABI tool for this ERC-721 collection.
+            </div>
+          ) : (
+            <pre className="rounded-xl bg-black/30 border border-white/5 p-4 font-mono text-xs text-white/60 overflow-auto max-h-80 whitespace-pre-wrap">
+              {JSON.stringify(LEP100_ABI, null, 2)}
+            </pre>
+          )}
         </div>
       </div>
     </div>
@@ -631,6 +657,16 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
 /* ── Interact tab (token contract) ─────────────────────────────────── */
 
 function InteractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiTokenDetail | null }) {
+  if (isNftTokenDetail(tokenDetail)) {
+    return (
+      <div className="p-6">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 text-sm text-white/60">
+          Direct contract interaction in this explorer is only wired for LEP-100 contracts. Use an ERC-721-aware wallet or contract console for this collection.
+        </div>
+      </div>
+    );
+  }
+
   const readFns = LEP100_ABI.filter((f) => f.type === 'function' && (f.stateMutability === 'view' || f.stateMutability === 'pure'));
   const writeFns = LEP100_ABI.filter((f) => f.type === 'function' && f.stateMutability !== 'view' && f.stateMutability !== 'pure');
 
@@ -761,11 +797,14 @@ function TokenContractLayout({
   setTab: (key: TabKey) => void;
   onTxPageChange: (offset: number) => void;
 }) {
-  const resolvedTab = TOKEN_TABS.some((t) => t.key === activeTab) ? activeTab : 'transfers';
   const tokenName = tokenDetail?.name ?? account.tokenName ?? 'Unknown Token';
   const tokenSymbol = tokenDetail?.symbol ?? account.tokenSymbol ?? '???';
   const isToken = account.isToken || !!tokenDetail;
+  const isNft = isNftTokenDetail(tokenDetail);
   const decimals = tokenDetail?.decimals ?? account.tokenDecimals ?? 18;
+  const totalSupply = tokenDetail?.totalSupply ?? account.totalSupply;
+  const visibleTokenTabs = isNft ? TOKEN_TABS.filter((tab) => tab.key !== 'interact') : TOKEN_TABS;
+  const resolvedTab = visibleTokenTabs.some((t) => t.key === activeTab) ? activeTab : 'transfers';
 
   return (
     <div className="text-white space-y-6">
@@ -804,10 +843,12 @@ function TokenContractLayout({
             <CopyBtn text={account.address} />
             <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${
               isToken
-                ? 'border-violet-400/30 bg-violet-400/10 text-violet-300'
+                ? (isNft
+                  ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                  : 'border-violet-400/30 bg-violet-400/10 text-violet-300')
                 : 'border-blue-400/30 bg-blue-400/10 text-blue-300'
             }`}>
-              {isToken ? 'LEP-100 Token' : 'Contract'}
+              {isToken ? getTokenTypeLabel(tokenDetail) : 'Contract'}
             </span>
           </div>
         </div>
@@ -822,7 +863,7 @@ function TokenContractLayout({
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm text-white/45 mb-1">Total Supply</div>
           <div className="text-xl font-semibold font-mono">
-            {formatSupply(tokenDetail?.totalSupply ?? account.totalSupply, decimals)}
+            {formatOptionalSupply(totalSupply, decimals)}
           </div>
           {isToken && <div className="text-xs text-white/30 mt-1">{tokenSymbol}</div>}
         </div>
@@ -879,7 +920,7 @@ function TokenContractLayout({
       <div className="border-b border-white/10">
         <div className="overflow-x-auto">
           <nav className="flex w-max min-w-full gap-6 -mb-px" aria-label="Token contract tabs">
-            {TOKEN_TABS.map((t) => {
+            {visibleTokenTabs.map((t) => {
               const active = resolvedTab === t.key;
               return (
                 <button
@@ -920,7 +961,7 @@ function TokenContractLayout({
         {resolvedTab === 'contract' && (
           <ContractTab addr={addr} tokenDetail={tokenDetail} />
         )}
-        {resolvedTab === 'interact' && (
+        {resolvedTab === 'interact' && !isNft && (
           <InteractTab addr={addr} tokenDetail={tokenDetail} />
         )}
       </div>

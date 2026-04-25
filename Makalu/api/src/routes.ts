@@ -35,6 +35,101 @@ function isHiddenToken(token: { symbol?: string | null; address?: string | null 
     || (address ? HIDDEN_TOKEN_ADDRESSES.has(address) : false);
 }
 
+type AssetType = 'native' | 'LEP100' | 'ERC-721';
+
+function isNftContractType(contractType: string | null | undefined): boolean {
+  return contractType?.toLowerCase() === 'nft';
+}
+
+function isFungibleContractType(contractType: string | null | undefined, symbol?: string | null): boolean {
+  return contractType?.toLowerCase() === 'token' || (!contractType && !!symbol);
+}
+
+function getAssetType(contractType: string | null | undefined, symbol?: string | null): AssetType {
+  if (isNftContractType(contractType)) return 'ERC-721';
+  if (isFungibleContractType(contractType, symbol)) return 'LEP100';
+  return 'LEP100';
+}
+
+function getDefaultTokenDecimals(contractType: string | null | undefined): number {
+  return isNftContractType(contractType) ? 0 : 18;
+}
+
+function getAssetStandard(type: AssetType): string {
+  switch (type) {
+    case 'native':
+      return 'Native';
+    case 'ERC-721':
+      return 'ERC-721';
+    case 'LEP100':
+    default:
+      return 'LEP-100';
+  }
+}
+
+async function getTokenTransferIndexStatus(): Promise<{
+  evmTxCount: number;
+  transferCount: number;
+  ready: boolean;
+}> {
+  const [transferRows, evmRows] = await Promise.all([
+    query<CountRow>('SELECT COUNT(*) AS count FROM token_transfers').catch(() => [{ count: '0' }]),
+    query<CountRow>('SELECT COUNT(*) AS count FROM evm_transactions').catch(() => [{ count: '0' }]),
+  ]);
+
+  const transferCount = parseInt(transferRows[0]?.count ?? '0');
+  const evmTxCount = parseInt(evmRows[0]?.count ?? '0');
+
+  return {
+    evmTxCount,
+    transferCount,
+    // If EVM txs exist but there are still no transfer logs, the FT transfer
+    // index is incomplete and holder/transfer counts should stay unknown.
+    ready: transferCount > 0 || evmTxCount === 0,
+  };
+}
+
+async function getTokenStatsByContract(): Promise<Map<string, { holders: number; transfers: number }>> {
+  const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
+  const rows = await query<{
+    contract_address: string;
+    holders: number;
+    transfers: number;
+  }>(
+    `WITH transfer_counts AS (
+       SELECT LOWER(contract_address) AS contract_address, COUNT(*)::int AS transfers
+       FROM token_transfers
+       GROUP BY LOWER(contract_address)
+     ),
+     holder_counts AS (
+       SELECT contract_address, COUNT(DISTINCT addr)::int AS holders
+       FROM (
+         SELECT LOWER(contract_address) AS contract_address, from_address AS addr
+         FROM token_transfers
+         WHERE from_address IS NOT NULL AND from_address != $1
+         UNION
+         SELECT LOWER(contract_address) AS contract_address, to_address AS addr
+         FROM token_transfers
+         WHERE to_address IS NOT NULL AND to_address != $1
+       ) holder_flows
+       GROUP BY contract_address
+     )
+     SELECT COALESCE(t.contract_address, h.contract_address) AS contract_address,
+            COALESCE(h.holders, 0)::int AS holders,
+            COALESCE(t.transfers, 0)::int AS transfers
+     FROM transfer_counts t
+     FULL OUTER JOIN holder_counts h ON h.contract_address = t.contract_address`,
+    [ZERO_ADDR]
+  ).catch(() => []);
+
+  return new Map(
+    rows.map((row) => [
+      row.contract_address.toLowerCase(),
+      { holders: Number(row.holders ?? 0), transfers: Number(row.transfers ?? 0) },
+    ])
+  );
+}
+
 /**
  * Convert EVM wei to ulitho.
  * Lithosphere uses 18 decimals (Ethermint): 1 LITHO = 1e18 ulitho.
@@ -1162,10 +1257,14 @@ export function explorerRouter(): Router {
             return;
           }
           result.isContract = true;
-          result.isToken = !!(tokenInfo[0].symbol || tokenInfo[0].contract_type === 'token');
+          result.isToken = !!(
+            tokenInfo[0].symbol
+            || tokenInfo[0].contract_type === 'token'
+            || tokenInfo[0].contract_type === 'nft'
+          );
           result.tokenName = tokenInfo[0].name;
           result.tokenSymbol = tokenInfo[0].symbol;
-          result.tokenDecimals = tokenInfo[0].decimals;
+          result.tokenDecimals = tokenInfo[0].decimals ?? getDefaultTokenDecimals(tokenInfo[0].contract_type);
           result.totalSupply = tokenInfo[0].total_supply;
         }
         res.json(result);
@@ -1201,10 +1300,10 @@ export function explorerRouter(): Router {
           txCount: 0,
           lastSeen: new Date().toISOString(),
           isContract: true,
-          isToken: !!(c.symbol || c.contract_type === 'token'),
+          isToken: !!(c.symbol || c.contract_type === 'token' || c.contract_type === 'nft'),
           tokenName: c.name,
           tokenSymbol: c.symbol,
-          tokenDecimals: c.decimals,
+          tokenDecimals: c.decimals ?? getDefaultTokenDecimals(c.contract_type),
           totalSupply: c.total_supply,
         });
         return;
@@ -1398,15 +1497,19 @@ export function explorerRouter(): Router {
         symbol: string | null;
         decimals: number | null;
         total_supply: string | null;
+        contract_type: string | null;
         creator: string | null;
         created_at: Date;
       }>(
-        `SELECT address, name, symbol, decimals, total_supply, creator, created_at
-         FROM contracts WHERE contract_type = 'token' OR symbol IS NOT NULL ORDER BY created_at DESC LIMIT 100`
+        `SELECT address, name, symbol, decimals, total_supply, contract_type, creator, created_at
+         FROM contracts
+         WHERE contract_type IN ('token', 'nft') OR symbol IS NOT NULL
+         ORDER BY created_at DESC
+         LIMIT 100`
       ).catch(() => []);
 
       // Get holder count for native LITHO (accounts + unique EVM addresses)
-      const [holderCount, totalTxCount] = await Promise.all([
+      const [holderCount, totalTxCount, tokenTransferIndex] = await Promise.all([
         query<CountRow>(
           `SELECT COUNT(*) AS count FROM (
              SELECT address FROM accounts WHERE balance != '0'
@@ -1417,7 +1520,11 @@ export function explorerRouter(): Router {
            ) all_holders`
         ).catch(() => [{ count: '0' }]),
         query<CountRow>('SELECT COUNT(*) AS count FROM transactions').catch(() => [{ count: '0' }]),
+        getTokenTransferIndexStatus(),
       ]);
+      const tokenStatsByAddress = tokenTransferIndex.ready
+        ? await getTokenStatsByContract()
+        : new Map<string, { holders: number; transfers: number }>();
 
       const visibleContractTokens = contractTokens.filter((token) => !isHiddenToken(token));
 
@@ -1432,15 +1539,21 @@ export function explorerRouter(): Router {
           transfers: parseInt(totalTxCount[0]?.count ?? '0'),
           contractAddress: null,
         },
-        ...visibleContractTokens.map((c) => ({
-          symbol: c.symbol ?? 'Unknown',
-          name: c.name ?? 'Unknown Token',
-          decimals: c.decimals ?? 18,
-          totalSupply: c.total_supply,
-          type: 'LEP100' as const,
-          holders: null,
-          contractAddress: c.address,
-        })),
+        ...visibleContractTokens.map((c) => {
+          const type = getAssetType(c.contract_type, c.symbol);
+          const isFungible = isFungibleContractType(c.contract_type, c.symbol);
+          const stats = isFungible ? tokenStatsByAddress.get(c.address.toLowerCase()) : null;
+          return {
+            symbol: c.symbol ?? 'Unknown',
+            name: c.name ?? 'Unknown Token',
+            decimals: c.decimals ?? getDefaultTokenDecimals(c.contract_type),
+            totalSupply: c.total_supply,
+            type,
+            holders: isFungible && tokenTransferIndex.ready ? (stats?.holders ?? 0) : null,
+            transfers: isFungible && tokenTransferIndex.ready ? (stats?.transfers ?? 0) : null,
+            contractAddress: c.address,
+          };
+        }),
       ];
 
       res.json(tokens);
@@ -1516,37 +1629,44 @@ export function explorerRouter(): Router {
         res.status(404).json({ message: 'Token contract not found' });
         return;
       }
+      const assetType = getAssetType(c.contract_type, c.symbol);
+      const isFungible = isFungibleContractType(c.contract_type, c.symbol);
+      const tokenTransferIndex = isFungible
+        ? await getTokenTransferIndexStatus()
+        : { evmTxCount: 0, transferCount: 0, ready: false };
       const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
-      const [holderCount, transferCount] = await Promise.all([
-        query<CountRow>(
-          `SELECT COUNT(DISTINCT addr) AS count FROM (
-             SELECT from_address AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
-             UNION
-             SELECT to_address   AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
-           ) h WHERE addr != $2`,
-          [addrLower, ZERO_ADDR]
-        ).catch(() => [{ count: '0' }]),
-        query<CountRow>(
-          `SELECT COUNT(*) AS count FROM token_transfers WHERE LOWER(contract_address) = $1`,
-          [addrLower]
-        ).catch(() => [{ count: '0' }]),
-      ]);
+      const [holderCount, transferCount] = isFungible && tokenTransferIndex.ready
+        ? await Promise.all([
+            query<CountRow>(
+              `SELECT COUNT(DISTINCT addr) AS count FROM (
+                 SELECT from_address AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
+                 UNION
+                 SELECT to_address   AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
+               ) h WHERE addr != $2`,
+              [addrLower, ZERO_ADDR]
+            ).catch(() => [{ count: '0' }]),
+            query<CountRow>(
+              `SELECT COUNT(*) AS count FROM token_transfers WHERE LOWER(contract_address) = $1`,
+              [addrLower]
+            ).catch(() => [{ count: '0' }]),
+          ])
+        : [[{ count: '0' }], [{ count: '0' }]];
 
       res.json({
         address: c.address,
         name: c.name ?? 'Unknown Token',
         symbol: c.symbol ?? 'Unknown',
-        decimals: c.decimals ?? 18,
+        decimals: c.decimals ?? getDefaultTokenDecimals(c.contract_type),
         totalSupply: c.total_supply,
-        type: 'LEP100',
+        type: assetType,
         creator: c.creator,
         creationTx: pickValidTxHash(c.creation_tx) ?? null,
         creationBlock: c.creation_block ? parseInt(c.creation_block) : null,
         createdAt: c.created_at instanceof Date ? c.created_at.toISOString() : String(c.created_at),
-        holders: parseInt(holderCount[0]?.count ?? '0'),
-        transfers: parseInt(transferCount[0]?.count ?? '0'),
+        holders: isFungible && tokenTransferIndex.ready ? parseInt(holderCount[0]?.count ?? '0') : null,
+        transfers: isFungible && tokenTransferIndex.ready ? parseInt(transferCount[0]?.count ?? '0') : null,
         contractAddress: c.address,
-        standard: 'LEP-100',
+        standard: getAssetStandard(assetType),
         description: null,
         verified: c.verified ?? false,
       });
@@ -1678,11 +1798,11 @@ export function explorerRouter(): Router {
           offset,
         });
       } else {
-        // LEP100: Transfer events from token_transfers (indexed from EVM logs)
+        // LEP100/ERC-721: Transfer events from token_transfers (indexed from EVM logs)
         const addrLower = address.toLowerCase();
         const [rows, countResult] = await Promise.all([
-          query<{ tx_hash: string; from_address: string; to_address: string; value: string; block_height: string; timestamp: Date }>(
-            `SELECT tx_hash, from_address, to_address, value, block_height, timestamp
+          query<{ tx_hash: string; from_address: string; to_address: string; value: string; token_id: string | null; block_height: string; timestamp: Date }>(
+            `SELECT tx_hash, from_address, to_address, value, token_id, block_height, timestamp
              FROM token_transfers
              WHERE LOWER(contract_address) = $1
              ORDER BY block_height DESC, log_index DESC
@@ -1700,6 +1820,7 @@ export function explorerRouter(): Router {
             fromAddress: r.from_address,
             toAddress: r.to_address,
             value: r.value,
+            tokenId: r.token_id ?? null,
             blockHeight: Number(r.block_height),
             timestamp: r.timestamp instanceof Date ? r.timestamp.toISOString() : String(r.timestamp),
           })),

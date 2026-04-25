@@ -49,6 +49,7 @@ WORKDIR /app
 COPY --from=builder --chown=lithosphere:nodejs /app/public ./public
 COPY --from=builder --chown=lithosphere:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=lithosphere:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=lithosphere:nodejs /app/patch-live-makalu-tokens-list-nft.mjs ./patch-live-makalu-tokens-list-nft.mjs
 
 USER lithosphere
 
