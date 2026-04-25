@@ -562,9 +562,9 @@ export default function Header() {
                   <div className="rounded-xl border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2">
                     <div className="flex items-center justify-between text-xs">
                       <span className="font-mono text-white/70">{shortenAddress(address)}</span>
-                      <span className="text-white/40">LITHO</span>
+                      <span className="text-white/40">𝕃 LITHO</span>
                     </div>
-                    <div className="mt-1 text-sm font-semibold text-white">{balanceText}</div>
+                    <div className="mt-1 text-sm font-semibold text-white">𝕃 {balanceText}</div>
                   </div>
                   {address && (
                     <Link

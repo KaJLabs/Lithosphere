@@ -7,7 +7,7 @@ const chains = [
   {
     chainId: 700777,
     name: 'Lithosphere Makalu',
-    currency: 'LITHO',
+    currency: '𝕃',
     explorerUrl: 'https://makalu.litho.ai',
     rpcUrl: 'https://rpc.litho.ai',
   },
