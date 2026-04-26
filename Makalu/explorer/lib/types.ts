@@ -89,6 +89,15 @@ export interface ApiToken {
   type: 'native' | 'LEP100' | 'LEP100-6';
 }
 
+export interface ApiAddressToken {
+  contractAddress: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  type: 'LEP100' | 'LEP100-6';
+  balance: string;
+}
+
 export interface ApiTxList {
   txs: ApiTx[];
   total: number;

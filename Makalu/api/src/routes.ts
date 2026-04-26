@@ -1477,6 +1477,55 @@ export function explorerRouter(): Router {
     }
   });
 
+  r.get('/address/:address/tokens', async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const forms = resolveAddressForms(address);
+      // Prefer EVM form for token_transfers lookup (stored as 0x addresses)
+      const evmAddr = forms.evmAddress ?? forms.queryLower;
+
+      const rows = await query<{
+        contract_address: string;
+        name: string | null;
+        symbol: string | null;
+        decimals: number | null;
+        contract_type: string | null;
+        balance: string;
+      }>(
+        `WITH flows AS (
+           SELECT contract_address, value::numeric AS amt
+           FROM token_transfers WHERE LOWER(to_address) = $1
+           UNION ALL
+           SELECT contract_address, -(value::numeric) AS amt
+           FROM token_transfers WHERE LOWER(from_address) = $1
+         ),
+         balances AS (
+           SELECT LOWER(contract_address) AS contract_address, SUM(amt) AS balance
+           FROM flows
+           GROUP BY LOWER(contract_address)
+           HAVING SUM(amt) > 0
+         )
+         SELECT b.contract_address, c.name, c.symbol, c.decimals, c.contract_type, b.balance::text AS balance
+         FROM balances b
+         LEFT JOIN contracts c ON LOWER(c.address) = b.contract_address
+         ORDER BY b.balance DESC`,
+        [evmAddr.toLowerCase()]
+      );
+
+      res.json(rows.map((r) => ({
+        contractAddress: r.contract_address,
+        name: r.name ?? r.contract_address,
+        symbol: r.symbol ?? '???',
+        decimals: r.decimals ?? (r.contract_type === 'nft' ? 0 : 18),
+        type: r.contract_type === 'nft' ? 'LEP100-6' : 'LEP100',
+        balance: r.balance,
+      })));
+    } catch (err) {
+      console.error('[api] /address/:address/tokens error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // ── Validators ──────────────────────────────────────────────────────────
 
   r.get('/validators', async (_req: Request, res: Response) => {

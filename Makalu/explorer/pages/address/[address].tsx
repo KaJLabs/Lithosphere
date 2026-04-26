@@ -6,7 +6,7 @@ import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, formatLitho, formatValue } from '@/lib/format';
 import { getPreferredTxHash, isValidTransactionHash } from '@/lib/tx';
-import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiToken, ApiPrice, ApiAddressTxList, PageInfo } from '@/lib/types';
+import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiPrice, ApiAddressTxList, PageInfo, ApiAddressToken } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
@@ -446,39 +446,66 @@ function HoldingsSection({
   );
 }
 
-/* ── Tokens tab (wallet) — shows all tokens the address may hold ────── */
+/* ── Tokens tab (wallet) — shows this address's actual token balances ── */
 
-function TokensTab({ tokens }: { tokens: ApiToken[] | null }) {
+function TokensTab({ addr }: { addr: string }) {
+  const { data: tokens, loading } = useApi<ApiAddressToken[]>(
+    addr ? `/address/${addr}/tokens` : null
+  );
+
+  if (loading) return <TableSkeleton rows={4} />;
+
   if (!tokens || tokens.length === 0) {
     return (
       <div className="py-16 text-center text-white/40">
         <div className="text-base font-medium mb-1">No token balances</div>
-        <div className="text-sm">No LEP-100 tokens detected for this address yet.</div>
+        <div className="text-sm">No LEP-100 token holdings detected for this address.</div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="hidden md:grid grid-cols-[2fr_1fr_1.5fr_1fr] gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-white/40 uppercase tracking-wide">
+      <div className="px-5 py-3 border-b border-white/10 text-xs text-white/40">
+        {tokens.length} token{tokens.length !== 1 ? 's' : ''} held
+      </div>
+      <div className="hidden md:grid grid-cols-[2.5fr_1fr_1.8fr_1fr] gap-4 px-5 py-3 border-b border-white/10 text-xs font-medium text-white/40 uppercase tracking-wide">
         <div>Token</div>
         <div>Symbol</div>
-        <div className="text-right">Total Supply</div>
-        <div className="text-right">Decimals</div>
+        <div className="text-right">Balance</div>
+        <div className="text-right">Type</div>
       </div>
       <div>
-        {tokens.filter((t) => t.type !== 'native').map((t) => (
+        {tokens.map((t) => (
           <Link
-            key={t.contractAddress ?? t.symbol}
-            href={t.contractAddress ? `/token/${t.contractAddress}` : `/token/native`}
-            className="grid grid-cols-1 md:grid-cols-[2fr_1fr_1.5fr_1fr] gap-3 md:gap-4 px-5 py-4 border-b border-white/5 hover:bg-white/[0.03] transition block"
+            key={t.contractAddress}
+            href={`/token/${t.contractAddress}`}
+            className="grid grid-cols-1 md:grid-cols-[2.5fr_1fr_1.8fr_1fr] gap-3 md:gap-4 px-5 py-4 border-b border-white/5 hover:bg-white/[0.03] transition"
           >
-            <div className="text-sm text-white font-medium">{t.name}</div>
-            <div className="text-sm text-white/70 font-mono">{t.symbol}</div>
-            <div className="text-sm text-white/60 font-mono text-right">
-              {t.totalSupply ? formatSupply(t.totalSupply, t.decimals) : '--'}
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-full bg-violet-500/80 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                {t.symbol.charAt(0).toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <div className="text-sm text-white font-medium truncate">{t.name}</div>
+                <div className="text-xs text-white/40 font-mono truncate">{truncateHash(t.contractAddress, 8, 6)}</div>
+              </div>
             </div>
-            <div className="text-sm text-white/50 text-right">{t.decimals}</div>
+            <div className="flex items-center text-sm text-white/70 font-mono">{t.symbol}</div>
+            <div className="flex items-center justify-end text-sm text-white/80 font-mono font-semibold">
+              {t.type === 'LEP100-6'
+                ? `${t.balance} NFT${Number(t.balance) !== 1 ? 's' : ''}`
+                : formatSupply(t.balance, t.decimals)}
+            </div>
+            <div className="flex items-center justify-end">
+              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                t.type === 'LEP100-6'
+                  ? 'border-amber-400/30 bg-amber-400/10 text-amber-300'
+                  : 'border-violet-400/30 bg-violet-400/10 text-violet-300'
+              }`}>
+                {t.type === 'LEP100-6' ? 'LEP100-6' : 'LEP-100'}
+              </span>
+            </div>
           </Link>
         ))}
       </div>
@@ -979,7 +1006,6 @@ function WalletLayout({
   activeTab,
   setTab,
   usdPrice,
-  tokens,
   onTxPageChange,
 }: {
   account: ApiAddress;
@@ -989,7 +1015,6 @@ function WalletLayout({
   activeTab: TabKey;
   setTab: (key: TabKey) => void;
   usdPrice: number | null;
-  tokens: ApiToken[] | null;
   onTxPageChange: (offset: number) => void;
 }) {
   const resolvedTab = WALLET_TABS.some((t) => t.key === activeTab) ? activeTab : 'transactions';
@@ -1121,7 +1146,7 @@ function WalletLayout({
             onPageChange={onTxPageChange}
           />
         )}
-        {resolvedTab === 'tokens' && <TokensTab tokens={tokens} />}
+        {resolvedTab === 'tokens' && <TokensTab addr={account.evmAddress ?? account.address} />}
       </div>
     </div>
   );
@@ -1161,9 +1186,6 @@ export default function AddressPage() {
   const isToken = account?.isToken ?? false;
   const { data: tokenDetail } =
     useApi<ApiTokenDetail>((isContract || isToken) && addr ? `/tokens/${addr}` : null);
-
-  // Fetch all tokens list for wallet's Tokens tab
-  const { data: tokens } = useApi<ApiToken[]>('/tokens');
 
   // Fetch LITHO price for USD display
   const { data: priceData } = useApi<ApiPrice>('/price');
@@ -1226,7 +1248,6 @@ export default function AddressPage() {
           activeTab={activeTab}
           setTab={setTab}
           usdPrice={usdPrice}
-          tokens={tokens}
           onTxPageChange={setTxOffset}
         />
       )}
