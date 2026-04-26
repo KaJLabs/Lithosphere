@@ -299,7 +299,7 @@ function TransfersTab({ address, decimals, symbol, isNft }: { address: string; d
                 <div className="flex min-w-0 items-center lg:justify-end">
                   <span className="mr-2 w-12 shrink-0 text-xs text-white/40 lg:hidden">{isNft ? 'Token ID' : 'Value'}</span>
                   <span className="block min-w-0 text-sm font-mono text-white/80">
-                    {tx.tokenId != null ? `#${tx.tokenId}` : formatValue(tx.value)}
+                    {tx.tokenId != null ? `#${tx.tokenId}` : `${formatSupply(tx.value, decimals)} ${symbol}`}
                   </span>
                 </div>
 
@@ -425,7 +425,7 @@ function HoldersTab({ address, decimals, symbol, totalSupply }: { address: strin
             <div className="flex items-center md:justify-end">
               <span className="md:hidden text-xs text-white/40 mr-2 w-16 shrink-0">Balance</span>
               <span className="text-sm font-mono text-white/80">
-                {formatValue(h.balance)}
+                {formatSupply(h.balance, decimals)} {symbol}
               </span>
             </div>
 

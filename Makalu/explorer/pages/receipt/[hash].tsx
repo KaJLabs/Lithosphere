@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue } from '@/lib/format';
+import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply } from '@/lib/format';
 import { getPreferredTxHash } from '@/lib/tx';
 import type { ApiTx } from '@/lib/types';
 
@@ -222,9 +222,17 @@ export default function TransactionReceiptPage() {
                   {truncateHash(tx.fromAddr)}
                 </Link>
                 {' sent '}
-                <span className="font-mono text-white font-medium">
-                  {formatValue(valueBig, denom)}
-                </span>
+                {tx.tokenTransferAmount ? (
+                  <span className="font-mono text-white font-medium">
+                    {tx.tokenSymbol
+                      ? `${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`
+                      : formatSupply(tx.tokenTransferAmount)}
+                  </span>
+                ) : (
+                  <span className="font-mono text-white font-medium">
+                    {formatValue(valueBig, denom)}
+                  </span>
+                )}
                 {tx.toAddr ? (
                   <>
                     {' to '}
@@ -269,11 +277,30 @@ export default function TransactionReceiptPage() {
         {/* Financial Summary */}
         <div className="rounded-3xl border border-white/10 bg-white/5 px-6 py-5">
           <SectionTitle>Financial Summary</SectionTitle>
-          <Row label="Value Sent">
-            <span className="font-mono">
-              {formatValue(valueBig, denom)}
-            </span>
-          </Row>
+          {(!tx.tokenTransferAmount || valueBig !== '0') && (
+            <Row label="Value Sent">
+              <span className="font-mono">
+                {formatValue(valueBig, denom)}
+              </span>
+            </Row>
+          )}
+          {tx.tokenTransferAmount && (
+            <Row label="Token Amount Sent">
+              <span className="font-mono">
+                {tx.tokenSymbol
+                  ? `${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`
+                  : formatSupply(tx.tokenTransferAmount)}
+                {tx.contractAddress && (
+                  <Link
+                    href={`/token/${tx.contractAddress}`}
+                    className="ml-2 inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2 py-0.5 font-mono text-xs text-white/50 hover:text-emerald-300 transition"
+                  >
+                    {truncateHash(tx.contractAddress, 6, 4)}
+                  </Link>
+                )}
+              </span>
+            </Row>
+          )}
           <Row label="Fee">
             <span className="font-mono">
               {formatValue(feeBig, denom)}

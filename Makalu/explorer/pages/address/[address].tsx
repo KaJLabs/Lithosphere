@@ -630,7 +630,7 @@ function TokensTab({ addr }: { addr: string }) {
 
 /* ── Holders tab (token contract) ──────────────────────────────────── */
 
-function HoldersTab({ addr }: { addr: string }) {
+function HoldersTab({ addr, tokenDetail }: { addr: string; tokenDetail?: ApiTokenDetail | null }) {
   const [page, setPage] = useState(0);
   const perPage = 25;
   const offset = page * perPage;
@@ -673,7 +673,9 @@ function HoldersTab({ addr }: { addr: string }) {
                 {h.address}
               </Link>
             </div>
-            <div className="text-sm font-mono text-white/80 md:text-right">{formatValue(h.balance)}</div>
+            <div className="text-sm font-mono text-white/80 md:text-right">
+              {formatSupply(h.balance, tokenDetail?.decimals ?? 18)}{tokenDetail?.symbol ? ` ${tokenDetail.symbol}` : ''}
+            </div>
             <div className="flex items-center gap-2 md:justify-end">
               <div className="hidden md:block w-16 h-1.5 rounded-full bg-white/10 overflow-hidden">
                 <div className="h-full rounded-full bg-emerald-400" style={{ width: `${Math.min(100, h.percentage)}%` }} />
@@ -1187,7 +1189,7 @@ function TokenContractLayout({
           <TokenContractTransfersTab addr={addr} tokenDetail={tokenDetail} />
         )}
         {resolvedTab === 'holders' && (
-          <HoldersTab addr={addr} />
+          <HoldersTab addr={addr} tokenDetail={tokenDetail} />
         )}
         {resolvedTab === 'contract' && (
           <ContractTab addr={addr} tokenDetail={tokenDetail} />

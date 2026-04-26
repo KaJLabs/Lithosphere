@@ -372,8 +372,12 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
                           <div>
                             Value:{' '}
                             <span className="text-white">
-                              <FormattedValueElement 
-                                formattedStr={formatValue(tx.value, tx.denom)}
+                              <FormattedValueElement
+                                formattedStr={tx.tokenTransferAmount
+                                  ? (tx.tokenSymbol
+                                      ? `${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`
+                                      : formatSupply(tx.tokenTransferAmount))
+                                  : formatValue(tx.value, tx.denom)}
                                 tokenAddress={tx.contractAddress}
                               />
                             </span>

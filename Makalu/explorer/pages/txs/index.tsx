@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
-import { truncateHash, formatNumber, timeAgo, formatTimestamp, formatValue } from '@/lib/format';
+import { truncateHash, formatNumber, timeAgo, formatTimestamp, formatValue, formatSupply } from '@/lib/format';
 import { getPreferredTxHash, normalizeEvmTxHash } from '@/lib/tx';
 import type { ApiTxList, StatsSummary } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
@@ -195,10 +195,19 @@ export default function TransactionsPage() {
                         <div className="flex min-w-0 items-start lg:block">
                           <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">Value</span>
                           <span className="block min-w-0 text-sm text-white/80">
-                            <FormattedValueElement
-                              formattedStr={formatValue(tx.value, tx.denom)}
-                              tokenAddress={tx.contractAddress}
-                            />
+                            {tx.tokenTransferAmount ? (
+                              <FormattedValueElement
+                                formattedStr={tx.tokenSymbol
+                                  ? `${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`
+                                  : formatSupply(tx.tokenTransferAmount)}
+                                tokenAddress={tx.contractAddress}
+                              />
+                            ) : (
+                              <FormattedValueElement
+                                formattedStr={formatValue(tx.value, tx.denom)}
+                                tokenAddress={tx.contractAddress}
+                              />
+                            )}
                           </span>
                         </div>
 
