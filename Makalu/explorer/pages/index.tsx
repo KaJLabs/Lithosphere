@@ -115,7 +115,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
     { symbol: 'AGII', name: 'Lithosphere AGII', type: 'LEP100' },
   ];
 
-  const summaryStats = [
+  const summaryStats: Array<{ label: string; value: string; subtitle?: string }> = [
     {
       label: isSyncing ? 'Indexed Block' : 'Latest Block',
       value: statsLoading ? '—' : `#${formatNumber(stats?.tipHeight ?? 0)}`,
