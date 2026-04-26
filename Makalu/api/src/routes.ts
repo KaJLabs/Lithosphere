@@ -1071,7 +1071,7 @@ export function explorerRouter(): Router {
           value: r.evm_value, gas_price: r.evm_gas_price, nonce: r.evm_nonce
         };
         if (r.evm_hash) evmExtra = await enrichEvmFromRpc(r.evm_hash, evmExtra);
-        return mapTx(r, r.evm_hash, evmExtra);
+        return enrichTokenInfo(mapTx(r, r.evm_hash, evmExtra));
       }));
 
       res.json({
@@ -1453,7 +1453,7 @@ export function explorerRouter(): Router {
       ]);
 
       const enrichedRows = await enrichEvmRows(rows);
-      const items = enrichedRows.map((r) => mapTx(r, r.evm_hash, {
+      const items = await Promise.all(enrichedRows.map((r) => enrichTokenInfo(mapTx(r, r.evm_hash, {
         input_data: r.evm_input_data,
         contract_address: r.evm_contract_address,
         from_address: r.evm_from_address,
@@ -1461,7 +1461,7 @@ export function explorerRouter(): Router {
         value: r.evm_value,
         gas_price: r.evm_gas_price,
         nonce: r.evm_nonce,
-      }));
+      }))));
       const total = parseInt(countRows[0]?.count ?? '0', 10);
 
       res.json({
