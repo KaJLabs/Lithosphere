@@ -6,14 +6,14 @@ import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, formatLitho, formatValue } from '@/lib/format';
 import { getPreferredTxHash, isValidTransactionHash } from '@/lib/tx';
-import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiPrice, ApiAddressTxList, PageInfo, ApiAddressToken } from '@/lib/types';
+import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiPrice, ApiAddressTxList, PageInfo, ApiAddressToken, ApiAddressTokenTransferList } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
 
 const WALLET_TABS = [
   { key: 'transactions', label: 'Transactions' },
-  { key: 'transfers', label: 'Transfers' },
+  { key: 'transfers', label: 'Token Transfers (LEP-100)' },
   { key: 'tokens', label: 'Tokens' },
 ] as const;
 
@@ -443,6 +443,121 @@ function HoldingsSection({
         </div>
       )}
     </div>
+  );
+}
+
+/* ── Token Transfers tab (wallet) — LEP-100 transfer events ─────────── */
+
+const TOKEN_TRANSFER_PAGE_SIZE = 25;
+
+function TokenTransfersTab({ addr, currentAddrs }: { addr: string; currentAddrs: string[] }) {
+  const [page, setPage] = useState(0);
+  const offset = page * TOKEN_TRANSFER_PAGE_SIZE;
+  const currentAddrSet = new Set(currentAddrs.map((a) => a.toLowerCase()));
+
+  const { data, loading } = useApi<ApiAddressTokenTransferList>(
+    addr ? `/address/${addr}/token-transfers?limit=${TOKEN_TRANSFER_PAGE_SIZE}&offset=${offset}` : null
+  );
+
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / TOKEN_TRANSFER_PAGE_SIZE));
+
+  if (loading && items.length === 0) return <TableSkeleton />;
+
+  if (items.length === 0) {
+    return (
+      <div className="py-16 text-center text-white/40">
+        <div className="text-base font-medium mb-1">No token transfers found</div>
+        <div className="text-sm">No LEP-100 token transfer events for this address.</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-1 border-b border-white/10 px-5 py-3 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+        <div>{formatNumber(total)} transfer{total !== 1 ? 's' : ''} found</div>
+        <div>Showing {formatNumber(offset + 1)} to {formatNumber(Math.min(offset + items.length, total))}</div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="hidden lg:grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.5fr)_minmax(0,0.8fr)] gap-4 px-5 py-3 border-b border-white/10 text-[11px] font-medium uppercase tracking-[0.24em] text-white/40">
+          <div>Tx Hash</div>
+          <div>Block</div>
+          <div>From</div>
+          <div>To</div>
+          <div className="text-right">Amount</div>
+          <div className="text-right">Age</div>
+        </div>
+        {items.map((t, i) => {
+          const isFrom = currentAddrSet.has(t.fromAddress?.toLowerCase());
+          return (
+            <div
+              key={`${t.txHash}-${i}`}
+              className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.5fr)_minmax(0,0.8fr)] gap-3 lg:gap-4 px-5 py-4 border-b border-white/5 hover:bg-white/[0.03] transition"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Link href={`/txs/${t.txHash}`} className="block truncate font-mono text-sm text-emerald-300 hover:text-emerald-200 transition" title={t.txHash}>
+                  {truncateHash(t.txHash)}
+                </Link>
+              </div>
+              <div className="flex items-center">
+                <Link href={`/blocks/${t.blockHeight}`} className="font-mono text-sm text-white/80 hover:text-white transition">
+                  #{formatNumber(Number(t.blockHeight))}
+                </Link>
+              </div>
+              <div className="flex items-center min-w-0">
+                <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">From</span>
+                {currentAddrSet.has(t.fromAddress?.toLowerCase()) ? (
+                  <span className="block truncate font-mono text-sm text-white/40" title={t.fromAddress}>{truncateHash(t.fromAddress, 8, 6)}</span>
+                ) : (
+                  <Link href={`/address/${t.fromAddress}`} className="block truncate font-mono text-sm text-emerald-300 hover:text-emerald-200 transition" title={t.fromAddress}>
+                    {truncateHash(t.fromAddress, 8, 6)}
+                  </Link>
+                )}
+              </div>
+              <div className="flex items-center min-w-0">
+                <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">To</span>
+                {currentAddrSet.has(t.toAddress?.toLowerCase()) ? (
+                  <span className="block truncate font-mono text-sm text-white/40" title={t.toAddress}>{truncateHash(t.toAddress, 8, 6)}</span>
+                ) : (
+                  <Link href={`/address/${t.toAddress}`} className="block truncate font-mono text-sm text-emerald-300 hover:text-emerald-200 transition" title={t.toAddress}>
+                    {truncateHash(t.toAddress, 8, 6)}
+                  </Link>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-1.5 min-w-0">
+                <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium ${isFrom ? 'bg-red-400/10 text-red-300 border border-red-400/20' : 'bg-emerald-400/10 text-emerald-300 border border-emerald-400/20'}`}>
+                  {isFrom ? 'OUT' : 'IN'}
+                </span>
+                <span className="font-mono text-sm text-white/80 truncate">
+                  {t.type === 'LEP100-6'
+                    ? `#${t.tokenId ?? t.value}`
+                    : formatSupply(t.value, t.decimals)}
+                </span>
+                <Link href={`/token/${t.contractAddress}`} className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-white/60 hover:text-emerald-300 transition">
+                  {t.tokenSymbol}
+                </Link>
+              </div>
+              <div className="flex items-center justify-end">
+                <span className="text-sm text-white/50" title={t.timestamp ?? ''}>
+                  {t.timestamp ? timeAgo(t.timestamp) : '--'}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {totalPages > 1 && (
+        <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-white/35">Page {page + 1} of {totalPages}</div>
+          <div className="flex gap-2">
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">Previous</button>
+            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1137,13 +1252,9 @@ function WalletLayout({
           />
         )}
         {resolvedTab === 'transfers' && (
-          <TxTable
-            txs={txs}
-            loading={txsLoading}
+          <TokenTransfersTab
+            addr={account.evmAddress ?? account.address}
             currentAddrs={currentAddrs}
-            emptyLabel="No transfers found"
-            pageInfo={txPageInfo}
-            onPageChange={onTxPageChange}
           />
         )}
         {resolvedTab === 'tokens' && <TokensTab addr={account.evmAddress ?? account.address} />}

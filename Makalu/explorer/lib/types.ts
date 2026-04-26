@@ -98,6 +98,29 @@ export interface ApiAddressToken {
   balance: string;
 }
 
+export interface ApiAddressTokenTransfer {
+  txHash: string;
+  fromAddress: string;
+  toAddress: string;
+  value: string;
+  tokenId: string | null;
+  blockHeight: string;
+  timestamp: string | null;
+  contractAddress: string;
+  tokenName: string;
+  tokenSymbol: string;
+  decimals: number;
+  type: 'LEP100' | 'LEP100-6';
+}
+
+export interface ApiAddressTokenTransferList {
+  items: ApiAddressTokenTransfer[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
+
 export interface ApiTxList {
   txs: ApiTx[];
   total: number;

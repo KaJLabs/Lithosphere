@@ -1526,6 +1526,73 @@ export function explorerRouter(): Router {
     }
   });
 
+  r.get('/address/:address/token-transfers', async (req: Request, res: Response) => {
+    try {
+      const { address } = req.params;
+      const limit = clamp(req.query.limit, 25);
+      const offset = resolveOffset(req.query, limit);
+      const forms = resolveAddressForms(address);
+      const evmAddr = (forms.evmAddress ?? forms.queryLower).toLowerCase();
+
+      const [rows, countResult] = await Promise.all([
+        query<{
+          tx_hash: string;
+          from_address: string;
+          to_address: string;
+          value: string;
+          token_id: string | null;
+          block_height: string;
+          timestamp: Date | null;
+          contract_address: string;
+          name: string | null;
+          symbol: string | null;
+          decimals: number | null;
+          contract_type: string | null;
+        }>(
+          `SELECT tt.tx_hash, tt.from_address, tt.to_address, tt.value, tt.token_id,
+                  tt.block_height, tt.timestamp, tt.contract_address,
+                  c.name, c.symbol, c.decimals, c.contract_type
+           FROM token_transfers tt
+           LEFT JOIN contracts c ON LOWER(c.address) = LOWER(tt.contract_address)
+           WHERE LOWER(tt.from_address) = $1 OR LOWER(tt.to_address) = $1
+           ORDER BY tt.block_height DESC, tt.log_index DESC
+           LIMIT $2 OFFSET $3`,
+          [evmAddr, limit, offset]
+        ),
+        query<CountRow>(
+          `SELECT COUNT(*) AS count FROM token_transfers
+           WHERE LOWER(from_address) = $1 OR LOWER(to_address) = $1`,
+          [evmAddr]
+        ),
+      ]);
+
+      const total = parseInt(countResult[0]?.count ?? '0', 10);
+      res.json({
+        items: rows.map((r) => ({
+          txHash: r.tx_hash,
+          fromAddress: r.from_address,
+          toAddress: r.to_address,
+          value: r.value,
+          tokenId: r.token_id ?? null,
+          blockHeight: r.block_height,
+          timestamp: r.timestamp ? toIsoString(r.timestamp) : null,
+          contractAddress: r.contract_address,
+          tokenName: r.name ?? r.contract_address,
+          tokenSymbol: r.symbol ?? '???',
+          decimals: r.decimals ?? (r.contract_type === 'nft' ? 0 : 18),
+          type: r.contract_type === 'nft' ? 'LEP100-6' : 'LEP100',
+        })),
+        total,
+        limit,
+        offset,
+        hasMore: offset + rows.length < total,
+      });
+    } catch (err) {
+      console.error('[api] /address/:address/token-transfers error:', err);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // ── Validators ──────────────────────────────────────────────────────────
 
   r.get('/validators', async (_req: Request, res: Response) => {
