@@ -6,7 +6,7 @@ import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, formatLitho, formatValue } from '@/lib/format';
 import { getPreferredTxHash, isValidTransactionHash } from '@/lib/tx';
-import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiPrice, ApiAddressTxList, PageInfo, ApiAddressToken, ApiAddressTokenTransferList } from '@/lib/types';
+import type { ApiAddress, ApiTx, ApiTokenDetail, ApiTokenHolderList, ApiPrice, ApiAddressTxList, PageInfo, ApiAddressToken, ApiAddressTokenTransferList, ApiTokenTransferList } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
@@ -916,28 +916,124 @@ function InteractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
   );
 }
 
+/* ── Transfers tab (token contract) ─────────────────────────────────── */
+
+function TokenContractTransfersTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiTokenDetail | null }) {
+  const [page, setPage] = useState(0);
+  const perPage = 25;
+  const offset = page * perPage;
+
+  const { data, loading } = useApi<ApiTokenTransferList>(
+    addr ? `/tokens/${addr}/transfers?limit=${perPage}&offset=${offset}` : null
+  );
+
+  const transfers = data?.transfers ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / perPage));
+  const isNft = isNftTokenDetail(tokenDetail);
+  const symbol = tokenDetail?.symbol ?? '';
+  const decimals = tokenDetail?.decimals ?? 18;
+
+  if (loading && transfers.length === 0) return <TableSkeleton />;
+
+  if (transfers.length === 0) {
+    return (
+      <div className="py-16 text-center text-white/40">
+        <div className="text-base font-medium mb-1">No transfers found</div>
+        <div className="text-sm">No transfer events recorded for this token yet.</div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex flex-col gap-1 border-b border-white/10 px-5 py-3 text-xs text-white/40 sm:flex-row sm:items-center sm:justify-between">
+        <div>A total of {formatNumber(total)} transfer{total !== 1 ? 's' : ''} found</div>
+        <div>Showing {formatNumber(offset + 1)} to {formatNumber(Math.min(offset + transfers.length, total))}</div>
+      </div>
+      <div className="overflow-x-auto">
+        <div className="hidden lg:grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,0.8fr)] gap-4 px-5 py-3 border-b border-white/10 text-[11px] font-medium uppercase tracking-[0.24em] text-white/40">
+          <div>Tx Hash</div>
+          <div>Block</div>
+          <div>From</div>
+          <div>To</div>
+          <div className="text-right">Amount</div>
+          <div className="text-right">Age</div>
+        </div>
+        {transfers.map((t, i) => (
+          <div
+            key={`${t.txHash}-${i}`}
+            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,0.8fr)] gap-3 lg:gap-4 px-5 py-4 border-b border-white/5 hover:bg-white/[0.03] transition"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <Link href={`/txs/${t.txHash}`} className="block truncate font-mono text-sm text-emerald-300 hover:text-emerald-200 transition" title={t.txHash}>
+                {truncateHash(t.txHash)}
+              </Link>
+            </div>
+            <div className="flex items-center">
+              <Link href={`/blocks/${t.blockHeight}`} className="font-mono text-sm text-white/80 hover:text-white transition">
+                #{formatNumber(t.blockHeight)}
+              </Link>
+            </div>
+            <div className="flex items-center min-w-0">
+              <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">From</span>
+              <Link href={`/address/${t.fromAddress}`} className="block truncate font-mono text-sm text-emerald-300 hover:text-emerald-200 transition" title={t.fromAddress}>
+                {truncateHash(t.fromAddress, 8, 6)}
+              </Link>
+            </div>
+            <div className="flex items-center min-w-0">
+              <span className="mr-2 w-16 shrink-0 text-xs text-white/40 lg:hidden">To</span>
+              <Link href={`/address/${t.toAddress}`} className="block truncate font-mono text-sm text-emerald-300 hover:text-emerald-200 transition" title={t.toAddress}>
+                {truncateHash(t.toAddress, 8, 6)}
+              </Link>
+            </div>
+            <div className="flex items-center justify-end gap-1.5 min-w-0">
+              <span className="font-mono text-sm text-white/80 truncate">
+                {isNft
+                  ? `#${t.tokenId ?? t.value}`
+                  : formatSupply(t.value, decimals)}
+              </span>
+              {symbol && !isNft && (
+                <span className="shrink-0 rounded-full border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-[10px] text-white/60">
+                  {symbol}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center justify-end">
+              <span className="text-sm text-white/50" title={t.timestamp ?? ''}>
+                {t.timestamp ? timeAgo(t.timestamp) : '--'}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+      {totalPages > 1 && (
+        <div className="flex flex-col gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-xs text-white/35">Page {page + 1} of {totalPages}</div>
+          <div className="flex gap-2">
+            <button onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">Previous</button>
+            <button onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1} className="rounded-2xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white/70 hover:bg-white/10 transition disabled:opacity-30 disabled:cursor-not-allowed">Next</button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 /* ── Token contract layout ───────────────────────────────────────────── */
 
 function TokenContractLayout({
   account,
   tokenDetail,
-  txs,
-  txPageInfo,
-  txsLoading,
   addr,
   activeTab,
   setTab,
-  onTxPageChange,
 }: {
   account: ApiAddress;
   tokenDetail: ApiTokenDetail | null;
-  txs: ApiTx[] | null;
-  txPageInfo: PageInfo | null;
-  txsLoading: boolean;
   addr: string;
   activeTab: TabKey;
   setTab: (key: TabKey) => void;
-  onTxPageChange: (offset: number) => void;
 }) {
   const tokenName = tokenDetail?.name ?? account.tokenName ?? 'Unknown Token';
   const tokenSymbol = tokenDetail?.symbol ?? account.tokenSymbol ?? '???';
@@ -1088,14 +1184,7 @@ function TokenContractLayout({
       {/* ── Tab content ─────────────────────────────────────────────── */}
       <div className="rounded-3xl border border-white/10 bg-white/5 overflow-hidden">
         {resolvedTab === 'transfers' && (
-          <TxTable
-            txs={txs}
-            loading={txsLoading}
-            currentAddrs={[account.address, account.evmAddress, account.cosmosAddress].filter((value): value is string => Boolean(value))}
-            emptyLabel="No transfers found"
-            pageInfo={txPageInfo}
-            onPageChange={onTxPageChange}
-          />
+          <TokenContractTransfersTab addr={addr} tokenDetail={tokenDetail} />
         )}
         {resolvedTab === 'holders' && (
           <HoldersTab addr={addr} />
@@ -1342,13 +1431,9 @@ export default function AddressPage() {
         <TokenContractLayout
           account={account}
           tokenDetail={tokenDetail}
-          txs={txs}
-          txPageInfo={txPageInfo}
-          txsLoading={txsLoading}
           addr={addr}
           activeTab={activeTab}
           setTab={setTab}
-          onTxPageChange={setTxOffset}
         />
       ) : (
         <WalletLayout
