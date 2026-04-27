@@ -25,7 +25,6 @@ const ethersConfig = defaultConfig({
   enableEIP6963: true,
   enableInjected: true,
   enableCoinbase: true,
-  enableWalletConnect: true,
   rpcUrl: 'https://rpc.litho.ai',
   defaultChainId: 700777,
   auth: { email: false, socials: [] },
