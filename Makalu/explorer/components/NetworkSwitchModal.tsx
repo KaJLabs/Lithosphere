@@ -32,7 +32,7 @@ type EthereumProvider = {
  * - Dismissing (X) hides the modal for the current session; it reappears
  *   if the user switches away from Makalu again or reconnects.
  */
-export default function NetworkSwitchModal() {
+function NetworkSwitchModalContent() {
   const { address, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
   const { disconnect } = useDisconnect();
@@ -257,4 +257,11 @@ export default function NetworkSwitchModal() {
   );
 
   return createPortal(modal, document.body);
+}
+
+export default function NetworkSwitchModal() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return <NetworkSwitchModalContent />;
 }

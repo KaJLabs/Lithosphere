@@ -50,7 +50,7 @@ function shortenAddress(value: string | null | undefined): string {
   return `${value.slice(0, 6)}...${value.slice(-4)}`;
 }
 
-export default function Header() {
+function HeaderContent() {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -608,4 +608,18 @@ export default function Header() {
       {walletOverlay && typeof document !== 'undefined' ? createPortal(walletOverlay, document.body) : null}
     </header>
   );
+}
+
+export default function Header() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  // Render a same-height placeholder on the server to prevent layout shift
+  if (!mounted) return (
+    <header className="sticky top-0 z-50 overflow-x-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex h-16 items-center justify-between" />
+      </div>
+    </header>
+  );
+  return <HeaderContent />;
 }
