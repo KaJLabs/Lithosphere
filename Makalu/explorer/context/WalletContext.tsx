@@ -7,7 +7,7 @@ const chains = [
   {
     chainId: 700777,
     name: 'Lithosphere Makalu',
-    currency: '𝕃',
+    currency: 'LITHO',
     explorerUrl: 'https://makalu.litho.ai',
     rpcUrl: 'https://rpc.litho.ai',
   },
@@ -25,28 +25,33 @@ const ethersConfig = defaultConfig({
   enableEIP6963: true,
   enableInjected: true,
   enableCoinbase: true,
+  enableWalletConnect: true,
   rpcUrl: 'https://rpc.litho.ai',
   defaultChainId: 700777,
   auth: { email: false, socials: [] },
 });
 
-try {
-  createWeb3Modal({
-    ethersConfig,
-    chains,
-    projectId: PROJECT_ID,
-    featuredWalletIds: [
-      'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96',
-      '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0',
-      'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e18e4a0eb6f0f94bd4',
-    ],
-    themeMode: 'dark',
-    themeVariables: {
-      '--w3m-accent': '#34d399',
-    },
-  });
-} catch (error) {
-  console.log('Web3Modal init:', error instanceof Error ? error.message : 'already initialized');
+// createWeb3Modal must only run on the client — it accesses localStorage/IndexedDB
+// which don't exist on the server and cause silent failures that break mobile wallets
+if (typeof window !== 'undefined') {
+  try {
+    createWeb3Modal({
+      ethersConfig,
+      chains,
+      projectId: PROJECT_ID,
+      featuredWalletIds: [
+        'c57ca95b47569778a828d19178114f4db188b89b763c899ba0be274e97267d96',
+        '4622a2b2d6af1c9844944291e5e7351a6aa24cd7b23099efac1b2fd875da31a0',
+        'fd20dc426fb37566d803205b19bbc1d4096b248ac04548e18e4a0eb6f0f94bd4',
+      ],
+      themeMode: 'dark',
+      themeVariables: {
+        '--w3m-accent': '#34d399',
+      },
+    });
+  } catch (error) {
+    console.log('Web3Modal init:', error instanceof Error ? error.message : 'already initialized');
+  }
 }
 
 interface WalletContextType {
