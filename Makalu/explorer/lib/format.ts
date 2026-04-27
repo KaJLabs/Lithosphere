@@ -61,6 +61,23 @@ export function formatSupply(raw: string | null | undefined, decimals = 18): str
   }
 }
 
+/** Convert raw ulitho value to Strat display string (1 Strat = 1e14 ulitho = 0.0001 LITHO) */
+export function formatStrat(amount: string | null | undefined): string {
+  if (!amount || amount === '0') return '0 Strat';
+  try {
+    const raw = BigInt(amount);
+    const stratDivisor = BigInt('100000000000000'); // 1e14
+    const whole = raw / stratDivisor;
+    const frac = raw % stratDivisor;
+    const fracStr = frac.toString().padStart(14, '0').slice(0, 4).replace(/0+$/, '');
+    const wholeFormatted = whole.toLocaleString('en-US');
+    if (!fracStr) return `${wholeFormatted} Strat`;
+    return `${wholeFormatted}.${fracStr} Strat`;
+  } catch {
+    return `${amount} Strat`;
+  }
+}
+
 export function formatGas(gas: string | null | undefined): string {
   if (!gas) return '-';
   return formatNumber(gas);

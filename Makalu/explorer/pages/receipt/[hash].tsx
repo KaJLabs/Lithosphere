@@ -4,7 +4,7 @@ import { useRouter } from 'next/router';
 import { useState } from 'react';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply } from '@/lib/format';
+import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatStrat } from '@/lib/format';
 import { getPreferredTxHash } from '@/lib/tx';
 import type { ApiTx } from '@/lib/types';
 
@@ -303,7 +303,7 @@ export default function TransactionReceiptPage() {
           )}
           <Row label="Fee">
             <span className="font-mono">
-              {formatValue(feeBig, denom)}
+              {formatStrat(feeBig)}
             </span>
           </Row>
           <Row label="Total">
@@ -346,7 +346,7 @@ export default function TransactionReceiptPage() {
 
           {tx.gasPrice && (
             <Row label="Effective Gas Price">
-              <span className="font-mono">{formatValue(tx.gasPrice)}</span>
+              <span className="font-mono">{formatStrat(tx.gasPrice)}</span>
             </Row>
           )}
 

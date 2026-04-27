@@ -124,7 +124,7 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
       label: 'Validators',
       value: Array.isArray(validators) ? String(validators.length) : '—',
     },
-    { label: 'Gas Price', value: '0.0001 LITHO' },
+    { label: 'Gas Price', value: '1 Strat' },
   ];
 
   const networkMetrics = [
