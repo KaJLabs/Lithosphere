@@ -63,19 +63,14 @@ interface WalletContextType {
 
 const WalletContext = createContext<WalletContextType | undefined>(undefined);
 
-export function WalletProvider({ children }: { children: React.ReactNode }) {
+// Hooks from @web3modal must never be called on the server — createWeb3Modal
+// is client-only, so calling hooks before it throws. This inner component
+// only renders after mount (useEffect never runs on the server), ensuring
+// the hooks are called exclusively in the browser.
+function WalletProviderClient({ children }: { children: React.ReactNode }) {
   const { open } = useWeb3Modal();
   const { address, chainId, isConnected } = useWeb3ModalAccount();
   const { disconnect } = useDisconnect();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   const value: WalletContextType = {
     address: address || null,
@@ -86,6 +81,20 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   };
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>;
+}
+
+export function WalletProvider({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <>{children}</>;
+  }
+
+  return <WalletProviderClient>{children}</WalletProviderClient>;
 }
 
 export function useWallet() {

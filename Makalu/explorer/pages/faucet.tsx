@@ -200,7 +200,8 @@ function ThemedSelect({
   );
 }
 
-export default function FaucetPage() {
+// All web3modal hooks live here — this component only renders client-side.
+function FaucetContent() {
   const { open } = useWeb3Modal();
   const { address: walletAddress, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
@@ -732,4 +733,11 @@ export default function FaucetPage() {
       </div>
     </>
   );
+}
+
+export default function FaucetPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return <FaucetContent />;
 }

@@ -29,7 +29,9 @@ interface HomeProps {
   initialValidators: ApiValidator[] | null;
 }
 
-export default function Home({ initialStats, initialValidators }: HomeProps) {
+// Web3Modal hooks cannot be called on the server — extract them into a
+// client-only inner component that's conditionally rendered after mount.
+function HomeContent({ initialStats, initialValidators }: HomeProps) {
   const { open } = useWeb3Modal();
   const { address, isConnected, chainId } = useWeb3ModalAccount();
   const { walletProvider } = useWeb3ModalProvider();
@@ -565,6 +567,13 @@ export default function Home({ initialStats, initialValidators }: HomeProps) {
       </div>
     </>
   );
+}
+
+export default function Home(props: HomeProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  if (!mounted) return null;
+  return <HomeContent {...props} />;
 }
 
 export const getServerSideProps: GetServerSideProps<HomeProps> = async () => {
