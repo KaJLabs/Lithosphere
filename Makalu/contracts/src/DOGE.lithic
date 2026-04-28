@@ -1,0 +1,183 @@
+// DOGE.lithic — LEP100 Fungible Token on LithoVM
+// Standard: LEP100 (multi-token, ERC1155-equivalent)
+// Name: DOGE  |  Symbol: DOGE  |  Chain: lithosphere_700777-2
+// Compile: lithiclang.ai  →  LithoVM bytecode
+
+contract FungibleToken {
+
+    // ── Roles ─────────────────────────────────────────────────────────────────
+    const ADMIN_ROLE:  bytes32 = keccak256("ADMIN_ROLE");
+    const MINTER_ROLE: bytes32 = keccak256("MINTER_ROLE");
+    const PAUSER_ROLE: bytes32 = keccak256("PAUSER_ROLE");
+
+    // ── Persistent state ──────────────────────────────────────────────────────
+    state {
+        name:               string;
+        symbol:             string;
+        base_uri:           string;
+        paused:             bool;
+        // balances[token_id][holder] = amount
+        balances:           map<u256, map<address, u256>>;
+        total_supply:       map<u256, u256>;
+        // operator_approvals[owner][operator] = approved
+        operator_approvals: map<address, map<address, bool>>;
+        roles:              map<bytes32, map<address, bool>>;
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    event TransferSingle { operator: address, from: address, to: address, id: u256, value: u256 }
+    event TransferBatch  { operator: address, from: address, to: address, ids: vec<u256>, values: vec<u256> }
+    event ApprovalForAll { account: address, operator: address, approved: bool }
+    event URI            { value: string, id: u256 }
+    event Paused         { account: address }
+    event Unpaused       { account: address }
+    event RoleGranted    { role: bytes32, account: address, sender: address }
+    event RoleRevoked    { role: bytes32, account: address, sender: address }
+
+    // ── Constructor ───────────────────────────────────────────────────────────
+    pub fn init(_name: string, _symbol: string, _base_uri: string) {
+        self.name     = _name;
+        self.symbol   = _symbol;
+        self.base_uri = _base_uri;
+        self.paused   = false;
+        _setup_role(ADMIN_ROLE,  msg.sender);
+        _setup_role(MINTER_ROLE, msg.sender);
+        _setup_role(PAUSER_ROLE, msg.sender);
+    }
+
+    // ── Access control ────────────────────────────────────────────────────────
+    fn _setup_role(role: bytes32, account: address) {
+        if !self.roles[role][account] {
+            self.roles[role][account] = true;
+            emit RoleGranted { role: role, account: account, sender: msg.sender };
+        }
+    }
+
+    pub fn has_role(role: bytes32, account: address) -> bool {
+        return self.roles[role][account];
+    }
+
+    pub fn grant_role(role: bytes32, account: address) {
+        assert(has_role(ADMIN_ROLE, msg.sender), "access denied");
+        _setup_role(role, account);
+    }
+
+    pub fn revoke_role(role: bytes32, account: address) {
+        assert(has_role(ADMIN_ROLE, msg.sender), "access denied");
+        if self.roles[role][account] {
+            self.roles[role][account] = false;
+            emit RoleRevoked { role: role, account: account, sender: msg.sender };
+        }
+    }
+
+    // ── Pause ─────────────────────────────────────────────────────────────────
+    pub fn pause() {
+        assert(has_role(PAUSER_ROLE, msg.sender), "access denied");
+        assert(!self.paused, "already paused");
+        self.paused = true;
+        emit Paused { account: msg.sender };
+    }
+
+    pub fn unpause() {
+        assert(has_role(PAUSER_ROLE, msg.sender), "access denied");
+        assert(self.paused, "not paused");
+        self.paused = false;
+        emit Unpaused { account: msg.sender };
+    }
+
+    // ── LEP100 views ──────────────────────────────────────────────────────────
+    pub fn balance_of(account: address, id: u256) -> u256 {
+        assert(account != address(0), "zero address");
+        return self.balances[id][account];
+    }
+
+    pub fn balance_of_batch(accounts: vec<address>, ids: vec<u256>) -> vec<u256> {
+        assert(accounts.len() == ids.len(), "length mismatch");
+        let mut out: vec<u256> = vec![];
+        for i in 0..accounts.len() {
+            out.push(balance_of(accounts[i], ids[i]));
+        }
+        return out;
+    }
+
+    pub fn is_approved_for_all(account: address, operator: address) -> bool {
+        return self.operator_approvals[account][operator];
+    }
+
+    pub fn uri(id: u256) -> string {
+        return concat(self.base_uri, to_string(id));
+    }
+
+    // ── LEP100 mutators ───────────────────────────────────────────────────────
+    pub fn set_approval_for_all(operator: address, approved: bool) {
+        assert(msg.sender != operator, "self-approval");
+        self.operator_approvals[msg.sender][operator] = approved;
+        emit ApprovalForAll { account: msg.sender, operator: operator, approved: approved };
+    }
+
+    pub fn set_base_uri(base: string) {
+        assert(has_role(ADMIN_ROLE, msg.sender), "access denied");
+        self.base_uri = base;
+        emit URI { value: base, id: 0 };
+    }
+
+    pub fn safe_transfer_from(from: address, to: address, id: u256, amount: u256, data: bytes) {
+        assert(!self.paused, "paused");
+        assert(from == msg.sender || is_approved_for_all(from, msg.sender), "not approved");
+        assert(to != address(0), "zero address");
+        let bal = self.balances[id][from];
+        assert(bal >= amount, "insufficient balance");
+        self.balances[id][from]  = bal - amount;
+        self.balances[id][to]   += amount;
+        emit TransferSingle { operator: msg.sender, from: from, to: to, id: id, value: amount };
+    }
+
+    pub fn safe_batch_transfer_from(from: address, to: address, ids: vec<u256>, amounts: vec<u256>, data: bytes) {
+        assert(!self.paused, "paused");
+        assert(ids.len() == amounts.len(), "length mismatch");
+        assert(from == msg.sender || is_approved_for_all(from, msg.sender), "not approved");
+        assert(to != address(0), "zero address");
+        for i in 0..ids.len() {
+            let id  = ids[i];
+            let amt = amounts[i];
+            let bal = self.balances[id][from];
+            assert(bal >= amt, "insufficient balance");
+            self.balances[id][from]  = bal - amt;
+            self.balances[id][to]   += amt;
+        }
+        emit TransferBatch { operator: msg.sender, from: from, to: to, ids: ids, values: amounts };
+    }
+
+    pub fn mint(to: address, id: u256, amount: u256, data: bytes) {
+        assert(has_role(MINTER_ROLE, msg.sender), "access denied");
+        assert(!self.paused, "paused");
+        assert(to != address(0), "zero address");
+        self.balances[id][to] += amount;
+        self.total_supply[id] += amount;
+        emit TransferSingle { operator: msg.sender, from: address(0), to: to, id: id, value: amount };
+    }
+
+    pub fn burn(from: address, id: u256, amount: u256) {
+        assert(!self.paused, "paused");
+        assert(from == msg.sender || is_approved_for_all(from, msg.sender), "not approved");
+        let bal = self.balances[id][from];
+        assert(bal >= amount, "insufficient balance");
+        self.balances[id][from]  = bal - amount;
+        self.total_supply[id]   -= amount;
+        emit TransferSingle { operator: msg.sender, from: from, to: address(0), id: id, value: amount };
+    }
+
+    // ── AI-native: price-anomaly guard on transfer ────────────────────────────
+    // Scores the transfer against on-chain volume/supply context before executing.
+    @ai_budget(max_cost = 300)
+    pub async fn guarded_transfer(to: address, id: u256, amount: u256) {
+        let risk = await ai.request("price-anomaly-v1", {
+            token:  self.symbol,
+            sender: msg.sender,
+            amount: amount,
+            supply: self.total_supply[id],
+        });
+        assert(risk.score < 0.80, "transfer flagged by anomaly guard");
+        safe_transfer_from(msg.sender, to, id, amount, b"");
+    }
+}
