@@ -172,8 +172,8 @@ const SEEDED_TOKENS: SeedToken[] = [
   { address: '0xAcD98E323968647936887aD4934e64B01060727e', name: 'Imagen Network', symbol: 'IMAGE', decimals: 18, totalSupply: '10000000000000000000000000000' },
   { address: '0x10052B8ccD2160b8F9880C6b4F5DD117fF253B1c', name: 'AGII', symbol: 'AGII', decimals: 18, totalSupply: '1000000000000000000000000000' },
   { address: '0x798eD6bFc5bfCFc60938d5098825b354427A0786', name: 'Built AI', symbol: 'BLDR', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0x151ef362eA96853702Cc5e7728107e3961fbD22e', name: 'FurGPT', symbol: 'FGPT', decimals: 18, totalSupply: '1000000000000000000000000000' },
-  { address: '0xDB829befCF8E582379E2c034FA2589b8D2EA1c5D', name: 'Mansa AI', symbol: 'MUSA', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0xDB829befCF8E582379E2c034FA2589b8D2EA1c5D', name: 'FurGPT', symbol: 'FGPT', decimals: 18, totalSupply: '1000000000000000000000000000' },
+  { address: '0x151ef362eA96853702Cc5e7728107e3961fbD22e', name: 'Mansa AI', symbol: 'MUSA', decimals: 18, totalSupply: '1000000000000000000000000000' },
 ];
 
 // Legacy LEP100 addresses evicted on startup by migrateTokenAddresses():
@@ -743,9 +743,17 @@ async function indexTx(
 
 // ─── EVM Transaction Indexing ─────────────────────────────────────────────────
 
-// ERC20/LEP100 Transfer(address indexed from, address indexed to, uint256 value)
+// ERC20 / ERC721 Transfer(from, to, value|tokenId)
+//   - 3 topics → ERC20 fungible, value in data
+//   - 4 topics → ERC721 NFT, tokenId in topics[3]
 const ERC20_TRANSFER_TOPIC =
   '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef';
+
+// LEP100 (ERC1155-style) TransferSingle(operator, from, to, id, value)
+//   4 topics; (id, value) packed in data. Used by Lep100.sol fungibles like
+//   DOGE, FGPT, MUSA, etc. — they emit TransferSingle, NOT the ERC20 Transfer.
+const LEP100_TRANSFER_SINGLE_TOPIC =
+  '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62';
 
 interface RpcEvmReceipt {
   logs?: Array<{
@@ -886,6 +894,68 @@ async function indexEvmTx(
   }
 }
 
+interface DecodedTransfer {
+  from: string;
+  to: string;
+  value: string;
+  tokenId: string | null;
+}
+
+/**
+ * Decode an EVM log into a token transfer record. Returns null if the log
+ * is not a recognized transfer event.
+ *
+ * Handled signatures:
+ *  - ERC20 Transfer(from, to, value)         — 3 topics, value in data
+ *  - ERC721 Transfer(from, to, tokenId)      — 4 topics, tokenId in topics[3]
+ *  - LEP100 TransferSingle(operator, from, to, id, value)
+ *                                            — 4 topics, (id, value) in data;
+ *                                              tokenId is left null because
+ *                                              LEP100 is used for fungibles
+ *                                              (id is always 0 in practice).
+ *
+ * Note: TransferBatch is not yet handled — the (tx_hash, log_index) unique
+ * constraint on token_transfers permits at most one row per log, so a batch
+ * with N (id, value) pairs would need a schema change to store fully.
+ */
+function decodeTransferLog(log: { topics: string[]; data: string }): DecodedTransfer | null {
+  const topic0 = log.topics[0]?.toLowerCase();
+  if (!topic0) return null;
+
+  if (topic0 === ERC20_TRANSFER_TOPIC) {
+    const isNft = log.topics.length === 4;
+    if (log.topics.length !== 3 && !isNft) return null;
+    const from = topicToAddress(log.topics[1]);
+    const to = topicToAddress(log.topics[2]);
+    if (!from || !to) return null;
+    if (isNft) {
+      try { return { from, to, value: '0', tokenId: String(BigInt(log.topics[3])) }; }
+      catch { return null; }
+    }
+    try { return { from, to, value: String(BigInt(log.data || '0x0')), tokenId: null }; }
+    catch { return null; }
+  }
+
+  if (topic0 === LEP100_TRANSFER_SINGLE_TOPIC) {
+    if (log.topics.length !== 4) return null;
+    // topics: [sig, operator, from, to]
+    const from = topicToAddress(log.topics[2]);
+    const to = topicToAddress(log.topics[3]);
+    if (!from || !to) return null;
+    const data = (log.data || '0x').slice(2);
+    if (data.length < 128) return null;
+    try {
+      // data layout: id (32 bytes) || value (32 bytes)
+      const value = String(BigInt('0x' + data.slice(64, 128)));
+      return { from, to, value, tokenId: null };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 async function indexTransferLogs(
   client: DbClient,
   evmHash: string,
@@ -895,22 +965,8 @@ async function indexTransferLogs(
 ): Promise<void> {
   let inserted = 0;
   for (const log of logs) {
-    if (!log.topics?.length) continue;
-    if (log.topics[0].toLowerCase() !== ERC20_TRANSFER_TOPIC) continue;
-    const isNft = log.topics.length === 4;
-    if (log.topics.length !== 3 && !isNft) continue;
-
-    const from = topicToAddress(log.topics[1]);
-    const to = topicToAddress(log.topics[2]);
-    if (!from || !to) continue;
-
-    let value = '0';
-    let tokenId: string | null = null;
-    if (isNft) {
-      try { tokenId = String(BigInt(log.topics[3])); } catch { continue; }
-    } else {
-      try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
-    }
+    const decoded = decodeTransferLog(log);
+    if (!decoded) continue;
 
     const logIndex = log.logIndex ? Number(BigInt(log.logIndex)) : 0;
 
@@ -919,7 +975,7 @@ async function indexTransferLogs(
          (tx_hash, log_index, contract_address, from_address, to_address, value, token_id, block_height, timestamp)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        ON CONFLICT ON CONSTRAINT token_transfers_tx_log_unique DO NOTHING`,
-      [evmHash, logIndex, log.address.toLowerCase(), from, to, value, tokenId, height, blockTime]
+      [evmHash, logIndex, log.address.toLowerCase(), decoded.from, decoded.to, decoded.value, decoded.tokenId, height, blockTime]
     );
     inserted++;
   }
@@ -935,8 +991,10 @@ async function indexTransferLogs(
 // was already indexed), scan the EVM log history via eth_getLogs in chunks and
 // populate token_transfers directly. Avoids a full re-index of every block.
 //
-// Idempotency: tracked via indexer_state.token_transfers_backfill_completed.
+// Idempotency: tracked via indexer_state.token_transfers_backfill_v2_completed.
 // Re-runnable safely because of the UNIQUE (tx_hash, log_index) constraint.
+// Bumped to _v2 to force a re-run after adding LEP100 TransferSingle support
+// — the v1 backfill only scanned ERC20 Transfer and missed every LEP100 token.
 
 interface EvmLog {
   address: string;
@@ -953,25 +1011,22 @@ async function backfillTokenTransfers(): Promise<void> {
     return;
   }
 
-  const marker = await getIndexerState('token_transfers_backfill_completed').catch(() => null);
+  const marker = await getIndexerState('token_transfers_backfill_v2_completed').catch(() => null);
   if (marker === '1') return;
 
-  const [transferRow, evmRow] = await Promise.all([
-    pool.query<{ count: string }>('SELECT COUNT(*) AS count FROM token_transfers').catch(() => ({ rows: [{ count: '0' }] })),
-    pool.query<{ count: string }>('SELECT COUNT(*) AS count FROM evm_transactions').catch(() => ({ rows: [{ count: '0' }] })),
-  ]);
-  const transferTotal = parseInt(transferRow.rows[0]?.count ?? '0');
+  const evmRow = await pool.query<{ count: string }>(
+    'SELECT COUNT(*) AS count FROM evm_transactions'
+  ).catch(() => ({ rows: [{ count: '0' }] }));
   const evmTotal = parseInt(evmRow.rows[0]?.count ?? '0');
 
   if (evmTotal === 0) {
     // Nothing to backfill; don't mark as complete — let the next EVM activity trigger re-check.
     return;
   }
-  if (transferTotal > 0) {
-    // Already have data — assume previously-completed backfill. Mark and skip.
-    await setIndexerState('token_transfers_backfill_completed', '1').catch(() => {});
-    return;
-  }
+  // Note: we deliberately do NOT short-circuit when token_transfers already has rows.
+  // A v1 backfill may have populated only ERC20 Transfer events and missed every
+  // LEP100 TransferSingle event. The unique (tx_hash, log_index) constraint makes
+  // re-scanning safe — duplicate ERC20 rows are dropped via ON CONFLICT.
 
   const rangeQ = await pool.query<{ min_height: string | null; max_height: string | null }>(
     'SELECT MIN(block_height) AS min_height, MAX(block_height) AS max_height FROM evm_transactions'
@@ -980,7 +1035,7 @@ async function backfillTokenTransfers(): Promise<void> {
   const maxH = parseInt(rangeQ.rows[0]?.max_height ?? '0');
   if (!minH || !maxH) return;
 
-  console.log(`[backfill] Token transfers: scanning blocks ${minH}..${maxH} for Transfer logs`);
+  console.log(`[backfill] Token transfers: scanning blocks ${minH}..${maxH} for ERC20 Transfer + LEP100 TransferSingle logs`);
   const CHUNK = 5000;
   let totalInserted = 0;
   let totalScanned = 0;
@@ -988,10 +1043,11 @@ async function backfillTokenTransfers(): Promise<void> {
   for (let chunkStart = minH; chunkStart <= maxH; chunkStart += CHUNK) {
     const chunkEnd = Math.min(chunkStart + CHUNK - 1, maxH);
     try {
+      // Single eth_getLogs request matches either topic via the [[...]] OR filter
       const logs = await evmRpc<EvmLog[]>('eth_getLogs', [{
         fromBlock: '0x' + chunkStart.toString(16),
         toBlock: '0x' + chunkEnd.toString(16),
-        topics: [ERC20_TRANSFER_TOPIC],
+        topics: [[ERC20_TRANSFER_TOPIC, LEP100_TRANSFER_SINGLE_TOPIC]],
       }]);
 
       if (!logs || !Array.isArray(logs) || logs.length === 0) continue;
@@ -1005,18 +1061,8 @@ async function backfillTokenTransfers(): Promise<void> {
       const tsMap = new Map<number, Date>(tsQ.rows.map((r) => [parseInt(r.height), r.block_time]));
 
       for (const log of logs) {
-        const isNft = log.topics.length === 4;
-        if (log.topics.length !== 3 && !isNft) continue;
-        const fromAddr = topicToAddress(log.topics[1]);
-        const toAddr = topicToAddress(log.topics[2]);
-        if (!fromAddr || !toAddr) continue;
-        let value = '0';
-        let tokenId: string | null = null;
-        if (isNft) {
-          try { tokenId = String(BigInt(log.topics[3])); } catch { continue; }
-        } else {
-          try { value = String(BigInt(log.data || '0x0')); } catch { continue; }
-        }
+        const decoded = decodeTransferLog(log);
+        if (!decoded) continue;
         const blockHeight = Number(BigInt(log.blockNumber));
         const ts = tsMap.get(blockHeight);
         if (!ts) continue; // block not indexed locally — skip
@@ -1027,7 +1073,7 @@ async function backfillTokenTransfers(): Promise<void> {
              (tx_hash, log_index, contract_address, from_address, to_address, value, token_id, block_height, timestamp)
            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
            ON CONFLICT ON CONSTRAINT token_transfers_tx_log_unique DO NOTHING`,
-          [log.transactionHash, logIndex, log.address.toLowerCase(), fromAddr, toAddr, value, tokenId, blockHeight, ts]
+          [log.transactionHash, logIndex, log.address.toLowerCase(), decoded.from, decoded.to, decoded.value, decoded.tokenId, blockHeight, ts]
         );
         totalInserted += r.rowCount ?? 0;
       }
@@ -1037,7 +1083,7 @@ async function backfillTokenTransfers(): Promise<void> {
     }
   }
 
-  await setIndexerState('token_transfers_backfill_completed', '1').catch(() => {});
+  await setIndexerState('token_transfers_backfill_v2_completed', '1').catch(() => {});
   console.log(`[backfill] Token transfers complete: ${totalInserted}/${totalScanned} transfers inserted`);
 }
 
