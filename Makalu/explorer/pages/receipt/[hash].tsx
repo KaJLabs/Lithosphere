@@ -207,6 +207,18 @@ export default function TransactionReceiptPage() {
               <span className="ml-2 text-white/40">({timeAgo(tx.timestamp)})</span>
             </Row>
           )}
+          <Row label="Memo">
+            {tx.memo && tx.memo.trim() !== '' ? (
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 inline-flex items-start gap-2">
+                <span className="font-mono text-sm text-white/85 break-words whitespace-pre-wrap">
+                  {tx.memo}
+                </span>
+                <CopyBtn text={tx.memo} />
+              </div>
+            ) : (
+              <span className="text-sm italic text-white/30">(empty)</span>
+            )}
+          </Row>
         </div>
 
         {/* Transaction Action */}

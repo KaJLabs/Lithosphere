@@ -3,7 +3,7 @@ import Link from 'next/link';
 import type { GetServerSideProps } from 'next';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
-import { formatNumber, timeAgo, truncateHash, formatValue, formatSupply } from '@/lib/format';
+import { formatNumber, timeAgo, truncateHash, formatValue, formatSupply, formatStrat } from '@/lib/format';
 import { getPreferredTxHash } from '@/lib/tx';
 import type { StatsSummary, ApiBlock, ApiTxList, ApiValidator, ApiToken } from '@/lib/types';
 import SearchBar from '@/components/SearchBar';
@@ -126,7 +126,14 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
       label: 'Validators',
       value: Array.isArray(validators) ? String(validators.length) : '—',
     },
-    { label: 'Gas Price', value: '1 Strat' },
+    {
+      label: 'Gas Price',
+      value: statsLoading
+        ? '—'
+        : stats?.gasPriceWei
+          ? formatStrat(stats.gasPriceWei)
+          : '—',
+    },
   ];
 
   const networkMetrics = [

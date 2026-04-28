@@ -108,6 +108,22 @@ export default function BlockDetailPage() {
       render: (tx) => <span className="font-mono text-sm text-white/60">{tx.feePaid || '0'}</span>,
     },
     {
+      key: 'memo',
+      header: 'Memo',
+      render: (tx) => {
+        const memo = tx.memo?.trim();
+        if (!memo) return <span className="text-white/25">&mdash;</span>;
+        return (
+          <span
+            className="block max-w-[160px] truncate font-mono text-xs text-white/65"
+            title={memo}
+          >
+            {memo}
+          </span>
+        );
+      },
+    },
+    {
       key: 'status',
       header: 'Status',
       render: (tx) => <TxStatusBadge success={tx.success} />,
@@ -222,6 +238,41 @@ export default function BlockDetailPage() {
             <span className="font-mono">{block.gasUsed ? formatNumber(Number(block.gasUsed)) : '0'}</span>
           </Row>
         </div>
+
+        {/* Genesis Information — block #1 only */}
+        {blockNum === 1 && (block.chainId || block.genesisTime || block.genesisHash) && (
+          <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/5 px-6 py-2 mb-6">
+            <div className="flex items-center gap-2 py-4 border-b border-white/5">
+              <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-xs font-medium text-emerald-200">
+                Genesis
+              </span>
+              <span className="text-sm text-white/60">
+                Network metadata baked into the chain at genesis. Block #1 itself carries no memo field — the chain memo lives in <code className="font-mono text-white/75">genesis.json</code> and is summarized below.
+              </span>
+            </div>
+
+            {block.chainId && (
+              <Row label="Chain ID">
+                <span className="font-mono">{block.chainId}</span>
+                <CopyBtn text={block.chainId} />
+              </Row>
+            )}
+
+            {block.genesisTime && (
+              <Row label="Genesis Time">
+                <span>{formatTimestamp(block.genesisTime)}</span>
+                <span className="ml-2 text-white/40">({timeAgo(block.genesisTime)})</span>
+              </Row>
+            )}
+
+            {block.genesisHash && (
+              <Row label="Genesis Hash" tooltip="SHA-256 of genesis.json — uniquely identifies the network">
+                <span className="font-mono break-all">{block.genesisHash}</span>
+                <CopyBtn text={block.genesisHash} />
+              </Row>
+            )}
+          </div>
+        )}
 
         {/* Transactions Table */}
         {block.txs && block.txs.length > 0 ? (

@@ -65,6 +65,31 @@ const LEP100_ABI = [
 
 /* ── Address type detection ──────────────────────────────────────────── */
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+
+/** Recognize a syntactically valid address even if the indexer hasn't seen it. */
+function isPlausibleAddress(addr: string): boolean {
+  if (!addr) return false;
+  if (/^0x[0-9a-fA-F]{40}$/.test(addr)) return true;
+  if (/^litho1[023456789acdefghjklmnpqrstuvwxyz]{38,}$/.test(addr)) return true;
+  return false;
+}
+
+/** Build a zero-activity stub so a syntactically valid address still renders
+ *  a normal page (zero balance, empty tabs) instead of a 404 error. */
+function buildStubAddress(addr: string): ApiAddress {
+  return {
+    address: addr,
+    evmAddress: /^0x/.test(addr) ? addr.toLowerCase() : undefined,
+    balance: '0',
+    balanceSource: 'indexed',
+    txCount: 0,
+    lastSeen: '',
+    isContract: false,
+    isToken: false,
+  };
+}
+
 function detectIsContract(account: ApiAddress): boolean {
   return account.isContract === true;
 }
@@ -1406,7 +1431,13 @@ export default function AddressPage() {
 
   if (accountLoading) return <PageSkeleton />;
 
-  if (accountError || !account) {
+  // If the API doesn't know this address but it's syntactically valid (e.g.,
+  // the zero address used for mints/burns, or any wallet that hasn't transacted
+  // yet), render a placeholder wallet page instead of a hard 404.
+  const fallbackAccount: ApiAddress | null =
+    !account && isPlausibleAddress(addr) ? buildStubAddress(addr) : null;
+
+  if ((accountError || !account) && !fallbackAccount) {
     return (
       <div className="text-white">
         <div className="rounded-3xl border border-red-400/20 bg-red-400/5 p-8 text-center">
@@ -1420,18 +1451,30 @@ export default function AddressPage() {
     );
   }
 
+  const resolvedAccount: ApiAddress = (account ?? fallbackAccount)!;
+  const isStub = !account;
+  const isZeroAddress = addr.toLowerCase() === ZERO_ADDRESS;
+
   return (
     <>
       <Head>
         <title>
-          {isContract ? 'Contract' : 'Address'} {truncateHash(account.address, 12, 6)} | {EXPLORER_TITLE}
+          {isZeroAddress ? 'Zero Address' : isContract ? 'Contract' : 'Address'} {truncateHash(resolvedAccount.address, 12, 6)} | {EXPLORER_TITLE}
         </title>
-        <meta name="description" content={`View Lithosphere ${isContract ? 'contract details' : 'address balances'}, transactions, and token holdings for ${account.address}.`} />
+        <meta name="description" content={`View Lithosphere ${isContract ? 'contract details' : 'address balances'}, transactions, and token holdings for ${resolvedAccount.address}.`} />
       </Head>
+
+      {isStub && (
+        <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white/60">
+          {isZeroAddress
+            ? 'This is the zero address — used as the source/destination for token mints, burns, and other system-level transfers. It is not a real wallet.'
+            : 'No indexed activity for this address yet. Showing a placeholder page; balances and history will appear once transactions are indexed.'}
+        </div>
+      )}
 
       {isContract ? (
         <TokenContractLayout
-          account={account}
+          account={resolvedAccount}
           tokenDetail={tokenDetail}
           addr={addr}
           activeTab={activeTab}
@@ -1439,7 +1482,7 @@ export default function AddressPage() {
         />
       ) : (
         <WalletLayout
-          account={account}
+          account={resolvedAccount}
           txs={txs}
           txPageInfo={txPageInfo}
           txsLoading={txsLoading}

@@ -576,6 +576,31 @@ async function fetchLiveBalance(addr: string): Promise<string | null> {
   return null;
 }
 
+// Live gas-price cache: eth_gasPrice every poll would needlessly hammer the RPC
+// when the homepage is open in many tabs. Cache the most recent value for a
+// short window — the homepage poll is faster than the cache TTL, so users
+// always see fresh-enough data without amplifying load.
+const GAS_PRICE_CACHE_MS = 8_000;
+let gasPriceCache: { value: string | null; fetchedAt: number } | null = null;
+
+/** Fetch the current chain gas price in wei via eth_gasPrice. Cached briefly. */
+async function getCurrentGasPriceWei(): Promise<string | null> {
+  if (EVM_RPC_ENDPOINTS.length === 0) return null;
+  const now = Date.now();
+  if (gasPriceCache && now - gasPriceCache.fetchedAt < GAS_PRICE_CACHE_MS) {
+    return gasPriceCache.value;
+  }
+  try {
+    const result = await evmRpcCall('eth_gasPrice', []);
+    const value = typeof result === 'string' ? hexToDec(result) : null;
+    gasPriceCache = { value, fetchedAt: now };
+    return value;
+  } catch {
+    gasPriceCache = { value: null, fetchedAt: now };
+    return null;
+  }
+}
+
 export async function resolveNativeBalance(
   evmAddress: string | null | undefined,
   indexedBalance: string | null | undefined,
@@ -963,7 +988,7 @@ export function explorerRouter(): Router {
 
   r.get('/stats/summary', async (_req: Request, res: Response) => {
     try {
-      const [syncSummary, totalTxs, walletCount, avgBlockTime] = await Promise.all([
+      const [syncSummary, totalTxs, walletCount, avgBlockTime, gasPriceWei] = await Promise.all([
         getSyncSummary(),
         query<CountRow>('SELECT COUNT(*) AS count FROM transactions'),
         query<CountRow>(
@@ -981,12 +1006,14 @@ export function explorerRouter(): Router {
              FROM blocks ORDER BY height DESC LIMIT 100
            ) sub WHERE diff IS NOT NULL`
         ).catch(() => [{ avg_seconds: '0' }]),
+        getCurrentGasPriceWei().catch(() => null),
       ]);
       res.json({
         ...syncSummary,
         totalTransactions: parseInt(totalTxs[0]?.count ?? '0'),
         walletAddresses: parseInt(walletCount[0]?.count ?? '0'),
         avgBlockTime: Math.round(parseFloat(avgBlockTime[0]?.avg_seconds ?? '0') * 10) / 10,
+        gasPriceWei,
       });
     } catch (err) {
       console.error('[api] /stats/summary error:', err);
@@ -1040,7 +1067,23 @@ export function explorerRouter(): Router {
         [height]
       );
       const enrichedTxs = await enrichEvmRows(txs);
-      res.json(mapBlockDetail(blocks[0], enrichedTxs));
+      const detail = mapBlockDetail(blocks[0], enrichedTxs);
+
+      // Block #1 is genesis. Surface chain_id / genesis_time from indexer_state
+      // so the explorer can render a Genesis Information panel — block headers
+      // themselves have no memo/chain field, but the network has well-known
+      // genesis metadata that belongs naturally on block 1.
+      if (Number(height) === 1) {
+        const stateRows = await query<{ key: string; value: string }>(
+          `SELECT key, value FROM indexer_state WHERE key IN ('chain_id', 'genesis_time', 'genesis_hash')`
+        ).catch(() => []);
+        const stateMap = Object.fromEntries(stateRows.map((row) => [row.key, row.value]));
+        if (stateMap.chain_id)     (detail as Record<string, unknown>).chainId = stateMap.chain_id;
+        if (stateMap.genesis_time) (detail as Record<string, unknown>).genesisTime = stateMap.genesis_time;
+        if (stateMap.genesis_hash) (detail as Record<string, unknown>).genesisHash = stateMap.genesis_hash;
+      }
+
+      res.json(detail);
     } catch (err) {
       console.error('[api] /blocks/:height error:', err);
       res.status(500).json({ error: 'Internal server error' });

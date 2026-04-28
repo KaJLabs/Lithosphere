@@ -12,6 +12,8 @@ export interface StatsSummary {
   totalTransactions: number;
   walletAddresses: number;
   avgBlockTime: number;
+  /** Live chain gas price in wei (= ulitho on Lithosphere). null if RPC unreachable. */
+  gasPriceWei?: string | null;
 }
 
 export interface TokenConfig {
@@ -28,6 +30,10 @@ export interface ApiBlock {
   timestamp: string;
   txCount: number;
   txs?: ApiTx[];
+  // Genesis-only fields (populated only for block #1)
+  chainId?: string;
+  genesisTime?: string;
+  genesisHash?: string;
 }
 
 export interface ApiTx {
