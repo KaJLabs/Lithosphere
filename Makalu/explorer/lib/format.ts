@@ -63,21 +63,22 @@ export function formatSupply(raw: string | null | undefined, decimals = 18): str
 
 /**
  * Convert raw ulitho value to Strat display string.
- * 1 Strat = 1e14 ulitho = 0.0001 LITHO.
+ * 1 Strat = 100 ulitho. Verified against kamet.litho.ai's bundle, which
+ * uses the same divisor (`CU = 100n`) — using the same definition keeps
+ * Lithosphere's two explorers in agreement on what "1 Strat" means.
  *
- * Uses full 14-digit fractional precision (with trailing zeros stripped) so
- * sub-Strat values like 1 Gwei (= 0.00001 Strat) render as
- * "0.00001 Strat" rather than the pre-fix "0 Strat" trap, while values
- * already in the Strat range still render cleanly (e.g. "1.5 Strat").
+ * On Lithosphere 1 wei = 1 ulitho, so an EVM gas price of 7 wei becomes
+ * "0.07 Strat" rather than the pre-fix "0.00000000000007 Strat" trap that
+ * came from the wrong 1e14 divisor.
  */
 export function formatStrat(amount: string | null | undefined): string {
   if (!amount || amount === '0') return '0 Strat';
   try {
     const raw = BigInt(amount);
-    const stratDivisor = BigInt('100000000000000'); // 1e14
+    const stratDivisor = BigInt(100);
     const whole = raw / stratDivisor;
     const frac = raw % stratDivisor;
-    const fracStr = frac.toString().padStart(14, '0').replace(/0+$/, '');
+    const fracStr = frac.toString().padStart(2, '0').replace(/0+$/, '');
     const wholeFormatted = whole.toLocaleString('en-US');
     if (!fracStr) return `${wholeFormatted} Strat`;
     return `${wholeFormatted}.${fracStr} Strat`;
