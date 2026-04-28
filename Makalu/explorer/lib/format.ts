@@ -78,6 +78,47 @@ export function formatStrat(amount: string | null | undefined): string {
   }
 }
 
+/**
+ * Format an EVM gas price (raw wei = ulitho on Lithosphere) using the most
+ * natural unit:
+ *   ≥ 1 Strat (1e14 wei) → Strat (e.g. "1.5 Strat")
+ *   ≥ 1 Gwei  (1e9  wei) → Gwei  (e.g. "12.34 Gwei")
+ *   ≥ 1 wei              → ulitho/wei (e.g. "500 ulitho")
+ *   0                    → "0"
+ *
+ * This avoids the "0 Strat" trap when the chain reports gas prices in the
+ * usual EVM Gwei range — formatStrat truncates fractions below 0.0001 Strat
+ * and rounds them to "0 Strat", which is technically correct but useless.
+ */
+export function formatGasPrice(wei: string | null | undefined): string {
+  if (!wei || wei === '0') return '0';
+  try {
+    const raw = BigInt(wei);
+    const STRAT = BigInt('100000000000000'); // 1e14 wei
+    const GWEI  = BigInt('1000000000');      // 1e9  wei
+
+    if (raw >= STRAT) {
+      const whole = raw / STRAT;
+      const frac = raw % STRAT;
+      const fracStr = frac.toString().padStart(14, '0').slice(0, 4).replace(/0+$/, '');
+      const wholeFormatted = whole.toLocaleString('en-US');
+      return fracStr ? `${wholeFormatted}.${fracStr} Strat` : `${wholeFormatted} Strat`;
+    }
+
+    if (raw >= GWEI) {
+      const whole = raw / GWEI;
+      const frac = raw % GWEI;
+      const fracStr = frac.toString().padStart(9, '0').slice(0, 2).replace(/0+$/, '');
+      const wholeFormatted = whole.toLocaleString('en-US');
+      return fracStr ? `${wholeFormatted}.${fracStr} Gwei` : `${wholeFormatted} Gwei`;
+    }
+
+    return `${raw.toString()} ulitho`;
+  } catch {
+    return `${wei}`;
+  }
+}
+
 export function formatGas(gas: string | null | undefined): string {
   if (!gas) return '-';
   return formatNumber(gas);

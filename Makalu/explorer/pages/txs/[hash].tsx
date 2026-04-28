@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatStrat } from '@/lib/format';
+import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatStrat, formatGasPrice } from '@/lib/format';
 import { getPreferredTxHash, normalizeEvmTxHash } from '@/lib/tx';
 import type { ApiTx, StatsSummary, EvmLogsResponse } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
@@ -491,7 +491,7 @@ export default function TransactionDetailPage() {
                   {/* Gas Price */}
                   {tx.gasPrice && (
                     <InfoRow label="Gas Price">
-                      <span className="font-mono">{formatStrat(tx.gasPrice)}</span>
+                      <span className="font-mono">{formatGasPrice(tx.gasPrice)}</span>
                     </InfoRow>
                   )}
 
