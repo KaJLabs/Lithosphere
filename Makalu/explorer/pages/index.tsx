@@ -252,8 +252,8 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
           <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
             {/* Latest Blocks */}
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-sm text-white/55">
                     {isSyncing ? 'Indexed Network Activity' : 'Live Network Activity'}
                   </div>
@@ -261,7 +261,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                 </div>
                 <Link
                   href="/blocks"
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
+                  className="shrink-0 whitespace-nowrap rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
                 >
                   View all
                 </Link>
@@ -316,8 +316,8 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
 
             {/* Latest Transactions */}
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-sm text-white/55">
                     {isSyncing ? 'Indexed Feed' : 'Realtime Feed'}
                   </div>
@@ -325,7 +325,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                 </div>
                 <Link
                   href="/txs"
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
+                  className="shrink-0 whitespace-nowrap rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
                 >
                   View all
                 </Link>
@@ -402,8 +402,8 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
           <section className="mt-8 grid gap-6 xl:grid-cols-3">
             {/* Top Validators */}
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-sm text-white/55">Consensus Layer</div>
                   <h2 className="mt-1 text-2xl font-semibold">Top Validators</h2>
                 </div>
@@ -411,7 +411,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                   href="https://validator.litho.ai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
+                  className="shrink-0 whitespace-nowrap rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
                 >
                   All validators
                 </a>
@@ -451,14 +451,14 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
 
             {/* Top Tokens */}
             <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
-              <div className="mb-5 flex items-center justify-between">
-                <div>
+              <div className="mb-5 flex items-center justify-between gap-3">
+                <div className="min-w-0">
                   <div className="text-sm text-white/55">Onchain Assets</div>
                   <h2 className="mt-1 text-2xl font-semibold">Top Assets</h2>
                 </div>
                 <Link
                   href="/tokens"
-                  className="rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
+                  className="shrink-0 whitespace-nowrap rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
                 >
                   View tokens
                 </Link>

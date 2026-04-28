@@ -73,17 +73,17 @@ export default function TransactionsPage() {
 
         <SyncStatusBanner stats={stats} className="mb-6" />
 
-        <form onSubmit={handleSearch} className="mb-6 flex gap-3">
+        <form onSubmit={handleSearch} className="mb-6 flex w-full gap-2 sm:gap-3">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by transaction hash..."
-            className="flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 focus:border-emerald-400/50 focus:outline-none focus:ring-1 focus:ring-emerald-400/30"
+            className="min-w-0 flex-1 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-white/35 focus:border-emerald-400/50 focus:outline-none focus:ring-1 focus:ring-emerald-400/30"
           />
           <button
             type="submit"
-            className="rounded-2xl bg-white px-5 py-3 text-sm font-medium text-black transition hover:bg-white/90"
+            className="shrink-0 rounded-2xl bg-white px-4 py-3 text-sm font-medium text-black transition hover:bg-white/90 sm:px-5"
           >
             Search
           </button>
