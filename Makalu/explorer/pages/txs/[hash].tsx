@@ -453,20 +453,6 @@ export default function TransactionDetailPage() {
                     </InfoRow>
                   )}
 
-                  {/* Memo (atomscan-style: always rendered, prominent placement) */}
-                  <InfoRow label="Memo">
-                    {tx.memo && tx.memo.trim() !== '' ? (
-                      <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
-                        <span className="font-mono text-sm text-white/85 break-words whitespace-pre-wrap">
-                          {tx.memo}
-                        </span>
-                        <CopyBtn text={tx.memo} />
-                      </div>
-                    ) : (
-                      <span className="text-sm italic text-white/30">(empty)</span>
-                    )}
-                  </InfoRow>
-
                   {/* Transaction Fee */}
                   <InfoRow label="Transaction Fee">
                     <span className="font-mono">{formatStrat(tx.feePaid)}</span>
@@ -517,6 +503,20 @@ export default function TransactionDetailPage() {
                       </span>
                     </InfoRow>
                   )}
+
+                  {/* Memo */}
+                  <InfoRow label="Memo">
+                    {tx.memo && tx.memo.trim() !== '' ? (
+                      <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
+                        <span className="font-mono text-sm text-white/85 break-words whitespace-pre-wrap">
+                          {tx.memo}
+                        </span>
+                        <CopyBtn text={tx.memo} />
+                      </div>
+                    ) : (
+                      <span className="text-sm italic text-white/30">(empty)</span>
+                    )}
+                  </InfoRow>
 
                   {/* Input Data (collapsible) */}
                   {tx.inputData && tx.inputData !== '0x' && (
