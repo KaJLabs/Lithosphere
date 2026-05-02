@@ -7,13 +7,6 @@
 name: Deploy (legacy SSH)
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'Makalu/**'
-      - '.github/workflows/deploy.yaml'
-
   workflow_dispatch:
     inputs:
       environment:
