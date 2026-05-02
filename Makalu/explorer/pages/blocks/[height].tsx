@@ -235,7 +235,7 @@ export default function BlockDetailPage() {
           )}
 
           <Row label="Gas Used">
-            <span className="font-mono">{block.gasUsed ? formatNumber(Number(block.gasUsed)) : '0'}</span>
+            <span className="font-mono">{formatStrat(block.gasUsed)}</span>
           </Row>
         </div>
 
