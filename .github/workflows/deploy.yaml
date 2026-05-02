@@ -154,23 +154,52 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup SSH Agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_PRIVATE_KEY }}
-            ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-
-      - name: Validate Required Secrets & Add Server to Known Hosts
+      - name: Select Working SSH Key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          INDEXER_SSH_KEY: ${{ secrets.INDEXER_SSH_KEY }}
+          BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
         run: |
           MISSING=false
           [ -z "$SERVER_IP" ] && echo "SERVER_IP not set" && MISSING=true
           [ -z "$SERVER_USER" ] && echo "SERVER_USER not set" && MISSING=true
           [ "$MISSING" = true ] && exit 1
+
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 644 ~/.ssh/known_hosts
-          echo "Secrets validated for $SERVER_USER@$SERVER_IP"
+
+          test_key() {
+            local name="$1"
+            local key_content="$2"
+            local key_path
+
+            [ -z "$key_content" ] && return 1
+
+            key_path="$HOME/.ssh/${name}"
+            printf '%s\n' "$key_content" > "$key_path"
+            chmod 600 "$key_path"
+
+            if ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+                -o IdentitiesOnly=yes -i "$key_path" "$SERVER_USER@$SERVER_IP" "exit 0" \
+                >/dev/null 2>&1; then
+              echo "SSH_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+              echo "Selected SSH key: $name"
+              return 0
+            fi
+
+            rm -f "$key_path"
+            return 1
+          }
+
+          test_key "indexer_key" "$INDEXER_SSH_KEY" || \
+          test_key "ssh_private_key" "$SSH_PRIVATE_KEY" || \
+          test_key "vps_ssh_private_key" "$VPS_SSH_PRIVATE_KEY" || \
+          test_key "bastion_key" "$BASTION_SSH_KEY" || {
+            echo "No SSH key could authenticate to $SERVER_USER@$SERVER_IP" >&2
+            exit 1
+          }
       - name: Prepare Deployment Package
         id: prepare
         run: |
@@ -316,6 +345,8 @@ jobs:
           ENV="${{ github.event_name == 'push' && 'mainnet' || github.event.inputs.environment || 'testnet' }}"
 
           ssh -o StrictHostKeyChecking=no \
+              -o IdentitiesOnly=yes \
+              -i "$SSH_KEY_PATH" \
               "$SERVER_USER@$SERVER_IP" << ENDSSH
             set -e
             sudo mkdir -p /opt/lithosphere
@@ -361,6 +392,8 @@ jobs:
           echo "Cleaning up old Docker images on server..."
 
           ssh -o StrictHostKeyChecking=no \
+              -o IdentitiesOnly=yes \
+              -i "$SSH_KEY_PATH" \
               "$SERVER_USER@$SERVER_IP" << 'CLEANUP_SCRIPT'
           set -euo pipefail
 
@@ -425,17 +458,47 @@ jobs:
       SERVER_USER: ${{ secrets.SERVER_USER }}
 
     steps:
-      - name: Setup SSH Agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_PRIVATE_KEY }}
-            ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-
-      - name: Add Server to Known Hosts
+      - name: Select Working SSH Key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          INDEXER_SSH_KEY: ${{ secrets.INDEXER_SSH_KEY }}
+          BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 644 ~/.ssh/known_hosts
+
+          test_key() {
+            local name="$1"
+            local key_content="$2"
+            local key_path
+
+            [ -z "$key_content" ] && return 1
+
+            key_path="$HOME/.ssh/${name}"
+            printf '%s\n' "$key_content" > "$key_path"
+            chmod 600 "$key_path"
+
+            if ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+                -o IdentitiesOnly=yes -i "$key_path" "$SERVER_USER@$SERVER_IP" "exit 0" \
+                >/dev/null 2>&1; then
+              echo "SSH_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+              echo "Selected SSH key: $name"
+              return 0
+            fi
+
+            rm -f "$key_path"
+            return 1
+          }
+
+          test_key "indexer_key" "$INDEXER_SSH_KEY" || \
+          test_key "ssh_private_key" "$SSH_PRIVATE_KEY" || \
+          test_key "vps_ssh_private_key" "$VPS_SSH_PRIVATE_KEY" || \
+          test_key "bastion_key" "$BASTION_SSH_KEY" || {
+            echo "No SSH key could authenticate to $SERVER_USER@$SERVER_IP" >&2
+            exit 1
+          }
 
       - name: Wait for Services to Stabilize
         run: sleep 30
@@ -444,6 +507,8 @@ jobs:
         id: api-health
         run: |
           if ssh -o StrictHostKeyChecking=no \
+              -o IdentitiesOnly=yes \
+              -i "$SSH_KEY_PATH" \
               "$SERVER_USER@$SERVER_IP" << 'ENDSSH'
             MAX_RETRIES=5
             RETRY_DELAY=10
@@ -472,6 +537,8 @@ jobs:
         id: graphql-health
         run: |
           HTTP_CODE=$(ssh -o StrictHostKeyChecking=no \
+              -o IdentitiesOnly=yes \
+              -i "$SSH_KEY_PATH" \
               "$SERVER_USER@$SERVER_IP" \
               "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"query\":\"{ __typename }\"}' http://localhost:4000/graphql")
           if echo "$HTTP_CODE" | grep -qE '^2'; then
@@ -486,6 +553,8 @@ jobs:
         id: metrics-health
         run: |
           HTTP_CODE=$(ssh -o StrictHostKeyChecking=no \
+              -o IdentitiesOnly=yes \
+              -i "$SSH_KEY_PATH" \
               "$SERVER_USER@$SERVER_IP" \
               "curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/metrics")
           if echo "$HTTP_CODE" | grep -qE '^2'; then
@@ -524,22 +593,54 @@ jobs:
         working-directory: ./Makalu
 
     steps:
-      - name: Setup SSH Agent
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: |
-            ${{ secrets.SSH_PRIVATE_KEY }}
-            ${{ secrets.VPS_SSH_PRIVATE_KEY }}
-
-      - name: Add Server to Known Hosts
+      - name: Select Working SSH Key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          VPS_SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_PRIVATE_KEY }}
+          INDEXER_SSH_KEY: ${{ secrets.INDEXER_SSH_KEY }}
+          BASTION_SSH_KEY: ${{ secrets.BASTION_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
           ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
+          chmod 644 ~/.ssh/known_hosts
+
+          test_key() {
+            local name="$1"
+            local key_content="$2"
+            local key_path
+
+            [ -z "$key_content" ] && return 1
+
+            key_path="$HOME/.ssh/${name}"
+            printf '%s\n' "$key_content" > "$key_path"
+            chmod 600 "$key_path"
+
+            if ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
+                -o IdentitiesOnly=yes -i "$key_path" "$SERVER_USER@$SERVER_IP" "exit 0" \
+                >/dev/null 2>&1; then
+              echo "SSH_KEY_PATH=$key_path" >> "$GITHUB_ENV"
+              echo "Selected SSH key: $name"
+              return 0
+            fi
+
+            rm -f "$key_path"
+            return 1
+          }
+
+          test_key "indexer_key" "$INDEXER_SSH_KEY" || \
+          test_key "ssh_private_key" "$SSH_PRIVATE_KEY" || \
+          test_key "vps_ssh_private_key" "$VPS_SSH_PRIVATE_KEY" || \
+          test_key "bastion_key" "$BASTION_SSH_KEY" || {
+            echo "No SSH key could authenticate to $SERVER_USER@$SERVER_IP" >&2
+            exit 1
+          }
 
       - name: Rollback Deployment
         run: |
           echo "Initiating rollback..."
           ssh -o StrictHostKeyChecking=no \
+              -o IdentitiesOnly=yes \
+              -i "$SSH_KEY_PATH" \
               "$SERVER_USER@$SERVER_IP" << 'ENDSSH'
             cd /opt/lithosphere/Makalu
             if [ -f docker-compose.yaml.bak ]; then
