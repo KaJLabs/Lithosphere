@@ -61,6 +61,8 @@ function HeaderContent() {
   const moreRef = useRef<HTMLDivElement>(null);
   const moreMenuRef = useRef<HTMLDivElement>(null);
   const walletMenuRef = useRef<HTMLDivElement>(null);
+  const mobileMenuScrollRef = useRef<HTMLDivElement>(null);
+  const mobileMenuTouchStartYRef = useRef(0);
   const { open } = useWeb3Modal();
   const { disconnect } = useDisconnect();
   const { address, isConnected, chainId } = useWeb3ModalAccount();
@@ -137,20 +139,71 @@ function HeaderContent() {
     const previousBodyPosition = document.body.style.position;
     const previousBodyTop = document.body.style.top;
     const previousBodyWidth = document.body.style.width;
+    const previousBodyLeft = document.body.style.left;
+    const previousBodyRight = document.body.style.right;
+    const previousBodyTouchAction = document.body.style.touchAction;
+    const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
     const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousHtmlTouchAction = document.documentElement.style.touchAction;
+    const previousHtmlOverscrollBehavior = document.documentElement.style.overscrollBehavior;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      mobileMenuTouchStartYRef.current = event.touches[0]?.clientY ?? 0;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      const scrollContainer = mobileMenuScrollRef.current;
+      const target = event.target as Node | null;
+
+      if (!scrollContainer || !target || !scrollContainer.contains(target)) {
+        event.preventDefault();
+        return;
+      }
+
+      const currentY = event.touches[0]?.clientY ?? mobileMenuTouchStartYRef.current;
+      const deltaY = currentY - mobileMenuTouchStartYRef.current;
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      const atTop = scrollTop <= 0;
+      const atBottom = scrollTop + clientHeight >= scrollHeight - 1;
+
+      if (
+        scrollHeight <= clientHeight ||
+        (atTop && deltaY > 0) ||
+        (atBottom && deltaY < 0)
+      ) {
+        event.preventDefault();
+      }
+    };
 
     document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.overscrollBehavior = 'none';
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
     document.body.style.top = `-${scrollY}px`;
     document.body.style.width = '100%';
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.touchAction = 'none';
+    document.body.style.overscrollBehavior = 'none';
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
       document.documentElement.style.overflow = previousHtmlOverflow;
+      document.documentElement.style.touchAction = previousHtmlTouchAction;
+      document.documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
       document.body.style.overflow = previousBodyOverflow;
       document.body.style.position = previousBodyPosition;
       document.body.style.top = previousBodyTop;
       document.body.style.width = previousBodyWidth;
+      document.body.style.left = previousBodyLeft;
+      document.body.style.right = previousBodyRight;
+      document.body.style.touchAction = previousBodyTouchAction;
+      document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
       window.scrollTo(0, scrollY);
     };
   }, [menuOpen]);
@@ -445,7 +498,10 @@ function HeaderContent() {
     ) : null;
 
   const mobileMenu = menuOpen ? (
-    <div className="fixed inset-0 z-[150] overflow-y-auto overscroll-contain bg-[#070a10] px-4 pb-8 pt-5 lg:hidden">
+    <div
+      ref={mobileMenuScrollRef}
+      className="fixed inset-0 z-[150] overflow-y-auto overscroll-contain bg-[#070a10] px-4 pb-8 pt-5 touch-pan-y lg:hidden"
+    >
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <Link
           href="/"
