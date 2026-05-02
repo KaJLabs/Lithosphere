@@ -135,27 +135,27 @@ function HeaderContent() {
     if (!menuOpen) return;
 
     const scrollY = window.scrollY;
+    const scrollContainer = mobileMenuScrollRef.current;
+    const appRoot = document.getElementById('__next');
     const previousBodyOverflow = document.body.style.overflow;
     const previousBodyPosition = document.body.style.position;
     const previousBodyTop = document.body.style.top;
     const previousBodyWidth = document.body.style.width;
     const previousBodyLeft = document.body.style.left;
     const previousBodyRight = document.body.style.right;
-    const previousBodyTouchAction = document.body.style.touchAction;
+    const previousBodyHeight = document.body.style.height;
     const previousBodyOverscrollBehavior = document.body.style.overscrollBehavior;
     const previousHtmlOverflow = document.documentElement.style.overflow;
-    const previousHtmlTouchAction = document.documentElement.style.touchAction;
+    const previousHtmlHeight = document.documentElement.style.height;
     const previousHtmlOverscrollBehavior = document.documentElement.style.overscrollBehavior;
+    const previousAppRootPointerEvents = appRoot?.style.pointerEvents ?? '';
 
     const handleTouchStart = (event: TouchEvent) => {
       mobileMenuTouchStartYRef.current = event.touches[0]?.clientY ?? 0;
     };
 
-    const handleTouchMove = (event: TouchEvent) => {
-      const scrollContainer = mobileMenuScrollRef.current;
-      const target = event.target as Node | null;
-
-      if (!scrollContainer || !target || !scrollContainer.contains(target)) {
+    const handleTouchMoveWithinMenu = (event: TouchEvent) => {
+      if (!scrollContainer) {
         event.preventDefault();
         return;
       }
@@ -173,10 +173,34 @@ function HeaderContent() {
       ) {
         event.preventDefault();
       }
+
+      event.stopPropagation();
+    };
+
+    const preventBackgroundTouchMove = (event: TouchEvent) => {
+      const target = event.target as Node | null;
+
+      if (!scrollContainer || !target || !scrollContainer.contains(target)) {
+        event.preventDefault();
+      }
+    };
+
+    const preventBackgroundWheel = (event: WheelEvent) => {
+      const target = event.target as Node | null;
+
+      if (!scrollContainer || !target || !scrollContainer.contains(target)) {
+        event.preventDefault();
+      }
+    };
+
+    const keepWindowScrollLocked = () => {
+      if (window.scrollY !== scrollY) {
+        window.scrollTo(0, scrollY);
+      }
     };
 
     document.documentElement.style.overflow = 'hidden';
-    document.documentElement.style.touchAction = 'none';
+    document.documentElement.style.height = '100dvh';
     document.documentElement.style.overscrollBehavior = 'none';
     document.body.style.overflow = 'hidden';
     document.body.style.position = 'fixed';
@@ -184,17 +208,27 @@ function HeaderContent() {
     document.body.style.width = '100%';
     document.body.style.left = '0';
     document.body.style.right = '0';
-    document.body.style.touchAction = 'none';
+    document.body.style.height = '100dvh';
     document.body.style.overscrollBehavior = 'none';
 
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    if (appRoot) {
+      appRoot.style.pointerEvents = 'none';
+    }
+
+    scrollContainer?.addEventListener('touchstart', handleTouchStart, { passive: true });
+    scrollContainer?.addEventListener('touchmove', handleTouchMoveWithinMenu, { passive: false });
+    document.addEventListener('touchmove', preventBackgroundTouchMove, { passive: false });
+    document.addEventListener('wheel', preventBackgroundWheel, { passive: false });
+    window.addEventListener('scroll', keepWindowScrollLocked);
 
     return () => {
-      document.removeEventListener('touchstart', handleTouchStart);
-      document.removeEventListener('touchmove', handleTouchMove);
+      scrollContainer?.removeEventListener('touchstart', handleTouchStart);
+      scrollContainer?.removeEventListener('touchmove', handleTouchMoveWithinMenu);
+      document.removeEventListener('touchmove', preventBackgroundTouchMove);
+      document.removeEventListener('wheel', preventBackgroundWheel);
+      window.removeEventListener('scroll', keepWindowScrollLocked);
       document.documentElement.style.overflow = previousHtmlOverflow;
-      document.documentElement.style.touchAction = previousHtmlTouchAction;
+      document.documentElement.style.height = previousHtmlHeight;
       document.documentElement.style.overscrollBehavior = previousHtmlOverscrollBehavior;
       document.body.style.overflow = previousBodyOverflow;
       document.body.style.position = previousBodyPosition;
@@ -202,8 +236,11 @@ function HeaderContent() {
       document.body.style.width = previousBodyWidth;
       document.body.style.left = previousBodyLeft;
       document.body.style.right = previousBodyRight;
-      document.body.style.touchAction = previousBodyTouchAction;
+      document.body.style.height = previousBodyHeight;
       document.body.style.overscrollBehavior = previousBodyOverscrollBehavior;
+      if (appRoot) {
+        appRoot.style.pointerEvents = previousAppRootPointerEvents;
+      }
       window.scrollTo(0, scrollY);
     };
   }, [menuOpen]);
@@ -501,6 +538,7 @@ function HeaderContent() {
     <div
       ref={mobileMenuScrollRef}
       className="fixed inset-0 z-[150] overflow-y-auto overscroll-contain bg-[#070a10] px-4 pb-8 pt-5 touch-pan-y lg:hidden"
+      style={{ height: '100dvh', WebkitOverflowScrolling: 'touch' }}
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between">
         <Link
