@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, timeAgo, truncateHash, formatValue } from '@/lib/format';
+import { formatNumber, formatTimestamp, timeAgo, truncateHash, formatValue, formatStrat } from '@/lib/format';
 import { getPreferredTxHash } from '@/lib/tx';
 import type { ApiBlock, ApiTx, StatsSummary } from '@/lib/types';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
@@ -105,7 +105,7 @@ export default function BlockDetailPage() {
     {
       key: 'fee',
       header: 'Fee',
-      render: (tx) => <span className="font-mono text-sm text-white/60">{tx.feePaid || '0'}</span>,
+      render: (tx) => <span className="font-mono text-sm text-white/60">{formatStrat(tx.feePaid)}</span>,
     },
     {
       key: 'memo',
