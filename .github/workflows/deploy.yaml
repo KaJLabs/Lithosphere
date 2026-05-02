@@ -35,8 +35,7 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: kajlabs/lithosphere/service-template
   DEPLOY_PATH: /opt/lithosphere/Makalu
-  INDEXER_IP: ${{ secrets.INDEXER_IP }}
-  BASTION_HOST: ${{ secrets.BASTION_HOST }}
+  SERVER_IP: ${{ secrets.SERVER_IP }}
   SERVER_USER: ${{ secrets.SERVER_USER }}
 
 concurrency:
@@ -159,21 +158,19 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
-            ${{ secrets.BASTION_SSH_KEY }}
-            ${{ secrets.INDEXER_SSH_KEY }}
+            ${{ secrets.SSH_PRIVATE_KEY }}
+            ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
-      - name: Validate Required Secrets & Add Bastion to Known Hosts
+      - name: Validate Required Secrets & Add Server to Known Hosts
         run: |
           MISSING=false
-          [ -z "$INDEXER_IP" ]   && echo "❌ INDEXER_IP not set"   && MISSING=true
-          [ -z "$BASTION_HOST" ] && echo "❌ BASTION_HOST not set" && MISSING=true
-          [ -z "$SERVER_USER" ]  && echo "❌ SERVER_USER not set"  && MISSING=true
+          [ -z "$SERVER_IP" ] && echo "SERVER_IP not set" && MISSING=true
+          [ -z "$SERVER_USER" ] && echo "SERVER_USER not set" && MISSING=true
           [ "$MISSING" = true ] && exit 1
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          ssh-keyscan -T 10 -H "$BASTION_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
           chmod 644 ~/.ssh/known_hosts
-          echo "✅ Secrets validated. Bastion: $BASTION_HOST → Indexer: $INDEXER_IP"
-
+          echo "Secrets validated for $SERVER_USER@$SERVER_IP"
       - name: Prepare Deployment Package
         id: prepare
         run: |
@@ -315,17 +312,11 @@ jobs:
       - name: Deploy to VPS
         id: deploy
         run: |
-          echo "🚀 Deploying to $INDEXER_IP via bastion $BASTION_HOST..."
+          echo "Deploying to $SERVER_IP..."
           ENV="${{ github.event_name == 'push' && 'mainnet' || github.event.inputs.environment || 'testnet' }}"
 
-          # Transfer deployment package via SCP through bastion
-          scp -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              -r deploy-package/* "$SERVER_USER@$INDEXER_IP:$DEPLOY_PATH/"
-
           ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              "$SERVER_USER@$INDEXER_IP" << ENDSSH
+              "$SERVER_USER@$SERVER_IP" << ENDSSH
             set -e
             sudo mkdir -p /opt/lithosphere
             sudo chown "\$USER:\$USER" /opt/lithosphere
@@ -363,55 +354,49 @@ jobs:
           ENDSSH
 
           echo "service_url=https://makalu.litho.ai" >> $GITHUB_OUTPUT
-          echo "✅ Deployed to indexer via bastion"
+          echo "Deployed to $SERVER_IP"
 
       - name: Cleanup Old Docker Images
         run: |
-          echo "🧹 Cleaning up old Docker images on indexer..."
+          echo "Cleaning up old Docker images on server..."
 
           ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              "$SERVER_USER@$INDEXER_IP" << 'CLEANUP_SCRIPT'
+              "$SERVER_USER@$SERVER_IP" << 'CLEANUP_SCRIPT'
           set -euo pipefail
-          
-          echo "📊 Disk usage BEFORE cleanup:"
+
+          echo "Disk usage BEFORE cleanup:"
           df -h /var/lib/docker 2>/dev/null || df -h /
           echo ""
-          
-          # Remove dangling images (untagged)
+
           echo "Removing dangling images..."
           DANGLING=$(docker image prune -f 2>&1 | grep -oP 'Total reclaimed space: \K.*' || echo "0B")
           echo "  Reclaimed: ${DANGLING}"
-          
-          # Remove images older than 7 days (keep recent for rollback)
+
           echo "Removing images older than 7 days..."
           OLD_IMAGES=$(docker image prune -a --filter "until=168h" -f 2>&1 | grep -oP 'Total reclaimed space: \K.*' || echo "0B")
           echo "  Reclaimed: ${OLD_IMAGES}"
-          
-          # Remove unused volumes
+
           echo "Removing unused volumes..."
           VOLUMES=$(docker volume prune -f 2>&1 | grep -oP 'Total reclaimed space: \K.*' || echo "0B")
           echo "  Reclaimed: ${VOLUMES}"
-          
-          # Remove build cache (keep last 24 hours)
+
           echo "Pruning build cache..."
           BUILD_CACHE=$(docker builder prune -a --filter "until=24h" -f 2>&1 | grep -oP 'Total reclaimed space: \K.*' || echo "0B")
           echo "  Reclaimed: ${BUILD_CACHE}"
-          
-          echo ""
-          echo "📊 Disk usage AFTER cleanup:"
-          df -h /var/lib/docker 2>/dev/null || df -h /
-          
-          echo ""
-          echo "🐳 Current Docker images:"
-          docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" | head -10 || true
-          
-          echo ""
-          echo "✅ Cleanup complete!"
-          CLEANUP_SCRIPT
-          
-          echo "cleanup_status=success" >> $GITHUB_OUTPUT
 
+          echo ""
+          echo "Disk usage AFTER cleanup:"
+          df -h /var/lib/docker 2>/dev/null || df -h /
+
+          echo ""
+          echo "Current Docker images:"
+          docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}" | head -10 || true
+
+          echo ""
+          echo "Cleanup complete!"
+          CLEANUP_SCRIPT
+
+          echo "cleanup_status=success" >> $GITHUB_OUTPUT
       - name: Generate Deployment Summary
         run: |
           echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
@@ -436,8 +421,7 @@ jobs:
     needs: deploy
 
     env:
-      INDEXER_IP: ${{ secrets.INDEXER_IP }}
-      BASTION_HOST: ${{ secrets.BASTION_HOST }}
+      SERVER_IP: ${{ secrets.SERVER_IP }}
       SERVER_USER: ${{ secrets.SERVER_USER }}
 
     steps:
@@ -445,13 +429,13 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
-            ${{ secrets.BASTION_SSH_KEY }}
-            ${{ secrets.INDEXER_SSH_KEY }}
+            ${{ secrets.SSH_PRIVATE_KEY }}
+            ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
-      - name: Add Bastion to Known Hosts
+      - name: Add Server to Known Hosts
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          ssh-keyscan -T 10 -H "$BASTION_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Wait for Services to Stabilize
         run: sleep 30
@@ -459,46 +443,63 @@ jobs:
       - name: Health Check - API Service
         id: api-health
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              "$SERVER_USER@$INDEXER_IP" << 'ENDSSH'
-            MAX_RETRIES=5; RETRY_DELAY=10
+          if ssh -o StrictHostKeyChecking=no \
+              "$SERVER_USER@$SERVER_IP" << 'ENDSSH'
+            MAX_RETRIES=5
+            RETRY_DELAY=10
             for i in $(seq 1 $MAX_RETRIES); do
               echo "Attempt $i: checking API..."
-              HTTP_CODE=$(curl -s -o /tmp/r.txt -w "%{http_code}" --connect-timeout 10 --max-time 30 \
+              HTTP_CODE=$(curl -s -o /tmp/api-health.txt -w "%{http_code}" --connect-timeout 10 --max-time 30 \
                 http://localhost:4000/health || echo "000")
               if [ "$HTTP_CODE" = "200" ]; then
-                echo "✅ API healthy!"; cat /tmp/r.txt; break
+                echo "API healthy"
+                cat /tmp/api-health.txt
+                exit 0
               fi
-              echo "⚠️ HTTP $HTTP_CODE"
+              echo "HTTP $HTTP_CODE"
               [ $i -lt $MAX_RETRIES ] && sleep $RETRY_DELAY
             done
-            [ "$HTTP_CODE" != "200" ] && { echo "❌ API health check failed"; exit 1; } || true
+            exit 1
           ENDSSH
+          then
+            echo "api_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "api_status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
 
       - name: Health Check - GraphQL Endpoint
         id: graphql-health
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              "$SERVER_USER@$INDEXER_IP" \
-              "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
-               -d '{\"query\":\"{ __typename }\"}' http://localhost:4000/graphql" | grep -qE '^2' \
-            && echo "✅ GraphQL healthy" || echo "::warning::⚠️ GraphQL degraded"
+          HTTP_CODE=$(ssh -o StrictHostKeyChecking=no \
+              "$SERVER_USER@$SERVER_IP" \
+              "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"query\":\"{ __typename }\"}' http://localhost:4000/graphql")
+          if echo "$HTTP_CODE" | grep -qE '^2'; then
+            echo "GraphQL healthy"
+            echo "graphql_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::GraphQL degraded"
+            echo "graphql_status=degraded" >> $GITHUB_OUTPUT
+          fi
 
       - name: Health Check - Metrics Endpoint
         id: metrics-health
         run: |
-          ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              "$SERVER_USER@$INDEXER_IP" \
-              "curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/metrics" | grep -qE '^2' \
-            && echo "✅ Metrics healthy" || echo "::warning::⚠️ Metrics unavailable"
+          HTTP_CODE=$(ssh -o StrictHostKeyChecking=no \
+              "$SERVER_USER@$SERVER_IP" \
+              "curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/metrics")
+          if echo "$HTTP_CODE" | grep -qE '^2'; then
+            echo "Metrics healthy"
+            echo "metrics_status=healthy" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::Metrics unavailable"
+            echo "metrics_status=unavailable" >> $GITHUB_OUTPUT
+          fi
 
       - name: Generate Health Report
         if: always()
         run: |
-          echo "## 🏥 Health Check Report" >> $GITHUB_STEP_SUMMARY
+          echo "## Health Check Report" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "| Service | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
@@ -506,10 +507,8 @@ jobs:
           echo "| GraphQL (/graphql) | ${{ steps.graphql-health.outputs.graphql_status || 'unknown' }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Metrics (/metrics) | ${{ steps.metrics-health.outputs.metrics_status || 'unknown' }} |" >> $GITHUB_STEP_SUMMARY
 
-  # ─────────────────────────────────────────────────────────────────────────
   # Job 4: Rollback on Failure
   # Automatically rollback if health checks fail
-  # ─────────────────────────────────────────────────────────────────────────
   rollback:
     name: Rollback on Failure
     runs-on: ubuntu-latest
@@ -517,8 +516,7 @@ jobs:
     if: failure() && needs.deploy.result == 'success'
 
     env:
-      INDEXER_IP: ${{ secrets.INDEXER_IP }}
-      BASTION_HOST: ${{ secrets.BASTION_HOST }}
+      SERVER_IP: ${{ secrets.SERVER_IP }}
       SERVER_USER: ${{ secrets.SERVER_USER }}
 
     defaults:
@@ -530,26 +528,25 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: |
-            ${{ secrets.BASTION_SSH_KEY }}
-            ${{ secrets.INDEXER_SSH_KEY }}
+            ${{ secrets.SSH_PRIVATE_KEY }}
+            ${{ secrets.VPS_SSH_PRIVATE_KEY }}
 
-      - name: Add Bastion to Known Hosts
+      - name: Add Server to Known Hosts
         run: |
           mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          ssh-keyscan -T 10 -H "$BASTION_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+          ssh-keyscan -T 10 -H "$SERVER_IP" >> ~/.ssh/known_hosts 2>/dev/null || true
 
       - name: Rollback Deployment
         run: |
-          echo "🔄 Initiating rollback..."
+          echo "Initiating rollback..."
           ssh -o StrictHostKeyChecking=no \
-              -o ProxyJump="$SERVER_USER@$BASTION_HOST" \
-              "$SERVER_USER@$INDEXER_IP" << 'ENDSSH'
+              "$SERVER_USER@$SERVER_IP" << 'ENDSSH'
             cd /opt/lithosphere/Makalu
             if [ -f docker-compose.yaml.bak ]; then
               echo "Restoring previous configuration..."
               mv docker-compose.yaml.bak docker-compose.yaml
               sudo docker compose up -d --remove-orphans
-              echo "✅ Rollback complete"
+              echo "Rollback complete"
             else
               echo "::warning::No backup found, stopping services"
               sudo docker compose down
@@ -558,7 +555,7 @@ jobs:
 
       - name: Notify Rollback
         run: |
-          echo "## ⚠️ Deployment Rolled Back" >> $GITHUB_STEP_SUMMARY
+          echo "## Deployment Rolled Back" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "The deployment was rolled back due to failed health checks." >> $GITHUB_STEP_SUMMARY
           echo "Please investigate the logs and retry deployment." >> $GITHUB_STEP_SUMMARY
