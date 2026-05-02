@@ -6,13 +6,6 @@
 name: Deploy to VPS
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'Makalu/**'
-      - '.github/workflows/deploy-simple.yaml'
-
   workflow_dispatch:
     inputs:
       environment:
