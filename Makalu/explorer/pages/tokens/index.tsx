@@ -107,7 +107,7 @@ export default function TokensPage() {
         <title>Tokens | {EXPLORER_TITLE}</title>
       </Head>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+      <div className="w-full min-w-0 max-w-7xl mx-auto py-8">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-white">Tokens</h1>
@@ -119,7 +119,7 @@ export default function TokensPage() {
         </div>
 
         {/* Main container */}
-        <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+        <div className="w-full min-w-0 bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
           {/* Error state */}
           {error && (
             <div className="flex flex-col items-center justify-center py-20 px-4">
@@ -272,25 +272,25 @@ export default function TokensPage() {
                     <Link
                       key={token.contractAddress ?? token.symbol}
                       href={cardHref}
-                      className="block bg-white/[0.03] rounded-2xl p-4 border border-white/5 hover:bg-white/[0.06] transition"
+                      className="block min-w-0 overflow-hidden bg-white/[0.03] rounded-2xl p-4 border border-white/5 hover:bg-white/[0.06] transition"
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 items-center justify-between gap-3 mb-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           {token.type === 'native' ? (
-                            <img src="/litho-logo.png" alt={token.symbol} className="w-10 h-10 rounded-full object-contain" />
+                            <img src="/litho-logo.png" alt={token.symbol} className="w-10 h-10 shrink-0 rounded-full object-contain" />
                           ) : (
                             <div
-                              className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white ${getAvatarColor(token.symbol)}`}
+                              className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white ${getAvatarColor(token.symbol)}`}
                             >
                               {token.symbol.charAt(0).toUpperCase()}
                             </div>
                           )}
-                          <div>
-                            <div className="text-sm font-semibold text-white">{token.symbol}</div>
-                            <div className="text-xs text-white/40">{token.name}</div>
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-white">{token.symbol}</div>
+                            <div className="truncate text-xs text-white/40">{token.name}</div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                           <span className="text-xs text-white/30">#{startIdx + idx + 1}</span>
                           <TokenTypeBadge type={token.type} />
                         </div>
@@ -314,8 +314,8 @@ export default function TokensPage() {
                       {token.contractAddress && (
                         <div className="mt-3 pt-3 border-t border-white/5">
                           <div className="text-xs text-white/30 mb-0.5">Contract</div>
-                          <span className="text-emerald-300 text-sm font-mono">
-                            {truncateHash(token.contractAddress, 16, 8)}
+                          <span className="block max-w-full truncate text-sm font-mono text-emerald-300">
+                            {truncateHash(token.contractAddress, 10, 6)}
                           </span>
                         </div>
                       )}
@@ -326,42 +326,44 @@ export default function TokensPage() {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="flex items-center justify-between px-4 py-4 border-t border-white/10">
+                <div className="flex flex-col gap-3 px-4 py-4 border-t border-white/10 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-white/30">
                     Showing {startIdx + 1} to {Math.min(startIdx + ITEMS_PER_PAGE, totalTokens)} of {formatNumber(totalTokens)}
                   </p>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => setPage(1)}
-                      disabled={page === 1}
-                      className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                    >
-                      First
-                    </button>
-                    <button
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page === 1}
-                      className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                    >
-                      Prev
-                    </button>
-                    <span className="px-3 py-1.5 text-xs text-white/60">
+                  <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-1">
+                    <span className="text-xs text-white/60 sm:px-3 sm:py-1.5">
                       Page {page} of {totalPages}
                     </span>
-                    <button
-                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={page === totalPages}
-                      className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                    >
-                      Next
-                    </button>
-                    <button
-                      onClick={() => setPage(totalPages)}
-                      disabled={page === totalPages}
-                      className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                    >
-                      Last
-                    </button>
+                    <div className="grid grid-cols-4 gap-2 sm:flex sm:items-center sm:gap-1">
+                      <button
+                        onClick={() => setPage(1)}
+                        disabled={page === 1}
+                        className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        First
+                      </button>
+                      <button
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        Prev
+                      </button>
+                      <button
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        Next
+                      </button>
+                      <button
+                        onClick={() => setPage(totalPages)}
+                        disabled={page === totalPages}
+                        className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                      >
+                        Last
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}

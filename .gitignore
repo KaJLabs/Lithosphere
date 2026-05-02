@@ -34,6 +34,7 @@ out/
 !.vscode/launch.json
 !.vscode/extensions.json
 .idea/
+.claude/
 *.swp
 *.swo
 *~

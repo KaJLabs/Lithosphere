@@ -317,42 +317,44 @@ function TransfersTab({ address, decimals, symbol, isNft }: { address: string; d
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-5 py-4 border-t border-white/10">
+        <div className="flex flex-col gap-3 px-5 py-4 border-t border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-white/30">
             Showing {offset + 1} to {Math.min(offset + PER_PAGE, total)} of {formatNumber(total)}
           </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(0)}
-              disabled={page === 0}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              First
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Prev
-            </button>
-            <span className="px-3 py-1.5 text-xs text-white/60">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-1">
+            <span className="text-xs text-white/60 sm:px-3 sm:py-1.5">
               Page {page + 1} of {totalPages}
             </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Next
-            </button>
-            <button
-              onClick={() => setPage(totalPages - 1)}
-              disabled={page >= totalPages - 1}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Last
-            </button>
+            <div className="grid grid-cols-4 gap-2 sm:flex sm:items-center sm:gap-1">
+              <button
+                onClick={() => setPage(0)}
+                disabled={page === 0}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                First
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Next
+              </button>
+              <button
+                onClick={() => setPage(totalPages - 1)}
+                disabled={page >= totalPages - 1}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Last
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -448,42 +450,44 @@ function HoldersTab({ address, decimals, symbol, totalSupply }: { address: strin
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-5 py-4 border-t border-white/10">
+        <div className="flex flex-col gap-3 px-5 py-4 border-t border-white/10 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-white/30">
             Showing {offset + 1} to {Math.min(offset + PER_PAGE, total)} of {formatNumber(total)}
           </p>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPage(0)}
-              disabled={page === 0}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              First
-            </button>
-            <button
-              onClick={() => setPage((p) => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Prev
-            </button>
-            <span className="px-3 py-1.5 text-xs text-white/60">
+          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:gap-1">
+            <span className="text-xs text-white/60 sm:px-3 sm:py-1.5">
               Page {page + 1} of {totalPages}
             </span>
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page >= totalPages - 1}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Next
-            </button>
-            <button
-              onClick={() => setPage(totalPages - 1)}
-              disabled={page >= totalPages - 1}
-              className="px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
-            >
-              Last
-            </button>
+            <div className="grid grid-cols-4 gap-2 sm:flex sm:items-center sm:gap-1">
+              <button
+                onClick={() => setPage(0)}
+                disabled={page === 0}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                First
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Prev
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Next
+              </button>
+              <button
+                onClick={() => setPage(totalPages - 1)}
+                disabled={page >= totalPages - 1}
+                className="min-w-0 px-2.5 py-1.5 text-xs rounded-lg border border-white/10 text-white/60 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed transition"
+              >
+                Last
+              </button>
+            </div>
           </div>
         </div>
       )}

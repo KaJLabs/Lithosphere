@@ -447,7 +447,7 @@ export default function TransactionDetailPage() {
                             </Link>
                           </span>
                         ) : (
-                          <FormattedValueElement formattedStr={formatValue(tx.tokenTransferAmount, tx.denom ?? 'ulitho')} />
+                          <span className="font-semibold text-white/50">{formatSupply(tx.tokenTransferAmount)} <span className="text-xs text-white/30">Unknown Token</span></span>
                         )}
                       </div>
                     </InfoRow>

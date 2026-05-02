@@ -165,11 +165,11 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
         />
       </Head>
 
-      <div className="text-white">
+      <div className="w-full min-w-0 text-white">
 
           {/* Hero */}
-          <section className="grid gap-6 lg:grid-cols-[1.3fr_0.7fr] lg:items-center">
-            <div>
+          <section className="grid w-full min-w-0 gap-6 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.7fr)] lg:items-center">
+            <div className="min-w-0">
               <div className="mb-3 inline-flex rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-200">
                 Lithosphere Makalu Testnet
               </div>
@@ -217,7 +217,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
             </div>
 
             {/* Summary stats */}
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+            <div className="grid min-w-0 gap-4 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
               {summaryStats.map((item) => (
                 <div
                   key={item.label}
@@ -234,7 +234,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
           </section>
 
           {/* Network metrics (real data from chain) */}
-          <section className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="mt-6 grid w-full min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {networkMetrics.map((item) => (
               <div
                 key={item.label}
@@ -249,9 +249,9 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
           <SyncStatusBanner stats={stats} className="mt-6" />
 
           {/* Blocks + Transactions */}
-          <section className="mt-8 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+          <section className="mt-8 grid w-full min-w-0 gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
             {/* Latest Blocks */}
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm text-white/55">
@@ -315,7 +315,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
             </div>
 
             {/* Latest Transactions */}
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm text-white/55">
@@ -350,18 +350,18 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                         key={txKey}
                         className="rounded-2xl border border-white/10 bg-black/25 p-4"
                       >
-                        <div className="flex items-center justify-between gap-3">
+                        <div className="flex min-w-0 items-center justify-between gap-3">
                           {txHash ? (
                             <Link
                               href={`/txs/${txHash}`}
-                              className="font-mono font-medium hover:text-emerald-300 transition"
+                              className="min-w-0 truncate font-mono font-medium hover:text-emerald-300 transition"
                             >
                               {truncateHash(txHash)}
                             </Link>
                           ) : (
                             <span className="font-mono font-medium text-white/30">Unavailable</span>
                           )}
-                          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70 truncate max-w-[120px]" title={tx.methodName ?? tx.txType ?? 'Transfer'}>
+                          <span className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-medium text-white/70 truncate max-w-[120px]" title={tx.methodName ?? tx.txType ?? 'Transfer'}>
                             {tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer')}
                           </span>
                         </div>
@@ -399,9 +399,9 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
           </section>
 
           {/* Validators + Tokens + Dev tools */}
-          <section className="mt-8 grid gap-6 xl:grid-cols-3">
+          <section className="mt-8 grid w-full min-w-0 gap-6 xl:grid-cols-3">
             {/* Top Validators */}
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm text-white/55">Consensus Layer</div>
@@ -411,7 +411,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                   href="https://validator.litho.ai"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="shrink-0 whitespace-nowrap rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm text-white/80 hover:bg-black/50 transition"
+                  className="shrink-0 whitespace-nowrap rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/80 hover:bg-black/50 transition sm:px-4"
                 >
                   All validators
                 </a>
@@ -450,7 +450,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
             </div>
 
             {/* Top Tokens */}
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
               <div className="mb-5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <div className="text-sm text-white/55">Onchain Assets</div>
@@ -504,7 +504,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
             </div>
 
             {/* Developer tools */}
-            <div className="rounded-3xl border border-white/10 bg-white/5 p-6">
+            <div className="min-w-0 rounded-3xl border border-white/10 bg-white/5 p-5 sm:p-6">
               <div className="mb-5">
                 <div className="text-sm text-white/55">Developer Tools</div>
                 <h2 className="mt-1 text-2xl font-semibold">Contracts &amp; AI</h2>
@@ -539,7 +539,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
           </section>
 
           {/* CTA banner */}
-          <section className="mt-8 rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/10 via-transparent to-violet-500/10 p-6">
+          <section className="mt-8 w-full min-w-0 rounded-3xl border border-white/10 bg-gradient-to-br from-emerald-500/10 via-transparent to-violet-500/10 p-5 sm:p-6">
             <div className="grid gap-6 lg:grid-cols-[1fr_auto] lg:items-center">
               <div>
                 <div className="text-sm text-white/55">Developer Experience</div>

@@ -130,6 +130,45 @@ function HeaderContent() {
   }, [walletMenuOpen]);
 
   useEffect(() => {
+    if (!menuOpen) return;
+
+    const scrollY = window.scrollY;
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousBodyPosition = document.body.style.position;
+    const previousBodyTop = document.body.style.top;
+    const previousBodyWidth = document.body.style.width;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = '100%';
+
+    return () => {
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      document.body.style.position = previousBodyPosition;
+      document.body.style.top = previousBodyTop;
+      document.body.style.width = previousBodyWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [menuOpen]);
+
+  useEffect(() => {
     if (!isConnected) {
       setWalletMenuOpen(false);
     }
@@ -405,6 +444,132 @@ function HeaderContent() {
       </div>
     ) : null;
 
+  const mobileMenu = menuOpen ? (
+    <div className="fixed inset-0 z-[150] overflow-y-auto overscroll-contain bg-[#070a10] px-4 pb-8 pt-5 lg:hidden">
+      <div className="mx-auto flex max-w-7xl items-center justify-between">
+        <Link
+          href="/"
+          onClick={() => setMenuOpen(false)}
+          className="flex items-center gap-3"
+        >
+          <img
+            src="/litho-logo.png"
+            alt="Lithosphere"
+            className="h-9 w-auto"
+          />
+          <span className="sr-only">{EXPLORER_TITLE}</span>
+        </Link>
+        <button
+          type="button"
+          onClick={() => setMenuOpen(false)}
+          className="grid h-12 w-12 place-items-center rounded-2xl border border-white/10 bg-[#141927] text-white/80 transition hover:bg-[#1b2132] hover:text-white"
+          aria-label="Close menu"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <div className="mx-auto mt-7 max-w-7xl space-y-5">
+        <div className="md:hidden">
+          <SearchBar />
+        </div>
+
+        <nav className="space-y-1">
+          {NAV_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => setMenuOpen(false)}
+              className={`block rounded-xl px-4 py-3 text-base font-semibold ${
+                isActive(item.href)
+                  ? 'bg-litho-400/12 text-litho-300'
+                  : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <div className="border-t border-white/10 pt-4">
+          <div className="px-4 pb-2 text-xs font-medium uppercase tracking-[0.18em] text-white/35">More</div>
+          <div className="space-y-1">
+            {MORE_ITEMS.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => setMenuOpen(false)}
+                className="block rounded-xl px-4 py-3 text-base font-semibold text-slate-300 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-1">
+          {!isConnected ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                void open({ view: 'Connect' });
+              }}
+              className="w-full rounded-2xl border border-white/10 bg-[#141927] px-4 py-3 text-sm font-medium text-white transition hover:border-white/20 hover:bg-[#1b2132]"
+            >
+              Connect Wallet
+            </button>
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-white/10 bg-[#141927] px-4 py-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-mono text-white/75">{shortenAddress(address)}</span>
+                  <span className="text-white/45">LITHO</span>
+                </div>
+                <div className="mt-1 text-sm font-semibold text-white">{balanceText}</div>
+              </div>
+              {address && (
+                <Link
+                  href={`/address/${address}`}
+                  onClick={() => setMenuOpen(false)}
+                  className="block w-full rounded-2xl border border-white/10 bg-[#141927] px-4 py-3 text-center text-sm text-white/85 transition hover:border-white/20 hover:bg-[#1b2132]"
+                >
+                  View Wallet
+                </Link>
+              )}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    void open({ view: 'Networks' });
+                  }}
+                  className="rounded-2xl border border-white/10 bg-[#141927] px-3 py-2.5 text-sm text-white/85 transition hover:border-white/20 hover:bg-[#1b2132]"
+                >
+                  Networks
+                </button>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    await disconnect();
+                  }}
+                  className="rounded-2xl border border-red-400/25 bg-red-400/10 px-3 py-2.5 text-sm text-red-200 transition hover:bg-red-400/15"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <header className="sticky top-0 z-50 overflow-x-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4">
@@ -508,103 +673,10 @@ function HeaderContent() {
             </button>
           </div>
         </div>
-
-        {/* Mobile nav */}
-        {menuOpen && (
-          <div className="lg:hidden pb-4 space-y-1">
-            <div className="md:hidden mb-3">
-              <SearchBar />
-            </div>
-            {NAV_ITEMS.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive(item.href)
-                    ? 'text-litho-400 bg-litho-400/10'
-                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-            {/* More section (flat list on mobile) */}
-            <div className="pt-2 border-t border-white/5">
-              <div className="px-3 py-1 text-xs text-white/30 uppercase tracking-wider">More</div>
-              {MORE_ITEMS.map((item) => (
-                <a
-                  key={item.href}
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setMenuOpen(false)}
-                  className="block px-3 py-2 rounded-md text-sm font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]"
-                >
-                  {item.label}
-                </a>
-              ))}
-            </div>
-            {/* Mobile wallet connect */}
-            <div className="pt-2 pb-1 px-3">
-              {!isConnected ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    void open({ view: 'Connect' });
-                  }}
-                  className="w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-sm font-medium text-white transition hover:border-white/20"
-                >
-                  Connect Wallet
-                </button>
-              ) : (
-                <div className="space-y-2">
-                  <div className="rounded-xl border border-white/10 bg-[var(--color-bg-tertiary)] px-3 py-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-mono text-white/70">{shortenAddress(address)}</span>
-                      <span className="text-white/40">LITHO</span>
-                    </div>
-                    <div className="mt-1 text-sm font-semibold text-white">{balanceText}</div>
-                  </div>
-                  {address && (
-                    <Link
-                      href={`/address/${address}`}
-                      onClick={() => setMenuOpen(false)}
-                      className="block w-full rounded-xl border border-white/10 bg-black/30 px-4 py-2.5 text-center text-sm text-white/85 transition hover:border-white/20"
-                    >
-                      View Wallet
-                    </Link>
-                  )}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        void open({ view: 'Networks' });
-                      }}
-                      className="rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-sm text-white/85 transition hover:border-white/20"
-                    >
-                      Networks
-                    </button>
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setMenuOpen(false);
-                        await disconnect();
-                      }}
-                      className="rounded-xl border border-red-400/20 bg-red-400/5 px-3 py-2 text-sm text-red-300 transition hover:bg-red-400/10"
-                    >
-                      Disconnect
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
 
       {moreMenu && typeof document !== 'undefined' ? createPortal(moreMenu, document.body) : null}
+      {mobileMenu && typeof document !== 'undefined' ? createPortal(mobileMenu, document.body) : null}
       {walletOverlay && typeof document !== 'undefined' ? createPortal(walletOverlay, document.body) : null}
     </header>
   );

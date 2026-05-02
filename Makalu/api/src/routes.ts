@@ -875,8 +875,37 @@ function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: stri
   };
 }
 
-async function enrichTokenInfo<T extends { tokenTransferAmount?: string | null; evmToAddr?: string; contractAddress?: string }>(mapped: T): Promise<T> {
-  if (!mapped.tokenTransferAmount || mapped.contractAddress || !mapped.evmToAddr) return mapped;
+async function enrichTokenInfo<T extends { tokenTransferAmount?: string | null; evmHash?: string; evmToAddr?: string; contractAddress?: string }>(mapped: T): Promise<T> {
+  if (mapped.contractAddress) return mapped;
+
+  // Primary: use token_transfers table — authoritative Transfer event data from receipt.
+  // Covers faucet-style txs where the top-level input is not a bare ERC-20 transfer().
+  // Pick the transfer with the largest value (most significant token moved).
+  if (mapped.evmHash) {
+    try {
+      const ttRows = await query<{ contract_address: string; symbol: string | null; value: string }>(
+        `SELECT tt.contract_address, c.symbol, tt.value
+         FROM token_transfers tt
+         LEFT JOIN contracts c ON LOWER(c.address) = LOWER(tt.contract_address)
+         WHERE LOWER(tt.tx_hash) = LOWER($1)
+         ORDER BY tt.value::numeric DESC, tt.log_index ASC
+         LIMIT 1`,
+        [mapped.evmHash]
+      );
+      if (ttRows[0]) {
+        return {
+          ...mapped,
+          tokenTransferAmount: ttRows[0].value,
+          tokenSymbol: ttRows[0].symbol ?? undefined,
+          contractAddress: ttRows[0].contract_address,
+        };
+      }
+    } catch { /* non-critical */ }
+  }
+
+  // Fallback: tokenTransferAmount was decoded from input_data by decodeTransferAmount;
+  // look up the symbol by evmToAddr (= the token contract for a direct transfer() call).
+  if (!mapped.tokenTransferAmount || !mapped.evmToAddr) return mapped;
   try {
     const rows = await query<{ symbol: string | null; name: string | null }>(
       `SELECT symbol, name FROM contracts WHERE LOWER(address) = LOWER($1) LIMIT 1`,
@@ -885,8 +914,11 @@ async function enrichTokenInfo<T extends { tokenTransferAmount?: string | null; 
     if (rows[0]?.symbol) {
       return { ...mapped, tokenSymbol: rows[0].symbol, contractAddress: mapped.evmToAddr };
     }
-  } catch { /* non-critical — return unmapped */ }
-  return mapped;
+    // No symbol found but we know the contract — set contractAddress so the frontend
+    // renders a contract link instead of falling back to the misleading "X LITHO" label.
+    return { ...mapped, contractAddress: mapped.evmToAddr };
+  } catch { /* non-critical */ }
+  return { ...mapped, contractAddress: mapped.evmToAddr };
 }
 
 function mapEvmTx(evm: EvmTxRow, cosmosTx?: TxRow) {
