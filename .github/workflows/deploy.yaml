@@ -565,7 +565,7 @@ jobs:
               -o IdentitiesOnly=yes \
               -i "$SSH_KEY_PATH" \
               "$DEPLOY_SSH_USER@$SERVER_IP" \
-              "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"query\":\"{ __typename }\"}' http://localhost:4000/graphql")
+              "curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{\"query\":\"{ __typename }\"}' http://localhost:4000/graphql || true")
           if echo "$HTTP_CODE" | grep -qE '^2'; then
             echo "GraphQL healthy"
             echo "graphql_status=healthy" >> $GITHUB_OUTPUT
@@ -581,7 +581,7 @@ jobs:
               -o IdentitiesOnly=yes \
               -i "$SSH_KEY_PATH" \
               "$DEPLOY_SSH_USER@$SERVER_IP" \
-              "curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/metrics")
+              "curl -s -o /dev/null -w '%{http_code}' http://localhost:9090/metrics || true")
           if echo "$HTTP_CODE" | grep -qE '^2'; then
             echo "Metrics healthy"
             echo "metrics_status=healthy" >> $GITHUB_OUTPUT
@@ -612,10 +612,6 @@ jobs:
     env:
       SERVER_IP: ${{ secrets.SERVER_IP }}
       SERVER_USER: ${{ secrets.SERVER_USER }}
-
-    defaults:
-      run:
-        working-directory: ./Makalu
 
     steps:
       - name: Select Working SSH Key
