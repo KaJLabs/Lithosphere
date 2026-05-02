@@ -1333,26 +1333,24 @@ function WalletLayout({
       <HoldingsSection balance={account.balance} balanceSource={balanceSource} usdPrice={usdPrice} />
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
-      <div className="border-b border-white/10">
-        <div className="overflow-x-auto">
-          <nav className="flex w-max min-w-full gap-6 -mb-px" aria-label="Address tabs">
-            {WALLET_TABS.map((t) => {
-              const isActive = resolvedTab === t.key;
-              return (
-                <button
-                  key={t.key}
-                  onClick={() => setTab(t.key)}
-                  className={`pb-3 text-sm font-medium transition border-b-2 ${isActive ? 'border-emerald-400 text-white' : 'border-transparent text-white/50 hover:text-white/70'}`}
-                >
-                  {t.label}
-                  {t.key === 'transactions' && account.txCount > 0 && (
-                    <span className="ml-1.5 text-xs text-white/35">({formatNumber(account.txCount)})</span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
+      <div className="border-b border-white/10 overflow-x-auto">
+        <nav className="flex gap-6 -mb-px whitespace-nowrap" aria-label="Address tabs">
+          {WALLET_TABS.map((t) => {
+            const isActive = resolvedTab === t.key;
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`pb-3 text-sm font-medium transition border-b-2 shrink-0 ${isActive ? 'border-emerald-400 text-white' : 'border-transparent text-white/50 hover:text-white/70'}`}
+              >
+                {t.label}
+                {t.key === 'transactions' && account.txCount > 0 && (
+                  <span className="ml-1.5 text-xs text-white/35">({formatNumber(account.txCount)})</span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* ── Tab content ─────────────────────────────────────────────── */}
