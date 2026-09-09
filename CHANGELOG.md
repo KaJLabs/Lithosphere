@@ -1,5 +1,27 @@
 # Changelog
 
+## [1.29.0](https://github.com/KaJLabs/Lithosphere/compare/v1.28.2...v1.29.0) (2026-09-09)
+
+
+### Features
+
+* **multx:** verify reviewed native LITHO precompile identity ([33f8808](https://github.com/KaJLabs/Lithosphere/commit/33f8808220d36d1e0c39bdb696e332c550f2dbf1))
+
+
+### Bug Fixes
+
+* **l1:** harden M03 release controls ([#165](https://github.com/KaJLabs/Lithosphere/issues/165)) ([ccdbc7c](https://github.com/KaJLabs/Lithosphere/commit/ccdbc7ccc0486bd9cdb57578e136f05266e6c5da))
+* **multx:** bypass provider cache for reorg checkpoints ([152bad6](https://github.com/KaJLabs/Lithosphere/commit/152bad62199803035bfc2f7509189428d96fa06f))
+* **multx:** enforce non-aws signer architecture ([#162](https://github.com/KaJLabs/Lithosphere/issues/162)) ([cb1a0e9](https://github.com/KaJLabs/Lithosphere/commit/cb1a0e993f5224a04d712f6dbac8a7accdb57517))
+* **multx:** land reviewed stack on main with accepted lineage ([b54cb55](https://github.com/KaJLabs/Lithosphere/commit/b54cb55e62e8be92b8842a8b6485872ec7c9f015))
+* **multx:** patch js-yaml audit finding in web lockfile ([f7556d3](https://github.com/KaJLabs/Lithosphere/commit/f7556d3dbf8e095f75b0238bf97e8da38b43d51c))
+* **multx:** preserve accepted v0.9.2 lineage ([74f675d](https://github.com/KaJLabs/Lithosphere/commit/74f675d1478644f461c55ee465296d56c814e161))
+* **multx:** reject inconsistent event ranges before cursor commit ([3020b1d](https://github.com/KaJLabs/Lithosphere/commit/3020b1d481096c6d010fa0a931dbee2b70c00a5d))
+* **multx:** remediate Autha v0.9 governance and state findings ([1c23379](https://github.com/KaJLabs/Lithosphere/commit/1c23379723b19ed1a38a5f4a67192eac5958c86a))
+* **multx:** reproduce archive bytecode and enforce closure regressions ([5994f26](https://github.com/KaJLabs/Lithosphere/commit/5994f263b9d1fd40c531410d6b23884eade9f5b9))
+* **multx:** reproduce audited bytecode and close regression gaps ([#168](https://github.com/KaJLabs/Lithosphere/issues/168)) ([e7322e6](https://github.com/KaJLabs/Lithosphere/commit/e7322e6a3c98843e05379e6fa03796a712b8168a))
+* **multx:** verify fresh source evidence before signing and release ([b0f9ca8](https://github.com/KaJLabs/Lithosphere/commit/b0f9ca8140e601370fbb1f15105c088eddc3a0c6))
+
 ## [1.28.2](https://github.com/KaJLabs/Lithosphere/compare/v1.28.1...v1.28.2) (2026-09-02)
 
 
