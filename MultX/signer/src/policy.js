@@ -96,6 +96,7 @@ export const validateAttestation = (input) => ({
   sourceChain: safePositiveInteger(input?.sourceChain, 'sourceChain'),
   sourceNonce: positiveIntegerString(input?.sourceNonce, 'sourceNonce'),
   sourceBlock: safePositiveInteger(input?.sourceBlock, 'sourceBlock'),
+  sourceBlockHash: input?.sourceBlockHash,
   sourceBridge: nonZeroAddress(input?.sourceBridge, 'sourceBridge'),
   sourceToken: nonZeroAddress(input?.sourceToken, 'sourceToken'),
   releaseToken: nonZeroAddress(input?.releaseToken, 'releaseToken'),
@@ -140,6 +141,7 @@ export const resolvePolicy = (policy, attestation) => {
 export const assertLockEvent = (event, attestation) => {
   const args = event?.args;
   if (!args) throw new Error('lock event is missing');
+  if (event.removed) throw new Error('lock event is removed');
   const matches =
     String(args.txHash).toLowerCase() === attestation.sourceTxHash.toLowerCase() &&
     ethers.getAddress(args.token) === attestation.sourceToken &&

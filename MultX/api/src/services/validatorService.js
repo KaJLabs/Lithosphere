@@ -137,14 +137,14 @@ async function processSignings() {
   try {
     const result = await pool.query(
       `SELECT tx_hash, from_address, token_address, release_token, amount,
-              target_chain, source_chain, source_bridge, source_nonce, block_number
+              target_chain, source_chain, source_bridge, source_nonce, block_number, block_hash
        FROM bridge_transactions WHERE status IN ('locked', 'signing')`
     );
 
     if (result.rows.length === 0) return;
 
     for (const tx of result.rows) {
-      if (!tx.release_token || !tx.source_chain || !tx.source_bridge || !tx.source_nonce || !tx.block_number) {
+      if (!tx.release_token || !tx.source_chain || !tx.source_bridge || !tx.source_nonce || !tx.block_number || !tx.block_hash) {
         console.error(`[ValidatorService] Refusing ${tx.tx_hash}: incomplete multichain lock evidence`);
         continue;
       }
@@ -161,6 +161,7 @@ async function processSignings() {
         sourceChain,
         sourceNonce: tx.source_nonce,
         sourceBlock: tx.block_number,
+        sourceBlockHash: tx.block_hash,
         sourceBridge: tx.source_bridge,
         sourceToken: tx.token_address,
         releaseToken,
