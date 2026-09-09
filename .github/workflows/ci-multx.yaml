@@ -28,6 +28,8 @@ jobs:
           cache: npm
           cache-dependency-path: MultX/contracts/package-lock.json
       - run: npm ci
+      - name: Reject critical findings in the complete dependency tree
+        run: npm audit --audit-level=critical
       - name: Reject production high or critical dependency findings
         run: npm audit --omit=dev --audit-level=high
       - run: npm test

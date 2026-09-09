@@ -398,7 +398,7 @@ describe("MultXBridge", function () {
       await token.connect(user).approve(bridge.address, amount);
       await expect(
         bridge.connect(user).lockTokens(token.address, amount, 700777)
-      ).to.be.revertedWith("EnforcedPause");
+      ).to.be.revertedWithCustomError(bridge, "EnforcedPause");
     });
   });
 });

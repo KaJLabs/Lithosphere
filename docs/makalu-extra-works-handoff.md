@@ -181,6 +181,10 @@ Completed or evidenced:
 - [x] Verified the newer disposable-node packages cover 34-transaction Cosmos bank/EVM/ERC-20 accounting, finite
       maximum allowance, native approval expiry, exact simulated cap boundaries, recipient callback behavior, and
       hostile-token reentrancy rollback. These are scoped local results, not production acceptance (2026-09-10).
+- [x] Removed the deprecated Waffle/Ganache contract-test path, reduced the complete development-tree audit from
+      3 critical/15 high to 0 critical/9 high, preserved zero production findings, and reproduced all accepted
+      bytecode exactly. CI now rejects critical findings in the complete tree, and the residual development-only
+      findings are explicitly prohibited on long-lived privileged or production hosts (2026-09-10).
 
 Remaining actions:
 
@@ -213,8 +217,11 @@ Remaining actions:
       preserve the result, and obtain independent acceptance. Do not rerun setup or retry after partial submission.
 - [ ] Verify production indexer ingestion/reorg/double-credit behavior against approved disabled staging. Public PRs
       #170-#171 cover canonical-range and source-evidence logic, but do not constitute a production indexer run.
-- [ ] Modernize or explicitly disposition the MultX deployment/test toolchain's transitive audit findings before
-      using it as a long-lived privileged runner (full local audit: 3 critical, 14 high; production-only audit: 0).
+- [x] Modernize and explicitly disposition the MultX deployment/test toolchain's transitive audit findings. The
+      deprecated Waffle/Ganache path is removed; the complete tree now reports 0 critical/9 high and the production
+      tree reports zero. `MultX/docs/audit/CONTRACT_TOOLCHAIN_DISPOSITION_2026-09-10.md` prohibits the residual
+      development stack on long-lived privileged or production hosts and requires a disposable unprivileged build
+      environment. This does not approve a deployment executor.
 - [ ] Obtain Backend/Bridge confirmation of the route contract, token map, relayer/claim behavior, and supported
       source/destination chains.
 - [ ] Complete contract security review and record deployer, admin/ownership, pause, upgradeability, and emergency
@@ -926,6 +933,7 @@ Evidence:
 | 2026-09-09 | MX-01 mainline merge topology | CORRECTION OPEN | PR #168 squash-merged accepted source content as `e7322e6`, but exact accepted commit `5994f263` is not an ancestor of `main`. PRs #169-#171 were merged into stacked feature branches rather than `main`. Corrective PR #173 has current `main` and reviewed head `ef0ebc5` as merge parents, contains only the effective #169-#171 diff, preserves every reviewed commit as an ancestor, and passes 60 API, 43 signer, and 153 contract tests. It must be merged with a merge commit; private readiness PR #24 is still open. No deployment or activation occurred. |
 | 2026-09-09 | MX-01 mainline and readiness preparation merges | MERGED, ACCEPTANCE GATES OPEN | PR #173 merged as two-parent commit `b54cb55`; accepted commit `5994f263` and reviewed #169-#171 commits are ancestors of `main`. Private PR #24 merged as two-parent commit `571e96a` with the recovery-owner correction. GitHub records no submitted reviews on either PR, so these merges do not close independent post-acceptance review or Autha O-01/package O-02 operational readiness. No deployment or activation occurred. |
 | 2026-09-10 | MX-01 private routing/probe review | MERGED, INDEPENDENT ACCEPTANCE OPEN | Private PR #25 merged as `e64f7c7` with reviewed head `ef4ddb4` as its second parent after standards/spec review, fail-closed EVM-address and JSON-RPC-checkpoint fixes, 25 passing tests, and green CI run `34395277331`. GitHub records no submitted review. Real elapsed-time cap rollover, production indexer verification, production inputs, and independent acceptance remain open. No deployment or activation occurred. |
+| 2026-09-10 | MX-01 contract toolchain dependency disposition | PASS, DEPLOYMENT NOT APPROVED | Removed deprecated Waffle/Ganache dependencies and moved revert assertions to compatible Hardhat Chai matchers. The complete tree improved from 3 critical/15 high to 0 critical/9 high; the production tree remains at zero. All 153 tests, 12 closure mutations, forced compilation, and exact full-bytecode comparison passed. Residual development dependencies are prohibited on long-lived privileged and production hosts; CI now rejects complete-tree critical findings. |
 
 ## Change log
 
