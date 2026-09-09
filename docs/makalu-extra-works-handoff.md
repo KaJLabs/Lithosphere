@@ -3,8 +3,8 @@
 - **Status:** Active — closing one stream at a time
 - **Last verified:** 2026-09-09 PKT (UTC+05:00)
 - **Repository:** `KaJLabs/Lithosphere`
-- **Default branch inspected:** `origin/main` at `e7322e6a3c98843e05379e6fa03796a712b8168a`
-- **Latest merged workstream change:** PR #168 at `e7322e6a3c98843e05379e6fa03796a712b8168a`
+- **Default branch inspected:** `origin/main` at `b54cb55e62e8be92b8842a8b6485872ec7c9f015`
+- **Latest merged workstream change:** PR #173 at `b54cb55e62e8be92b8842a8b6485872ec7c9f015`
 - **Network in scope:** Makalu testnet, EVM chain ID `700777`, Cosmos chain ID `lithosphere_700777-2`
 
 This is the source of truth for the seven Makalu extra-work streams. Update it whenever code is merged, a release is
@@ -43,13 +43,13 @@ for now, deferred further MX-02 work, confirmed deployment access, and asked the
 tasks. MX-01 MultX is therefore the active priority. Autha accepted the source and bytecode of the superseding
 `multx-audit-candidate-v0.9.2-20260908` tag at commit
 `5994f263b9d1fd40c531410d6b23884eade9f5b9`; v0.9.0 itself never received independent written acceptance and must
-not be deployed. Production remains blocked by Autha O-01 (package O-02) operational readiness, incorporation of the
-reviewed v0.9.2 source into the approved deployment path, and the governance, route, signer, canary, and activation
-approvals. PR #168 placed the accepted source content on `main` through a squash, but did not preserve accepted
-commit `5994f263b9d1fd40c531410d6b23884eade9f5b9` as an ancestor. PRs #169-#171 were merged only into their stacked
-feature branches. Corrective PR #173 targets `main` with a merge commit that preserves the accepted lineage and
-lands the reviewed post-acceptance gates. Private operator-readiness PR #24 remains open. MultX, Bridge signing,
-Swap, and Faucet remain disabled.
+not be deployed. Corrective PR #173 merged as `b54cb55e62e8be92b8842a8b6485872ec7c9f015`, preserving accepted commit
+`5994f263b9d1fd40c531410d6b23884eade9f5b9` and the reviewed #169-#171 stack as ancestors of public `main`. Private
+operator-readiness PR #24 merged as `571e96ad22d7dd373b8aa0ef3acfea56cfb2100e`. Production remains blocked by
+Autha O-01/package O-02 operational readiness and the outstanding governance, route, signer, canary, and activation
+approvals. GitHub records no submitted reviews on PR #173 or private PR #24, so independent acceptance of the
+post-v0.9.2 changes and operator package must be evidenced before deployment. MultX, Bridge signing, Swap, and
+Faucet remain disabled.
 
 The worktree is shared and contains pre-existing changes across several streams. Preserve them, isolate each stream
 into a reviewable change, and never bulk-commit the dirty worktree.
@@ -61,7 +61,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
 | MX-04 | DNNS | Verified explorer hardening merged and deployed; owner acceptance open | EXTERNAL BLOCKER | DNNS owner confirms the supported interface, fixes public docs, nominates a reverse record, and accepts cache policy. |
 | MX-05 | Quantt | Assumption-free gates deployed; adapter remains disabled | EXTERNAL BLOCKER | Quantt owner supplies the API contract/credential and fixes or replaces the development TLS endpoint. |
-| MX-01 | MultX / Lithoswap | Autha accepted v0.9.2 source/bytecode; mainline lineage correction PR #173 and private readiness PR #24 open; O-01/package O-02 operational readiness open; mainnet disabled | IN PROGRESS | Merge PR #173 with a merge commit, merge the reviewed private preparation, then complete all operator-readiness gates before any paused deployment or canary. |
+| MX-01 | MultX / Lithoswap | Accepted v0.9.2 lineage and reviewed gates are on public `main`; private readiness preparation merged; post-acceptance review evidence and O-01/package O-02 operational readiness open; mainnet disabled | IN PROGRESS | Obtain independent acceptance for the post-v0.9.2 changes, then supply and approve production inventory/readiness evidence before disabled staging. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; four tools remain specification-only and there is no deployable compiler/public release | IN PROGRESS | Obtain approved language/VM semantics and product/release/security acceptance before compiler or public-release work. |
 
 ## Sequential closure queue
@@ -87,12 +87,13 @@ receive written independent acceptance and is prohibited from deployment. Autha 
 bytecode of annotated tag `multx-audit-candidate-v0.9.2-20260908`, commit
 `5994f263b9d1fd40c531410d6b23884eade9f5b9`, after the v0.9.1 and v0.9.2 closure remediations. The supplied acceptance
 receipt closes M-03, L-01, L-02, and O-04 and matches all three retained report hashes. Autha O-01 (called package O-02
-in the operator handoff) remains open for operational readiness. The accepted v0.9.2 commit is tagged but was not
-contained in public `main` when verified on 2026-09-09. PR #168 subsequently squash-merged the accepted source
-content, but the accepted commit itself is still not an ancestor of `main`; PRs #169-#171 were merged only through
-their stacked branches. Corrective PR #173 targets `main` with current `main` and the reviewed stack as merge parents,
-which will preserve the accepted commit ancestry if and only if it is merged with a merge commit. Private PR #24 is
-reviewed preparation for operator readiness but remains open and intentionally fails closed on incomplete inventory.
+in the operator handoff) remains open for operational readiness. Corrective PR #173 merged with two parents as
+`b54cb55e62e8be92b8842a8b6485872ec7c9f015`; exact accepted commit
+`5994f263b9d1fd40c531410d6b23884eade9f5b9` and every reviewed #169-#171 commit are now ancestors of public `main`.
+Private preparation PR #24 merged as `571e96ad22d7dd373b8aa0ef3acfea56cfb2100e` and retains disabled rendering
+plus fail-closed incomplete-inventory checks. This merges preparation, not the missing production inputs or O-01
+operational acceptance. GitHub reports no submitted reviews on PR #173 or private PR #24; this is an open governance
+evidence gate and the merge itself must not be treated as independent security or operator acceptance.
 The operator must use only the exact accepted source through an explicitly approved deployment path; no earlier
 deployment may be relabeled. Deployment access does not authorize
 infrastructure, contracts, signers, liquidity, canary, or feature flags. MultX, Bridge signing, Swap, and Faucet remain
@@ -160,6 +161,8 @@ Completed or evidenced:
 - [x] Reviewed private operator-readiness PR #24, fixed its recovery-owner separation gate to require seven normalized
       distinct recovery owners and per-signer custodian/recovery independence, and passed 32 tests with three
       platform-specific skips plus Linux CI (2026-09-09).
+- [x] Merged corrective PR #173 with the accepted v0.9.2 and reviewed #169-#171 commits preserved as ancestors of
+      public `main`; merged private readiness preparation PR #24 with its recovery-owner fix (2026-09-09).
 
 Remaining actions:
 
@@ -179,11 +182,13 @@ Remaining actions:
       and independent-RPC approvals; source-pinned production image publication/provenance; host/key/PKI hardening;
       isolated database/coordinator recovery; disabled staging; per-signer recovery; monitoring, alert, and rollback
       drills.
-- [ ] Merge corrective PR #173 using a **merge commit only**. Its second parent contains exact accepted commit
+- [x] Merge corrective PR #173 using a **merge commit only**. Its second parent contains exact accepted commit
       `5994f263b9d1fd40c531410d6b23884eade9f5b9` and the reviewed #169-#171 stack; squashing or rebasing would again
-      discard the accepted ancestry.
-- [ ] Merge private operator-readiness PR #24 after an authorized independent review. Its rendered configurations
+      discard the accepted ancestry. Merged as `b54cb55e62e8be92b8842a8b6485872ec7c9f015`.
+- [x] Merge private operator-readiness PR #24. Its rendered configurations
       remain disabled and incomplete production inventory must continue to fail closed.
+- [ ] Obtain and record independent security/operator acceptance for the post-v0.9.2 mainline changes and private
+      operator package. GitHub currently records no submitted reviews on PR #173 or private PR #24.
 - [ ] Modernize or explicitly disposition the MultX deployment/test toolchain's transitive audit findings before
       using it as a long-lived privileged runner (full local audit: 3 critical, 14 high; production-only audit: 0).
 - [ ] Obtain Backend/Bridge confirmation of the route contract, token map, relayer/claim behavior, and supported
@@ -246,8 +251,10 @@ Evidence:
   `https://github.com/KaJLabs/Lithosphere/pull/169`,
   `https://github.com/KaJLabs/Lithosphere/pull/170`, and
   `https://github.com/KaJLabs/Lithosphere/pull/171`
-- Mainline lineage correction: `https://github.com/KaJLabs/Lithosphere/pull/173`
-- Private operator-readiness preparation: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/24`
+- Mainline lineage correction: `https://github.com/KaJLabs/Lithosphere/pull/173`, merge
+  `b54cb55e62e8be92b8842a8b6485872ec7c9f015`
+- Private operator-readiness preparation: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/24`, merge
+  `571e96ad22d7dd373b8aa0ef3acfea56cfb2100e`
 - Live probes: `https://makalu.litho.ai/api/config`, `https://makalu.litho.ai/swap`,
   `https://makalu.litho.ai/cross-swap`, `https://lithoscan.ai/api/config`
 
@@ -890,8 +897,24 @@ Evidence:
 | 2026-09-05 | MX-06 final governance closure | COMPLETE | Private PR #23 preserves the missing historical PR #17 approval-window artifact as an accepted exception. The project representative confirmed the named owners privately approved it and instructed `BrewCodeDev` to merge; merge `72162ec8` closed the documentation-only window at `2026-09-05T16:33:22Z`. No historical timestamp was reconstructed and no infrastructure operation occurred. |
 | 2026-09-09 | MX-01 MultX v0.9.2 acceptance | PASS, ACTIVATION GATED | Annotated tag `multx-audit-candidate-v0.9.2-20260908` resolves to `5994f263b9d1fd40c531410d6b23884eade9f5b9`. The supplied Autha receipt binds the accepted source and bytecode-evidence hashes, and all three report-file hashes match. M-03/L-01/L-02/O-04 are closed; Autha O-01/package O-02 operational readiness remains open. The accepted commit is not contained in public `main`; v0.9.0 is unaccepted and must not be deployed. No deployment or activation occurred. |
 | 2026-09-09 | MX-01 mainline merge topology | CORRECTION OPEN | PR #168 squash-merged accepted source content as `e7322e6`, but exact accepted commit `5994f263` is not an ancestor of `main`. PRs #169-#171 were merged into stacked feature branches rather than `main`. Corrective PR #173 has current `main` and reviewed head `ef0ebc5` as merge parents, contains only the effective #169-#171 diff, preserves every reviewed commit as an ancestor, and passes 60 API, 43 signer, and 153 contract tests. It must be merged with a merge commit; private readiness PR #24 is still open. No deployment or activation occurred. |
+| 2026-09-09 | MX-01 mainline and readiness preparation merges | MERGED, ACCEPTANCE GATES OPEN | PR #173 merged as two-parent commit `b54cb55`; accepted commit `5994f263` and reviewed #169-#171 commits are ancestors of `main`. Private PR #24 merged as two-parent commit `571e96a` with the recovery-owner correction. GitHub records no submitted reviews on either PR, so these merges do not close independent post-acceptance review or Autha O-01/package O-02 operational readiness. No deployment or activation occurred. |
 
 ## Change log
+
+### 2026-09-09 — MX-01 accepted lineage and readiness preparation merged
+
+- Verified public PR #173 merged as `b54cb55e62e8be92b8842a8b6485872ec7c9f015` with current `main` and the
+  corrective branch as parents.
+- Verified exact Autha-accepted commit `5994f263b9d1fd40c531410d6b23884eade9f5b9`, the complete reviewed
+  #169-#171 stack, and corrective merge `74f675d1478644f461c55ee465296d56c814e161` are ancestors of public `main`.
+- Verified private PR #24 merged as `571e96ad22d7dd373b8aa0ef3acfea56cfb2100e` with corrected readiness head
+  `2f160d42955f2f4f697575d57388e4b8b0ee06ca` as its second parent.
+- GitHub reports no submitted reviews on PR #173 or private PR #24. Independent acceptance of post-v0.9.2 changes
+  and the operator package remains required before deployment.
+- Autha O-01/package O-02 production inputs, disabled staging, recovery, monitoring, canary, and activation gates
+  remain open.
+- MultX, Bridge signing, Swap, and Faucet remain disabled; no deployment, funding, key change, or activation occurred.
+- Updated by: `bachal-mb`.
 
 ### 2026-09-09 — MX-01 stacked-merge correction prepared
 
