@@ -1,6 +1,7 @@
 import { ethers } from 'ethers';
-import { config } from '../config.js';
+import { config, resolveReleaseToken } from '../config.js';
 import { pool } from '../db/pool.js';
+import { createSourceEvidenceClient, verifySourceEvidence } from './sourceEvidence.js';
 
 /**
  * Release executor — the automated counterpart to the validator (signing)
@@ -107,6 +108,23 @@ async function markCompleted(txHash, releaseTxHash) {
   );
 }
 
+const sourceClients = new Map();
+
+export async function submitSourceVerifiedRelease(tx, submit, source, client) {
+  if (!source || !tx.block_hash || !tx.block_number ||
+      resolveReleaseToken(tx.source_chain, tx.token_address, tx.target_chain)?.toLowerCase() !==
+        tx.release_token?.toLowerCase()) {
+    throw new Error('Missing or unmapped source release evidence; reconciliation required');
+  }
+  await verifySourceEvidence(source, {
+    sourceChain: tx.source_chain, sourceBridge: tx.source_bridge,
+    sourceBlock: tx.block_number, sourceBlockHash: tx.block_hash,
+    sourceTxHash: tx.tx_hash, sourceToken: tx.token_address, user: tx.from_address,
+    amount: tx.amount, targetChain: tx.target_chain, sourceNonce: tx.source_nonce,
+  }, client);
+  return submit();
+}
+
 async function releaseOne(tx) {
   if (!tx.release_token || !tx.source_chain || !tx.source_nonce) {
     console.warn(`[ReleaseService] incomplete release evidence — skipping ${short(tx.tx_hash)}`);
@@ -145,10 +163,15 @@ async function releaseOne(tx) {
   }
 
   try {
-    const resp = await ctx.bridge.releaseTokens(
+    const sourceSpec = config.chainsToWatch.find(c => Number(c.chainId) === Number(tx.source_chain));
+    if (!sourceSpec) throw new Error('Source chain configuration is missing');
+    const source = { chainId: sourceSpec.chainId, bridgeAddress: sourceSpec.bridge,
+      rpcUrl: sourceSpec.rpc, confirmations: sourceSpec.confirmations };
+    if (!sourceClients.has(source.chainId)) sourceClients.set(source.chainId, createSourceEvidenceClient(source));
+    const resp = await submitSourceVerifiedRelease(tx, () => ctx.bridge.releaseTokens(
       token, tx.from_address, amount, tx.source_chain, sourceBridge, tx.source_nonce, tx.tx_hash,
       sigs.slice(0, ctx.required), { gasLimit: 400_000 }
-    );
+    ), source, sourceClients.get(source.chainId));
     console.log(`[ReleaseService] releaseTokens sent for ${short(tx.tx_hash)} → ${resp.hash}`);
     const rcpt = await resp.wait();
     if (rcpt.status === 1) {
@@ -160,6 +183,8 @@ async function releaseOne(tx) {
   } catch (err) {
     // Transient (gas, RPC, reorg): leave the row 'signed' so the next tick retries.
     console.error(`[ReleaseService] release failed for ${short(tx.tx_hash)}: ${String(err.reason || err.message).slice(0, 140)}`);
+    await pool.query('UPDATE bridge_transactions SET failure_reason=$2, updated_at=NOW() WHERE tx_hash=$1',
+      [tx.tx_hash, String(err.reason || err.message).slice(0, 500)]);
   }
 }
 
@@ -169,7 +194,7 @@ async function processReleases() {
   try {
     const { rows } = await pool.query(
       `SELECT tx_hash, from_address, token_address, release_token, amount,
-              target_chain, source_chain, source_bridge, source_nonce
+              target_chain, source_chain, source_bridge, source_nonce, block_number, block_hash
        FROM bridge_transactions
        WHERE status = 'signed' AND release_tx_hash IS NULL
        ORDER BY timestamp ASC`

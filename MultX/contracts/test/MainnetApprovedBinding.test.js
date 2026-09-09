@@ -137,3 +137,36 @@ describe('approved deployment root binding', function () {
     expect(() => verifyApprovedDeploymentBindings(planBytes, Buffer.from('tampered'), manifest)).to.throw('bytecode evidence');
   });
 });
+
+
+describe('native identity approved-plan integration', function () {
+  function nativeFixture() {
+    const f=fixture();const plan=JSON.parse(f.planBytes);
+    const address=require('../scripts/mainnet/verify-native-precompile').ADDRESS;
+    Object.assign(plan.assets[0],{symbol:'LITHO',name:'Lithosphere',originToken:address,identityType:'native-precompile',
+      nativePrecompile:{denom:'ulitho',implementationSha256:'a'.repeat(64),evidenceSha256:'b'.repeat(64),
+        securityApprovalUrl:'https://evidence.example/security',operatorApprovalUrl:'https://evidence.example/operator'}});
+    for(const chain of f.manifest.chains){
+      chain.assets[0].symbol='LITHO';
+      if(chain.chainId===9005){Object.assign(chain.assets[0],{address,identityType:'native-precompile'});delete chain.assets[0].runtimeSha256;}
+      else chain.assets[0].originToken=address;
+    }
+    f.planBytes=Buffer.from(JSON.stringify(plan));f.manifest.release.deploymentPlanSha256=digest(f.planBytes);return f;
+  }
+  it('binds canonical native identity while retaining ordinary destination provenance', function(){
+    const f=nativeFixture();expect(()=>verifyApprovedDeploymentBindings(f.planBytes,evidenceBytes,f.manifest)).not.to.throw();
+  });
+  it('rejects identity downgrade and destination native bypass',function(){
+    for(const change of [f=>{delete f.manifest.chains[0].assets[0].identityType;f.manifest.chains[0].assets[0].runtimeSha256='e'.repeat(64);},
+      f=>{f.manifest.chains[1].assets[0].identityType='native-precompile';delete f.manifest.chains[1].assets[0].runtimeSha256;},
+      f=>delete f.manifest.chains[1].assets[0].runtimeSha256]){
+      const f=nativeFixture();change(f);expect(()=>verifyApprovedDeploymentBindings(f.planBytes,evidenceBytes,f.manifest)).to.throw();
+    }
+  });
+  it('requires native evidence before creation or governance verification',async function(){
+    const f=nativeFixture();const {verifyDeploymentReadonly}=require('../scripts/mainnet/verify-deployment-readonly');
+    const provider={getNetwork:async()=>({chainId:9005}),getBlockNumber:async()=>10};
+    try{await verifyDeploymentReadonly(f.manifest,{planBytes:f.planBytes,evidenceBytes},()=>provider);throw Error('expected rejection');}
+    catch(e){expect(e.message).to.include('independent bounded evidence file required');}
+  });
+});
