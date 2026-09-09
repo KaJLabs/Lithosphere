@@ -366,7 +366,7 @@ describe("MultXBridgeDest", function () {
       await wrapped.connect(user).approve(bridge.address, ethers.utils.parseEther("1"));
       await expect(
         bridge.connect(user).lockTokens(wrapped.address, ethers.utils.parseEther("1"), TARGET_CHAIN)
-      ).to.be.revertedWith("EnforcedPause");
+      ).to.be.revertedWithCustomError(bridge, "EnforcedPause");
     });
 
     it("releaseTokens reverts when paused", async function () {
@@ -377,7 +377,7 @@ describe("MultXBridgeDest", function () {
       const sigs = await getSortedSignatures([v1, v2], msgHash);
       await expect(
         bridge.releaseTokens(wrapped.address, user.address, amount, ORIGIN_CHAIN_ID, SOURCE_BRIDGE, 99, sourceTxHash, sigs)
-      ).to.be.revertedWith("EnforcedPause");
+      ).to.be.revertedWithCustomError(bridge, "EnforcedPause");
     });
   });
 
@@ -520,7 +520,7 @@ describe("MultXBridgeDest", function () {
       await wrapped.connect(user).approve(bridge.address, ethers.utils.parseEther("1"));
       await expect(
         bridge.connect(user).lockTokens(wrapped.address, ethers.utils.parseEther("1"), TARGET_CHAIN)
-      ).to.be.revertedWith("EnforcedPause");
+      ).to.be.revertedWithCustomError(bridge, "EnforcedPause");
     });
   });
 });
