@@ -1,10 +1,10 @@
 # Makalu extra works — living handoff
 
 - **Status:** Active — closing one stream at a time
-- **Last verified:** 2026-09-09 PKT (UTC+05:00)
+- **Last verified:** 2026-09-10 PKT (UTC+05:00)
 - **Repository:** `KaJLabs/Lithosphere`
-- **Default branch inspected:** `origin/main` at `b54cb55e62e8be92b8842a8b6485872ec7c9f015`
-- **Latest merged workstream change:** PR #173 at `b54cb55e62e8be92b8842a8b6485872ec7c9f015`
+- **Default branch inspected:** `origin/main` at `31ab24dcc3c58ecdd97072310ea90a7256d1a05a`
+- **Latest merged workstream change:** PR #174 at `e15ead44cab380197acb95ccb4c66618d99b66ed`
 - **Network in scope:** Makalu testnet, EVM chain ID `700777`, Cosmos chain ID `lithosphere_700777-2`
 
 This is the source of truth for the seven Makalu extra-work streams. Update it whenever code is merged, a release is
@@ -51,6 +51,12 @@ approvals. GitHub records no submitted reviews on PR #173 or private PR #24, so 
 post-v0.9.2 changes and operator package must be evidenced before deployment. MultX, Bridge signing, Swap, and
 Faucet remain disabled.
 
+Private development PR #25 is ready for review at `ef4ddb444ffc1006d970e27829bf53a7433872df`. Its offline route
+evaluator and read-only probes passed both engineering review axes, all 25 tests, and CI run `34395277331` after
+fail-closed address and checkpoint hardening. It neither supplies production route inputs nor closes independent
+security/operator acceptance. No eligible independent reviewer is currently recorded on the PR; repository access
+and a submitted approval are required before merge.
+
 The worktree is shared and contains pre-existing changes across several streams. Preserve them, isolate each stream
 into a reviewable change, and never bulk-commit the dirty worktree.
 
@@ -61,7 +67,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
 | MX-04 | DNNS | Verified explorer hardening merged and deployed; owner acceptance open | EXTERNAL BLOCKER | DNNS owner confirms the supported interface, fixes public docs, nominates a reverse record, and accepts cache policy. |
 | MX-05 | Quantt | Assumption-free gates deployed; adapter remains disabled | EXTERNAL BLOCKER | Quantt owner supplies the API contract/credential and fixes or replaces the development TLS endpoint. |
-| MX-01 | MultX / Lithoswap | Accepted v0.9.2 lineage and reviewed gates are on public `main`; private readiness preparation merged; post-acceptance review evidence and O-01/package O-02 operational readiness open; mainnet disabled | IN PROGRESS | Obtain independent acceptance for the post-v0.9.2 changes, then supply and approve production inventory/readiness evidence before disabled staging. |
+| MX-01 | MultX / Lithoswap | Accepted v0.9.2 lineage and reviewed gates are on public `main`; private readiness preparation merged; read-only routing PR #25 is green but awaiting an eligible independent reviewer; O-01/package O-02 readiness remains open; mainnet disabled | IN PROGRESS | Grant an independent reviewer access to private PR #25 and obtain a submitted approval; then supply and approve production inventory/readiness evidence before disabled staging. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; four tools remain specification-only and there is no deployable compiler/public release | IN PROGRESS | Obtain approved language/VM semantics and product/release/security acceptance before compiler or public-release work. |
 
 ## Sequential closure queue
@@ -94,6 +100,10 @@ Private preparation PR #24 merged as `571e96ad22d7dd373b8aa0ef3acfea56cfb2100e` 
 plus fail-closed incomplete-inventory checks. This merges preparation, not the missing production inputs or O-01
 operational acceptance. GitHub reports no submitted reviews on PR #173 or private PR #24; this is an open governance
 evidence gate and the merge itself must not be treated as independent security or operator acceptance.
+Private PR #25 is ready for review at `ef4ddb444ffc1006d970e27829bf53a7433872df`; its offline evaluator and
+read-only V3/native probes pass 25 tests and green CI. The PR contains no wallet, signing, submission, deployment, or
+activation path. Independent reviewer access and a submitted approval remain open, as do all authentic production
+route, asset, liquidity, checkpoint, and operator inputs.
 The operator must use only the exact accepted source through an explicitly approved deployment path; no earlier
 deployment may be relabeled. Deployment access does not authorize
 infrastructure, contracts, signers, liquidity, canary, or feature flags. MultX, Bridge signing, Swap, and Faucet remain
@@ -163,6 +173,12 @@ Completed or evidenced:
       platform-specific skips plus Linux CI (2026-09-09).
 - [x] Merged corrective PR #173 with the accepted v0.9.2 and reviewed #169-#171 commits preserved as ancestors of
       public `main`; merged private readiness preparation PR #24 with its recovery-owner fix (2026-09-09).
+- [x] Reviewed private routing PR #25 against standards and specification, fixed malformed EVM identity and JSON-RPC
+      checkpoint acceptance, and passed 25 tests plus CI run `34395277331`; the PR is ready but not independently
+      approved or merged (2026-09-10).
+- [x] Verified the newer disposable-node packages cover 34-transaction Cosmos bank/EVM/ERC-20 accounting, finite
+      maximum allowance, native approval expiry, exact simulated cap boundaries, recipient callback behavior, and
+      hostile-token reentrancy rollback. These are scoped local results, not production acceptance (2026-09-10).
 
 Remaining actions:
 
@@ -189,6 +205,12 @@ Remaining actions:
       remain disabled and incomplete production inventory must continue to fail closed.
 - [ ] Obtain and record independent security/operator acceptance for the post-v0.9.2 mainline changes and private
       operator package. GitHub currently records no submitted reviews on PR #173 or private PR #24.
+- [ ] Grant an eligible independent reviewer access to private PR #25, obtain a submitted approval, and merge the
+      reviewed development-only routing/probe changes without relaxing their disabled/read-only boundaries.
+- [ ] After 2026-09-10 12:29:01 UTC, complete the retained disposable-node real elapsed-time native cap rollover once,
+      preserve the result, and obtain independent acceptance. Do not rerun setup or retry after partial submission.
+- [ ] Verify production indexer ingestion/reorg/double-credit behavior against approved disabled staging. Public PRs
+      #170-#171 cover canonical-range and source-evidence logic, but do not constitute a production indexer run.
 - [ ] Modernize or explicitly disposition the MultX deployment/test toolchain's transitive audit findings before
       using it as a long-lived privileged runner (full local audit: 3 critical, 14 high; production-only audit: 0).
 - [ ] Obtain Backend/Bridge confirmation of the route contract, token map, relayer/claim behavior, and supported
@@ -255,6 +277,8 @@ Evidence:
   `b54cb55e62e8be92b8842a8b6485872ec7c9f015`
 - Private operator-readiness preparation: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/24`, merge
   `571e96ad22d7dd373b8aa0ef3acfea56cfb2100e`
+- Private quote-only routing and read-only probes: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/25`,
+  head `ef4ddb444ffc1006d970e27829bf53a7433872df`, CI run `34395277331`
 - Live probes: `https://makalu.litho.ai/api/config`, `https://makalu.litho.ai/swap`,
   `https://makalu.litho.ai/cross-swap`, `https://lithoscan.ai/api/config`
 
@@ -898,8 +922,23 @@ Evidence:
 | 2026-09-09 | MX-01 MultX v0.9.2 acceptance | PASS, ACTIVATION GATED | Annotated tag `multx-audit-candidate-v0.9.2-20260908` resolves to `5994f263b9d1fd40c531410d6b23884eade9f5b9`. The supplied Autha receipt binds the accepted source and bytecode-evidence hashes, and all three report-file hashes match. M-03/L-01/L-02/O-04 are closed; Autha O-01/package O-02 operational readiness remains open. The accepted commit is not contained in public `main`; v0.9.0 is unaccepted and must not be deployed. No deployment or activation occurred. |
 | 2026-09-09 | MX-01 mainline merge topology | CORRECTION OPEN | PR #168 squash-merged accepted source content as `e7322e6`, but exact accepted commit `5994f263` is not an ancestor of `main`. PRs #169-#171 were merged into stacked feature branches rather than `main`. Corrective PR #173 has current `main` and reviewed head `ef0ebc5` as merge parents, contains only the effective #169-#171 diff, preserves every reviewed commit as an ancestor, and passes 60 API, 43 signer, and 153 contract tests. It must be merged with a merge commit; private readiness PR #24 is still open. No deployment or activation occurred. |
 | 2026-09-09 | MX-01 mainline and readiness preparation merges | MERGED, ACCEPTANCE GATES OPEN | PR #173 merged as two-parent commit `b54cb55`; accepted commit `5994f263` and reviewed #169-#171 commits are ancestors of `main`. Private PR #24 merged as two-parent commit `571e96a` with the recovery-owner correction. GitHub records no submitted reviews on either PR, so these merges do not close independent post-acceptance review or Autha O-01/package O-02 operational readiness. No deployment or activation occurred. |
+| 2026-09-10 | MX-01 private routing/probe review | READY, INDEPENDENT REVIEW OPEN | Private PR #25 head `ef4ddb4` passed standards/spec review after fail-closed EVM-address and JSON-RPC-checkpoint fixes; 25 tests and CI run `34395277331` pass. Newer scoped native evidence was reconciled, while real elapsed-time cap rollover, production indexer verification, production inputs, and independent acceptance remain open. No deployment or activation occurred. |
 
 ## Change log
+
+### 2026-09-10 — MX-01 routing/probe review ready
+
+- Reviewed private PR #25 against its development-only specification and repository security standard.
+- Fixed acceptance of invalid/zero router and bridge identifiers and malformed chain, block-number, timestamp, and
+  block-hash RPC values in both read-only probes.
+- All 25 tests, the offline example, Python compilation, diff validation, and CI run `34395277331` passed at
+  `ef4ddb444ffc1006d970e27829bf53a7433872df`.
+- Reconciled documentation with the merged public native-verifier candidate and newer scoped local evidence without
+  treating either as Autha v0.9.2 acceptance or deployment approval.
+- Private PR #25 is ready and mergeable but has no submitted independent approval. Reviewer access, the one-time
+  elapsed cap rollover, production indexer evidence, production inputs, and O-01/package O-02 remain open.
+- MultX, Bridge signing, Swap, and Faucet remain disabled; no deployment, funding, key access, or activation occurred.
+- Updated by: `bachal-mb`.
 
 ### 2026-09-09 — MX-01 accepted lineage and readiness preparation merged
 
