@@ -11,6 +11,34 @@ import {
 const A = '0x1111111111111111111111111111111111111111';
 const B = '0x2222222222222222222222222222222222222222';
 
+for (const [label, change, error] of [
+  ['RPC identity', s => { s.chainId = 1; }, /RPC chain identity mismatch/],
+  ['threshold', s => { s.threshold = 4; }, /not exact 5-of-7/],
+  ['reported count', s => { s.count = 8; }, /not exact 5-of-7/],
+  ['returned count', s => { s.live.push(B); }, /not exact 5-of-7/],
+  ['validator identity', s => { s.live[0] = B; }, /does not match configured signers/],
+]) {
+  test(`live topology rejects isolated ${label} drift`, async () => {
+    const { ethers } = await import('ethers');
+    const expected = Array.from({ length: 7 }, (_, i) => '0x' + String(i + 1).padStart(40, '0'));
+    const state = { chainId: 9005, threshold: 5, count: 7, live: [...expected] };
+    const iface = new ethers.Interface([
+      'function signaturesRequired() view returns(uint256)',
+      'function getValidatorCount() view returns(uint256)',
+      'function getValidators() view returns(address[])',
+    ]);
+    const provider = {
+      getNetwork: async () => ({ chainId: state.chainId }), resolveName: async n => n,
+      call: async ({ data }) => {
+        const name = iface.parseTransaction({ data }).name;
+        return iface.encodeFunctionResult(name, [{ signaturesRequired: state.threshold, getValidatorCount: state.count, getValidators: state.live }[name]]);
+      },
+    };
+    const run = () => verifyLiveValidatorTopology([{ name: 'LITHO', chainId: 9005, rpc: 'https://rpc.example', bridge: A }], expected, () => provider);
+    await run(); change(state); await assert.rejects(run, error);
+  });
+}
+
 test('accepts a unique signer set at or above threshold', () => {
   const result = validateValidatorSet([{ address: A }, { address: B }], 2);
   assert.equal(result.required, 2);

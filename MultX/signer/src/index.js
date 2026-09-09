@@ -5,6 +5,7 @@ import { Contract, getAddress, getBytes, JsonRpcProvider, verifyMessage } from '
 import { hasValidBearerToken, loadBearerToken } from './auth.js';
 import { validateDeploymentMode } from './deploymentMode.js';
 import { createDecisionJournal } from './journal.js';
+import { loadStateIdentity } from './stateIdentity.js';
 import {
   assertLockEvent,
   releaseMessageHash,
@@ -30,17 +31,18 @@ if (policy?.signerAddress && getAddress(policy.signerAddress) !== signer.address
   throw new Error(`policy signer ${policy.signerAddress} does not match key ${signer.address}`);
 }
 
+const journal = createDecisionJournal(
+  process.env.SIGNER_STATE_FILE || '/var/lib/multx-signer/signed-releases.jsonl',
+  { strictPermissions: deploymentMode.production, expectedIdentity: deploymentMode.production
+    ? loadStateIdentity(process.env.SIGNER_STATE_IDENTITY_FILE, signer.address) : null },
+);
+
 const challenge = getBytes(Buffer.from('MultX production signer transaction-free verification v1'));
 const challengeSignature = await signer.signMessage(challenge);
 if (verifyMessage(challenge, challengeSignature).toLowerCase() !== signer.address.toLowerCase()) {
   throw new Error('transaction-free key verification recovered the wrong signer');
 }
 console.log(`[signer] transaction-free key verification passed for ${signer.address}`);
-
-const journal = createDecisionJournal(
-  process.env.SIGNER_STATE_FILE || '/var/lib/multx-signer/signed-releases.jsonl',
-  { strictPermissions: deploymentMode.production },
-);
 
 if (!signingEnabled) console.log('[signer] release signing is disabled');
 

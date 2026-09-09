@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
+const { verifyGovernance } = require('./verify-governance');
 const { validateDeploymentManifest } = require('./validate-deployment-manifest');
 const { validateDeploymentPlan } = require('./validate-deployment-plan');
 
@@ -28,13 +29,6 @@ const WRAPPED_ABI = [
   'function totalSupply() view returns (uint256)',
 ];
 
-const TIMELOCK_ABI = [
-  'function getMinDelay() view returns (uint256)',
-  'function hasRole(bytes32,address) view returns (bool)',
-];
-const PROPOSER_ROLE = ethers.utils.id('PROPOSER_ROLE');
-const EXECUTOR_ROLE = ethers.utils.id('EXECUTOR_ROLE');
-
 const LOCKED_TOPIC = ethers.utils.id('TokensLocked(bytes32,address,address,uint256,uint256,uint256)');
 const RELEASED_TOPIC = ethers.utils.id('TokensReleased(bytes32,address,address,uint256,uint256,address,address)');
 const ROUTE_INTERFACE = new ethers.utils.Interface([
@@ -60,6 +54,7 @@ function validateBytecodeEvidence(evidenceBytes) {
     return value.toLowerCase();
   };
   if (!evidence.contracts || !evidence.contracts.wrappedToken) throw new Error('bytecode evidence contract records are required');
+  sha(evidence.contracts.govTimelock?.runtimeSha256, 'GovTimelock evidence hash');
   sha(evidence.contracts.sourceBridge?.runtimeSha256, 'source bridge evidence hash');
   sha(evidence.contracts.destinationBridge?.runtimeSha256, 'destination bridge evidence hash');
   sha(evidence.contracts.wrappedToken.normalizedRuntimeSha256, 'wrapped-token normalized evidence hash');
@@ -110,6 +105,7 @@ function verifyApprovedDeploymentBindings(planBytes, evidenceBytes, manifest) {
     throw new Error('bytecode evidence source identity does not match approved plan');
   }
   const evidenceHashes = {
+    govTimelockRuntimeSha256: evidence.contracts.govTimelock.runtimeSha256,
     sourceBridgeRuntimeSha256: evidence.contracts.sourceBridge.runtimeSha256,
     destinationBridgeRuntimeSha256: evidence.contracts.destinationBridge.runtimeSha256,
     wrappedTokenNormalizedRuntimeSha256: evidence.contracts.wrappedToken.normalizedRuntimeSha256,
@@ -269,6 +265,28 @@ async function verifyRouteUniverse(provider, bridge, asset, manifest, chain, blo
   }
 }
 
+const TOKEN_INTERFACE = new ethers.utils.Interface([
+  'event SupportedTokenSet(address indexed token,bool supported)',
+]);
+async function verifyTokenUniverse(provider, bridge, chain, blockTag) {
+  const logs = await getLogsByTopics(provider, chain.bridge.address, chain.bridge.deploymentBlock,
+    blockTag, [TOKEN_INTERFACE.getEventTopic('SupportedTokenSet')]);
+  const state = new Map();
+  for (const log of [...logs].sort((a,b) => a.blockNumber-b.blockNumber || a.transactionIndex-b.transactionIndex || a.logIndex-b.logIndex)) {
+    if (log.removed) throw new Error('removed supported-token log');
+    const event = TOKEN_INTERFACE.parseLog(log);
+    state.set(event.args.token.toLowerCase(), event.args.supported);
+  }
+  const expected = chain.assets.map(a => a.address.toLowerCase()).sort();
+  const active = [...state].filter(([, enabled]) => enabled).map(([token]) => token).sort();
+  if (new Set(expected).size !== expected.length || active.join(',') !== expected.join(',')) {
+    throw new Error(`${chain.name} exact supported-token universe mismatch`);
+  }
+  for (const [token, enabled] of state) {
+    if (await bridge.supportedTokens(token, { blockTag }) !== enabled) throw new Error('supported-token history/state mismatch');
+  }
+}
+
 async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactory = (rpc) => new ethers.providers.JsonRpcProvider(rpc)) {
   const { plan, evidence } = verifyApprovedDeploymentBindings(approvedInputs?.planBytes, approvedInputs?.evidenceBytes, manifest);
   const results = [];
@@ -293,7 +311,7 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
     }
     const bridge = new ethers.Contract(chain.bridge.address, BRIDGE_ABI, provider);
     const approvedChain = plan.chains.find((item) => item.chainId === chain.chainId);
-    const timelock = new ethers.Contract(approvedChain.timelock, TIMELOCK_ABI, provider);
+
     const [owner, guardian, paused, threshold] = await Promise.all([
       bridge.owner({ blockTag: verificationBlock }),
       bridge.pauseGuardian({ blockTag: verificationBlock }),
@@ -304,14 +322,9 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
     if (guardian.toLowerCase() !== chain.bridge.pauseGuardian.toLowerCase()) throw new Error(`${chain.name} pause guardian mismatch`);
     if (paused !== true) throw new Error(`${chain.name} bridge is not paused`);
     if (threshold.toNumber() !== 5) throw new Error(`${chain.name} threshold is not 5`);
-    const [delay, safeCanPropose, safeCanExecute] = await Promise.all([
-      timelock.getMinDelay({ blockTag: verificationBlock }),
-      timelock.hasRole(PROPOSER_ROLE, approvedChain.safe, { blockTag: verificationBlock }),
-      timelock.hasRole(EXECUTOR_ROLE, approvedChain.safe, { blockTag: verificationBlock }),
-    ]);
-    if (delay.toString() !== String(approvedChain.timelockDelaySeconds) || !safeCanPropose || !safeCanExecute) {
-      throw new Error(`${chain.name} live timelock/Safe governance does not match approved plan`);
-    }
+    await verifyGovernance(provider, chain, approvedChain, evidence, verificationBlock,
+      { verifyCreationProvenance, sha256Code, getLogsByTopics });
+    await verifyTokenUniverse(provider, bridge, chain, verificationBlock);
 
     await verifyExactValidatorSet(bridge, chain.bridge.validators, chain.name, verificationBlock);
     await verifyPristineBridgeHistory(
@@ -362,6 +375,8 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
       }
     }
 
+    const finalHeader = await provider.getBlock(verificationBlock);
+    if (finalHeader?.hash !== verificationHeader.hash) throw new Error(`${chain.name} verification block reorganized`);
     results.push({
       chainId: chain.chainId,
       bridge: chain.bridge.address,
@@ -413,4 +428,5 @@ module.exports = {
   verifyExactValidatorSet,
   verifyPristineBridgeHistory,
   verifyRouteUniverse,
+  verifyTokenUniverse,
 };

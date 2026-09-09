@@ -1,3 +1,23 @@
+# v0.9.1 evidence additions
+
+The approved plan and manifest now require `govTimelockRuntimeSha256`; independent
+bytecode evidence must include GovTimelock. Each chain's manifest records
+`governance.timelockDeploymentTxHash` and `timelockDeploymentBlock`. The plan's
+`governance.timelock` binds its deployer, exact proposer/executor/canceller/admin
+sets and zero constructor admin. The plan's `governance.safe` binds independently
+reviewed Safe 1.4.1 proxy/implementation hashes, implementation address, owners,
+threshold and acceptance URL. This release only permits no modules/guard/fallback.
+
+Safe code hashes must come from independently retained reviewed implementation
+and proxy artifacts, not from copying unknown live code. These remain external
+approval inputs; do not treat example owners or test-fixture hashes as approved.
+
+Both bridge bytecodes change to emit SupportedTokenSet. Regenerate evidence and
+use new paused deployments following focused audit closure. The verifier rejects
+old eventless token histories, incorrect Timelock constructors/roles and Safe
+state drift. Production signers additionally require an independently retained
+state-identity file and explicitly initialized journal (see signer runbook).
+
 # MultX mainnet deployment package
 
 Status: transaction-free preparation complete; deployment blocked.

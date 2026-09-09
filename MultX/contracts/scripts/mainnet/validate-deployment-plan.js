@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
+const { validateGovernancePolicy } = require('./governance-policy');
 
 const REQUIRED_CHAIN_IDS = [9005, 1, 56, 8453];
 const DESTINATION_CHAIN_IDS = [1, 56, 8453];
@@ -98,6 +99,7 @@ function validateDeploymentPlan(input) {
   if (!/^[0-9a-f]{64}$/i.test(destinationRuntimeHash)) throw new Error('release.destinationBridgeRuntimeSha256 must be SHA-256');
   const wrappedRuntimeHash = requiredText(release.wrappedTokenNormalizedRuntimeSha256, 'release.wrappedTokenNormalizedRuntimeSha256');
   if (!/^[0-9a-f]{64}$/i.test(wrappedRuntimeHash)) throw new Error('release.wrappedTokenNormalizedRuntimeSha256 must be SHA-256');
+  if (!/^[0-9a-f]{64}$/i.test(release.govTimelockRuntimeSha256 || '')) throw new Error('release.govTimelockRuntimeSha256 must be SHA-256');
   exactHttpsUrl(release.auditReportUrl, 'release.auditReportUrl');
   exactHttpsUrl(release.fixReviewUrl, 'release.fixReviewUrl');
 
@@ -148,6 +150,7 @@ function validateDeploymentPlan(input) {
     if (positiveInteger(chain.timelockDelaySeconds, `${prefix}.timelockDelaySeconds`) < 172800) {
       throw new Error(`${prefix}.timelockDelaySeconds must be at least 172800`);
     }
+    validateGovernancePolicy(chain);
     chains.set(chainId, chain);
   }
   REQUIRED_CHAIN_IDS.forEach((chainId) => {

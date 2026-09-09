@@ -1,3 +1,4 @@
+const { governance } = require('./governance-fixture');
 const { expect } = require('chai');
 const crypto = require('crypto');
 const { verifyApprovedDeploymentBindings } = require('../scripts/mainnet/verify-deployment-readonly');
@@ -8,6 +9,7 @@ const validators = Array.from({ length: 7 }, (_, index) => addr(index + 1));
 const evidence = {
   auditedTag: 'multx-audited-v1.0.0', commit: 'a'.repeat(40),
   contracts: {
+    govTimelock: { runtimeSha256:'f'.repeat(64), creationBytecode:'0x63', creationSha256:crypto.createHash('sha256').update(Buffer.from('63','hex')).digest('hex') },
     sourceBridge: { runtimeSha256: 'b'.repeat(64), creationBytecode: '0x60', creationSha256: crypto.createHash('sha256').update(Buffer.from('60', 'hex')).digest('hex') },
     destinationBridge: { runtimeSha256: 'c'.repeat(64), creationBytecode: '0x61', creationSha256: crypto.createHash('sha256').update(Buffer.from('61', 'hex')).digest('hex') },
     wrappedToken: { normalizedRuntimeSha256: 'd'.repeat(64), immutableReferences: [{ start: 10, length: 32 }], creationBytecode: '0x62', creationSha256: crypto.createHash('sha256').update(Buffer.from('62', 'hex')).digest('hex') },
@@ -25,7 +27,7 @@ function fixture() {
       auditReportUrl: 'https://evidence.example/audit', fixReviewUrl: 'https://evidence.example/fix',
       bytecodeEvidenceSha256: digest(evidenceBytes),
       sourceBridgeRuntimeSha256: 'b'.repeat(64), destinationBridgeRuntimeSha256: 'c'.repeat(64),
-      wrappedTokenNormalizedRuntimeSha256: 'd'.repeat(64),
+      govTimelockRuntimeSha256: 'f'.repeat(64), wrappedTokenNormalizedRuntimeSha256: 'd'.repeat(64),
     },
     changeWindow: {
       startUtc: '2026-09-02T10:00:00Z', endUtc: '2026-09-02T11:00:00Z',
@@ -42,6 +44,7 @@ function fixture() {
       safe: addr(20 + index * 4), timelock: addr(21 + index * 4),
       pauseGuardian: addr(22 + index * 4), deployer: addr(23 + index * 4), feePayer: addr(20 + index * 4),
       timelockDelaySeconds: 172800,
+      governance: governance(addr(20 + index * 4), addr(21 + index * 4), addr(23 + index * 4)),
     })),
     assets: [{
       symbol: 'ASSET', name: 'Asset', decimals: 18, originChainId: 9005, originToken: addr(50),
@@ -60,12 +63,12 @@ function fixture() {
       deploymentApprovalUrl: 'https://evidence.example/deployment', deployedAtUtc: '2026-09-02T10:30:00Z',
       sourceBridgeRuntimeSha256: plan.release.sourceBridgeRuntimeSha256,
       destinationBridgeRuntimeSha256: plan.release.destinationBridgeRuntimeSha256,
-      wrappedTokenNormalizedRuntimeSha256: plan.release.wrappedTokenNormalizedRuntimeSha256,
+      govTimelockRuntimeSha256: 'f'.repeat(64), wrappedTokenNormalizedRuntimeSha256: plan.release.wrappedTokenNormalizedRuntimeSha256,
     },
     chains: plan.chains.map((approved, index) => ({
       chainId: approved.chainId, name: approved.name, rpcHttps: approved.rpcHttps,
       bridgeKind: approved.bridgeKind,
-      bridge: {
+      governance: { timelockDeploymentTxHash:'0x'+'9'.repeat(64), timelockDeploymentBlock:10 }, bridge: {
         address: addr(60 + index), deploymentTxHash: `0x${String(index + 1).padStart(64, '0')}`,
         deploymentBlock: 100 + index,
         runtimeSha256: approved.chainId === 9005 ? plan.release.sourceBridgeRuntimeSha256 : plan.release.destinationBridgeRuntimeSha256,
@@ -91,6 +94,29 @@ function fixture() {
 }
 
 describe('approved deployment root binding', function () {
+  it('rejects valid but byte-different approved plan without relying on policy drift', function () {
+    const { planBytes, manifest } = fixture();
+    const changed = Buffer.concat([planBytes, Buffer.from('\n')]);
+    expect(() => verifyApprovedDeploymentBindings(changed, evidenceBytes, manifest)).to.throw('approved deployment plan SHA-256');
+  });
+
+  for (const root of ['plan', 'manifest']) {
+    it(`rejects valid evidence bytes when only the ${root} evidence digest differs`, function () {
+      const { planBytes, manifest } = fixture();
+      const plan = JSON.parse(planBytes);
+      if (root === 'plan') plan.release.bytecodeEvidenceSha256 = '9'.repeat(64);
+      else manifest.release.bytecodeEvidenceSha256 = '9'.repeat(64);
+      const bytes = Buffer.from(JSON.stringify(plan));
+      manifest.release.deploymentPlanSha256 = digest(bytes);
+      expect(() => verifyApprovedDeploymentBindings(bytes, evidenceBytes, manifest)).to.throw('independent bytecode evidence SHA-256');
+    });
+  }
+
+  it('rejects a different otherwise valid precomputed bridge address', function () {
+    const { planBytes, manifest } = fixture();
+    manifest.chains[0].bridge.address = addr(999);
+    expect(() => verifyApprovedDeploymentBindings(planBytes, evidenceBytes, manifest)).to.throw('bridge address does not match approved plan');
+  });
   it('binds the exact plan and independent evidence bytes to all manifest policy', function () {
     const { planBytes, manifest } = fixture();
     expect(() => verifyApprovedDeploymentBindings(planBytes, evidenceBytes, manifest)).not.to.throw();

@@ -17,6 +17,15 @@ describe('deployment creation provenance', function () {
   const address = '0x1111111111111111111111111111111111111111';
   const txHash = `0x${'1'.repeat(64)}`;
 
+  it('rejects a successful receipt for another contract with all other provenance valid', async function () {
+    const provider = {
+      getTransactionReceipt: async () => ({ status: 1, blockNumber: 100, contractAddress: validators[0] }),
+      getTransaction: async () => ({ hash: txHash, from: address, data: '0x60006000' }),
+      getCode: async (_address, block) => block === 99 ? '0x' : '0x6000',
+    };
+    await expectReject(verifyCreationProvenance(provider, address, txHash, 100, 'bridge', address, '0x6000'), /receipt contract address mismatch/);
+  });
+
   it('accepts a successful receipt and exact empty-to-code boundary', async function () {
     const provider = {
       getTransactionReceipt: async () => ({ status: 1, blockNumber: 100, contractAddress: address }),

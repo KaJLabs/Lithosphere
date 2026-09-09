@@ -9,7 +9,8 @@
     "bytecodeEvidenceSha256": "REPLACE_WITH_64_HEX_EVIDENCE_SHA256",
     "sourceBridgeRuntimeSha256": "REPLACE_WITH_AUDITED_SOURCE_BRIDGE_RUNTIME_SHA256",
     "destinationBridgeRuntimeSha256": "REPLACE_WITH_AUDITED_DESTINATION_BRIDGE_RUNTIME_SHA256",
-    "wrappedTokenNormalizedRuntimeSha256": "REPLACE_WITH_AUDITED_WRAPPED_TOKEN_NORMALIZED_RUNTIME_SHA256"
+    "wrappedTokenNormalizedRuntimeSha256": "REPLACE_WITH_AUDITED_WRAPPED_TOKEN_NORMALIZED_RUNTIME_SHA256",
+    "govTimelockRuntimeSha256": "REPLACE_WITH_AUDITED_TIMELOCK_RUNTIME_SHA256"
   },
   "changeWindow": {
     "startUtc": "REPLACE_WITH_ISO_UTC_START",
@@ -51,7 +52,40 @@
       "pauseGuardian": "REPLACE_WITH_LITHO_PAUSE_GUARDIAN",
       "deployer": "REPLACE_WITH_LITHO_DEPLOYER",
       "feePayer": "REPLACE_WITH_LITHO_FEE_PAYER",
-      "timelockDelaySeconds": 172800
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_LITHO_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_LITHO_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_LITHO_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_LITHO_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
     },
     {
       "chainId": 1,
@@ -66,7 +100,40 @@
       "pauseGuardian": "REPLACE_WITH_ETHEREUM_PAUSE_GUARDIAN",
       "deployer": "REPLACE_WITH_ETHEREUM_DEPLOYER",
       "feePayer": "REPLACE_WITH_ETHEREUM_FEE_PAYER",
-      "timelockDelaySeconds": 172800
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_ETHEREUM_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_ETHEREUM_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_ETHEREUM_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_ETHEREUM_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
     },
     {
       "chainId": 56,
@@ -81,7 +148,40 @@
       "pauseGuardian": "REPLACE_WITH_BNB_PAUSE_GUARDIAN",
       "deployer": "REPLACE_WITH_BNB_DEPLOYER",
       "feePayer": "REPLACE_WITH_BNB_FEE_PAYER",
-      "timelockDelaySeconds": 172800
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_BNB_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_BNB_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_BNB_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_BNB_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
     },
     {
       "chainId": 8453,
@@ -96,7 +196,40 @@
       "pauseGuardian": "REPLACE_WITH_BASE_PAUSE_GUARDIAN",
       "deployer": "REPLACE_WITH_BASE_DEPLOYER",
       "feePayer": "REPLACE_WITH_BASE_FEE_PAYER",
-      "timelockDelaySeconds": 172800
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_BASE_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_BASE_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_BASE_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_BASE_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
     }
   ],
   "assets": [
@@ -106,7 +239,11 @@
       "decimals": 18,
       "originChainId": 9005,
       "originToken": "REPLACE_WITH_LITHO_ORIGIN_TOKEN",
-      "destinationChainIds": [1, 56, 8453],
+      "destinationChainIds": [
+        1,
+        56,
+        8453
+      ],
       "dailyCapBaseUnits": {
         "9005": "REPLACE_WITH_APPROVED_LITHO_CAP",
         "1": "REPLACE_WITH_APPROVED_ETHEREUM_CAP",

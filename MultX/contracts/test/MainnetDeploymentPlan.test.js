@@ -1,3 +1,4 @@
+const { governance } = require('./governance-fixture');
 const { expect } = require('chai');
 const { validateDeploymentPlan } = require('../scripts/mainnet/validate-deployment-plan');
 
@@ -16,7 +17,7 @@ const validPlan = () => ({
     bytecodeEvidenceSha256: 'b'.repeat(64),
     sourceBridgeRuntimeSha256: 'c'.repeat(64),
     destinationBridgeRuntimeSha256: 'd'.repeat(64),
-    wrappedTokenNormalizedRuntimeSha256: 'e'.repeat(64),
+    govTimelockRuntimeSha256: 'f'.repeat(64), wrappedTokenNormalizedRuntimeSha256: 'e'.repeat(64),
   },
   changeWindow: {
     startUtc: '2026-09-01T10:00:00Z',
@@ -42,6 +43,7 @@ const validPlan = () => ({
     deployer: addresses[7 + index * 3],
     feePayer: addresses[7 + index * 3],
     timelockDelaySeconds: 172800,
+    governance: governance(addresses[7 + index * 3], addresses[8 + index * 3], addresses[7 + index * 3]),
   })),
   assets: [{
     symbol: 'ASSET',

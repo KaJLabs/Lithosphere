@@ -81,6 +81,8 @@ contract MultXBridge is Ownable, ReentrancyGuard, Pausable {
     event ValidatorSetUpdated(address[] validators, uint256 signaturesRequired);
     /// @notice Emitted when a token's daily lock cap is set.
     event DailyCapSet(address indexed token, uint256 cap);
+    /// @notice Emitted when token support is enabled or disabled.
+    event SupportedTokenSet(address indexed token, bool supported);
     /// @notice Emitted when a token/destination route is enabled or disabled.
     event SupportedRouteSet(address indexed token, uint256 indexed targetChain, bool supported);
     /// @notice Emitted when the fast pause guardian is set or cleared.
@@ -111,12 +113,14 @@ contract MultXBridge is Ownable, ReentrancyGuard, Pausable {
     function addSupportedToken(address token) external onlyOwner {
         require(token != address(0), "Invalid token address");
         supportedTokens[token] = true;
+        emit SupportedTokenSet(token, true);
     }
 
     /// @notice Disallow new locks of `token` (existing escrow is unaffected). Owner-only.
     /// @param token ERC-20 token address to disable.
     function removeSupportedToken(address token) external onlyOwner {
         supportedTokens[token] = false;
+        emit SupportedTokenSet(token, false);
     }
 
     /// @notice Enable or disable an explicit token/destination route. Owner-only.

@@ -16,14 +16,14 @@ const validManifest = () => ({
     deployedAtUtc: '2026-09-01T10:30:00Z',
     sourceBridgeRuntimeSha256: 'c'.repeat(64),
     destinationBridgeRuntimeSha256: 'e'.repeat(64),
-    wrappedTokenNormalizedRuntimeSha256: 'd'.repeat(64),
+    govTimelockRuntimeSha256: 'f'.repeat(64), wrappedTokenNormalizedRuntimeSha256: 'd'.repeat(64),
   },
   chains: [9005, 1, 56, 8453].map((chainId, index) => ({
     chainId,
     name: `Chain ${chainId}`,
     rpcHttps: `https://rpc-${chainId}.example`,
     bridgeKind: chainId === 9005 ? 'source' : 'destination',
-    bridge: {
+    governance: { timelockDeploymentTxHash:'0x'+'9'.repeat(64), timelockDeploymentBlock:10 }, bridge: {
       address: address(20 + index),
       deploymentTxHash: `0x${String(index + 1).padStart(64, '0')}`,
       deploymentBlock: 100 + index,

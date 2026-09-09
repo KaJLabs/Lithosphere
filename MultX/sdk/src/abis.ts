@@ -10,6 +10,7 @@
 // the pre-hardening guesses (isTokenSupported / getTokenBalance / indexed
 // chain fields) were corrected.
 export const bridgeAbi: readonly string[] = [
+  'event SupportedTokenSet(address indexed token, bool supported)',
   // Writes
   'function lockTokens(address token, uint256 amount, uint256 targetChain) external returns (bytes32 txHash)',
   'function releaseTokens(address token, address user, uint256 amount, uint256 sourceChain, address sourceBridge, uint256 sourceNonce, bytes32 sourceTxHash, bytes[] calldata signatures) external',

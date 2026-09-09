@@ -82,6 +82,7 @@ function validateDeploymentManifest(input) {
   const sourceRuntimeHash = sha256(release.sourceBridgeRuntimeSha256, 'release.sourceBridgeRuntimeSha256');
   const destinationRuntimeHash = sha256(release.destinationBridgeRuntimeSha256, 'release.destinationBridgeRuntimeSha256');
   sha256(release.wrappedTokenNormalizedRuntimeSha256, 'release.wrappedTokenNormalizedRuntimeSha256');
+  sha256(release.govTimelockRuntimeSha256, 'release.govTimelockRuntimeSha256');
   url(release.deploymentApprovalUrl, 'release.deploymentApprovalUrl');
   exactUtc(release.deployedAtUtc, 'release.deployedAtUtc');
 
@@ -99,6 +100,9 @@ function validateDeploymentManifest(input) {
     text(chain.name, `${prefix}.name`);
     url(chain.rpcHttps, `${prefix}.rpcHttps`);
 
+    const governance = object(chain.governance, `${prefix}.governance`);
+    hash(governance.timelockDeploymentTxHash, 32, `${prefix}.governance.timelockDeploymentTxHash`);
+    positiveInteger(governance.timelockDeploymentBlock, `${prefix}.governance.timelockDeploymentBlock`);
     const bridge = object(chain.bridge, `${prefix}.bridge`);
     address(bridge.address, `${prefix}.bridge.address`);
     hash(bridge.deploymentTxHash, 32, `${prefix}.bridge.deploymentTxHash`);

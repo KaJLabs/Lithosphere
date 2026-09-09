@@ -1,0 +1,2 @@
+const a=n=>'0x'+n.toString(16).padStart(40,'0');
+exports.governance=(safe,timelock,deployer)=>({timelock:{deployer,proposers:[safe],executors:[safe],cancellers:[safe],admins:[timelock],constructorAdmin:a(0)},safe:{version:'1.4.1',implementation:a(900),proxyRuntimeSha256:'1'.repeat(64),implementationRuntimeSha256:'2'.repeat(64),owners:[a(901),a(902)],threshold:2,modules:[],guard:a(0),fallbackHandler:a(0),approvalRecordUrl:'https://evidence.example/safe'}});

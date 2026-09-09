@@ -1,3 +1,11 @@
+# v0.9.1 focused remediation in review
+
+The v0.9.0 independent review returned REMEDIATION REQUIRED. Governance
+attestation (H-01), token-universe attestation (M-01), API dependencies (M-02)
+and missing signer-state protection (O-01) are implemented in the replacement
+candidate, but Autha closure and all O-02 operational inputs remain pending.
+See `audit/AUTHA_V091_REMEDIATION_2026-09-08.md`. Do not deploy or activate.
+
 # MultX mainnet deployment gates
 
 Status: **blocked - do not deploy or enable**

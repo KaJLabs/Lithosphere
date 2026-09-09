@@ -69,3 +69,38 @@ preserve the journal and logs, and notify bridge governance to pause and rotate
 the validator set. Do not delete the key or journal until evidence and recovery
 requirements are agreed. MultX must remain disabled until the audit and all
 operator acceptance records are complete.
+# v0.9.1 journal identity requirement
+
+Production startup now requires both an existing initialized journal and an
+owner-only `SIGNER_STATE_IDENTITY_FILE` mounted read-only at
+`/run/config/state-identity.json`. Retain the approved identity independently of
+the state disk. Example metadata (replace values through the custody ceremony):
+
+```json
+{
+  "schemaVersion": 1,
+  "signerAddress": "APPROVED_PUBLIC_SIGNER_ADDRESS",
+  "deploymentPlanSha256": "APPROVED_PLAN_SHA256",
+  "activationEpoch": 1,
+  "generation": "APPROVED_32_HEX_GENERATION"
+}
+```
+
+For a **new, never-activated identity only**, prepare the owner-only state
+directory (0700) and approved identity file (0600), then run as the signer UID:
+
+```sh
+node scripts/initialize-state.js /run/config/state-identity.json /var/lib/multx-signer/signed-releases.jsonl PUBLIC_SIGNER_ADDRESS --confirm-first-use-new-identity
+```
+
+This creates an exclusive journal header and fsyncs the file and its parent. No
+private key is read and no signature is produced. Keep release signing disabled.
+Missing identity or journal, changed identity, empty/old-format state and partial
+records stop startup before even the fixed local challenge is signed.
+
+For an existing identity, restore the latest journal and its independently retained
+identity. Never call first-use initialization after disk loss, truncate/reset the
+journal, or run two instances sharing the key. A valid stale backup cannot be
+distinguished using local metadata alone: independent backup freshness evidence
+and reconciliation against recent decisions are still required. Existing journals
+need a separately reviewed offline migration, not automatic header insertion.

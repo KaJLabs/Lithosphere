@@ -31,8 +31,22 @@ jobs:
       - name: Reject production high or critical dependency findings
         run: npm audit --omit=dev --audit-level=high
       - run: npm test
+      - name: Prove deployment and governance regression controls are load-bearing
+        run: node ../scripts/check-closure-mutations.cjs contracts
       - run: npm run compile
       - run: npm run audit:bytecode-hashes
+      - name: Reproduce full bytecode from the Git archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          evidence="$RUNNER_TEMP/multx-bytecode-evidence.json"
+          node scripts/mainnet/generate-bytecode-evidence.js --audited-tag multx-ci-reproduction --commit "$(git rev-parse HEAD)" --out "$evidence"
+          repro_dir="$(mktemp -d)"
+          git -C ../.. archive HEAD MultX/contracts | tar -x -C "$repro_dir"
+          cd "$repro_dir/MultX/contracts"
+          npm ci
+          npm run compile
+          node scripts/mainnet/compare-bytecode-evidence.js "$evidence"
 
   foundry-invariants:
     runs-on: ubuntu-latest
@@ -107,7 +121,9 @@ jobs:
           cache-dependency-path: MultX/api/package-lock.json
       - name: Test VPS secret and remote-signer client paths
         working-directory: MultX/api
-        run: npm ci && npm audit --audit-level=high && npm test
+        run: npm ci && npm audit --omit=dev --audit-level=moderate && npm test
+      - name: Prove live topology regression controls are load-bearing
+        run: node MultX/scripts/check-closure-mutations.cjs api
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
@@ -129,6 +145,8 @@ jobs:
       - name: Test independent signer policy gates
         working-directory: MultX/signer
         run: npm ci && npm audit --audit-level=high && npm test
+      - name: Prove journal regression controls are load-bearing on Linux
+        run: node MultX/scripts/check-closure-mutations.cjs signer
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:

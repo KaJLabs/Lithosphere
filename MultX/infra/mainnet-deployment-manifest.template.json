@@ -10,7 +10,8 @@
     "deployedAtUtc": "REPLACE_WITH_ISO_UTC_TIMESTAMP",
     "sourceBridgeRuntimeSha256": "REPLACE_WITH_AUDITED_SOURCE_BRIDGE_RUNTIME_SHA256",
     "destinationBridgeRuntimeSha256": "REPLACE_WITH_AUDITED_DESTINATION_BRIDGE_RUNTIME_SHA256",
-    "wrappedTokenNormalizedRuntimeSha256": "REPLACE_WITH_AUDITED_WRAPPED_TOKEN_NORMALIZED_RUNTIME_SHA256"
+    "wrappedTokenNormalizedRuntimeSha256": "REPLACE_WITH_AUDITED_WRAPPED_TOKEN_NORMALIZED_RUNTIME_SHA256",
+    "govTimelockRuntimeSha256": "REPLACE_WITH_AUDITED_TIMELOCK_RUNTIME_SHA256"
   },
   "chains": [
     {
@@ -45,11 +46,19 @@
           "kind": "canonical",
           "symbol": "REPLACE_WITH_APPROVED_ASSET_SYMBOL",
           "address": "REPLACE_WITH_LITHO_ORIGIN_TOKEN",
-          "targetChainIds": [1, 56, 8453],
+          "targetChainIds": [
+            1,
+            56,
+            8453
+          ],
           "dailyCapBaseUnits": "REPLACE_WITH_APPROVED_LITHO_CAP",
           "runtimeSha256": "REPLACE_WITH_CANONICAL_TOKEN_RUNTIME_SHA256"
         }
-      ]
+      ],
+      "governance": {
+        "timelockDeploymentTxHash": "REPLACE_WITH_TIMELOCK_CREATION_TX_HASH",
+        "timelockDeploymentBlock": "REPLACE_WITH_PROVEN_TIMELOCK_CREATION_BLOCK"
+      }
     },
     {
       "chainId": 1,
@@ -62,7 +71,9 @@
           "kind": "wrapped",
           "symbol": "REPLACE_WITH_APPROVED_WRAPPED_SYMBOL",
           "address": "REPLACE_WITH_ETHEREUM_WRAPPED_TOKEN",
-          "targetChainIds": [9005],
+          "targetChainIds": [
+            9005
+          ],
           "originChainId": 9005,
           "originToken": "REPLACE_WITH_LITHO_ORIGIN_TOKEN",
           "deploymentTxHash": "REPLACE_WITH_32_BYTE_TX_HASH",
@@ -72,7 +83,11 @@
           "explorerUrl": "REPLACE_WITH_VERIFIED_EXPLORER_HTTPS_URL",
           "sourceVerified": true
         }
-      ]
+      ],
+      "governance": {
+        "timelockDeploymentTxHash": "REPLACE_WITH_TIMELOCK_CREATION_TX_HASH",
+        "timelockDeploymentBlock": "REPLACE_WITH_PROVEN_TIMELOCK_CREATION_BLOCK"
+      }
     },
     {
       "chainId": 56,
@@ -80,7 +95,11 @@
       "rpcHttps": "REPLACE_WITH_APPROVED_BNB_HTTPS_RPC",
       "bridgeKind": "destination",
       "bridge": "REPLACE_WITH_COMPLETE_BRIDGE_OBJECT_FROM_LITHO_ENTRY",
-      "assets": "REPLACE_WITH_APPROVED_WRAPPED_ASSET_ARRAY"
+      "assets": "REPLACE_WITH_APPROVED_WRAPPED_ASSET_ARRAY",
+      "governance": {
+        "timelockDeploymentTxHash": "REPLACE_WITH_TIMELOCK_CREATION_TX_HASH",
+        "timelockDeploymentBlock": "REPLACE_WITH_PROVEN_TIMELOCK_CREATION_BLOCK"
+      }
     },
     {
       "chainId": 8453,
@@ -88,7 +107,11 @@
       "rpcHttps": "REPLACE_WITH_APPROVED_BASE_HTTPS_RPC",
       "bridgeKind": "destination",
       "bridge": "REPLACE_WITH_COMPLETE_BRIDGE_OBJECT_FROM_LITHO_ENTRY",
-      "assets": "REPLACE_WITH_APPROVED_WRAPPED_ASSET_ARRAY"
+      "assets": "REPLACE_WITH_APPROVED_WRAPPED_ASSET_ARRAY",
+      "governance": {
+        "timelockDeploymentTxHash": "REPLACE_WITH_TIMELOCK_CREATION_TX_HASH",
+        "timelockDeploymentBlock": "REPLACE_WITH_PROVEN_TIMELOCK_CREATION_BLOCK"
+      }
     }
   ]
 }

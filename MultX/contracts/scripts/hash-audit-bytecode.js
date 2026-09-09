@@ -5,6 +5,7 @@ const { ethers } = require('ethers');
 
 
 const contracts = [
+  ['GovTimelock', 'artifacts/contracts/governance/GovTimelock.sol/GovTimelock.json'],
   ['MultXBridge', 'artifacts/contracts/MultXBridge.sol/MultXBridge.json'],
   ['MultXBridgeDest', 'artifacts/contracts/MultXBridgeDest.sol/MultXBridgeDest.json'],
   ['WrappedLEP100', 'artifacts/contracts/WrappedLEP100.sol/WrappedLEP100.json'],
