@@ -40,9 +40,12 @@ same commit. Never include wallet keys, API keys, validator snapshots, private i
 No stream is marked complete unless every acceptance criterion has evidence. The Lithoscan mainnet cutover is
 complete, but it is not one of these seven Makalu extra-work closures. On 2026-08-23 the client accepted the faucet
 for now, deferred further MX-02 work, confirmed deployment access, and asked the team to focus on more important
-tasks. MX-01 MultX is therefore the active priority; its production deployment remains blocked by independent Autha
-acceptance, replacement or isolation of unauthorized legacy AWS paths, and the governance, route, signer, canary,
-and activation approvals.
+tasks. MX-01 MultX is therefore the active priority. Autha accepted the source and bytecode of the superseding
+`multx-audit-candidate-v0.9.2-20260908` tag at commit
+`5994f263b9d1fd40c531410d6b23884eade9f5b9`; v0.9.0 itself never received independent written acceptance and must
+not be deployed. Production remains blocked by Autha O-01 (package O-02) operational readiness, incorporation of the
+reviewed v0.9.2 source into the approved deployment path, and the governance, route, signer, canary, and activation
+approvals. MultX, Bridge signing, Swap, and Faucet remain disabled.
 
 The worktree is shared and contains pre-existing changes across several streams. Preserve them, isolate each stream
 into a reviewable change, and never bulk-commit the dirty worktree.
@@ -54,7 +57,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
 | MX-04 | DNNS | Verified explorer hardening merged and deployed; owner acceptance open | EXTERNAL BLOCKER | DNNS owner confirms the supported interface, fixes public docs, nominates a reverse record, and accepts cache policy. |
 | MX-05 | Quantt | Assumption-free gates deployed; adapter remains disabled | EXTERNAL BLOCKER | Quantt owner supplies the API contract/credential and fixes or replaces the development TLS endpoint. |
-| MX-01 | MultX / Lithoswap | v0.8.2 evidence published; non-AWS signer candidate prepared; independent review pending; mainnet disabled | IN PROGRESS | Review and merge the non-AWS signer candidate, then bind independent acceptance to the resulting immutable release. |
+| MX-01 | MultX / Lithoswap | Autha accepted v0.9.2 source/bytecode; O-01/package O-02 operational readiness open; v0.9.0 prohibited; mainnet disabled | IN PROGRESS | Put the exact accepted v0.9.2 source on the approved deployment path, then complete the operator-readiness gates before any paused deployment or canary. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; four tools remain specification-only and there is no deployable compiler/public release | IN PROGRESS | Obtain approved language/VM semantics and product/release/security acceptance before compiler or public-release work. |
 
 ## Sequential closure queue
@@ -62,7 +65,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 Only one repository stream is active at a time. An external blocker is recorded and escalated, then work advances
 to the next executable stream without pretending the blocked stream is complete.
 
-1. [ ] **MX-01 MultX / Lithoswap** — non-AWS candidate prepared; independent review and production approvals block deployment/activation.
+1. [ ] **MX-01 MultX / Lithoswap** — v0.9.2 source/bytecode accepted; operational readiness, approved deployment inputs, paused deployment, canary, and activation approvals remain.
 2. [x] **MX-06 Validator cleanup and safety** — complete; the missing historical PR #17 window artifact is preserved and accepted through private PR #23 rather than reconstructed.
 3. [ ] **MX-03 Thanos Wallet** — deployed; waiting on wallet-team acceptance.
 4. [ ] **MX-04 DNNS** — deployed; waiting on DNNS-owner acceptance inputs.
@@ -74,18 +77,17 @@ to the next executable stream without pretending the blocked stream is complete.
 
 **Owners:** Dev Infra + Backend/Bridge team + contract deploy authority + approved liquidity owner
 
-**Current state:** The MultX bridge UI/API, Lithoswap V2 contracts, optional subgraph, and production-candidate
-hardening are merged. PR #150 closed Autha v0.8.1 findings H-01, H-02, H-03, and M-01 at exact commit
-`f67ecfb1d0b3078e53c2eb39d6ba88e0ae373bdd`. The annotated tag and prerelease
-`multx-audit-candidate-v0.8.2-20260902` now provide the exact source archive, 510-file checksum manifest, independent
-bytecode evidence, clean reproduction logs, and GitHub evidence for focused Autha closure review. No Autha acceptance
-for this exact candidate was found in repository issues, PR comments, or reviews as of 2026-09-05. The project has
-explicitly confirmed that AWS is not used. A separate review candidate now removes the AWS SDK, Fargate/KMS/DynamoDB
-runtime, requires seven direct-mTLS signer VPSs with mounted keys and persistent fsync-backed journals, rejects legacy
-AWS configuration, and archives the rejected AWS proposal as historical evidence. It must be independently reviewed
-and merged before a new immutable release is generated. Deployment access does not authorize infrastructure,
-contracts, signers, liquidity, canary, or feature flags. Live LITHO mainnet configuration was reverified on 2026-09-05
-as chain `9005` with Faucet, Bridge, and Swap all disabled. Release signing also remains disabled.
+**Current state:** The MultX bridge UI/API, Lithoswap V2 contracts, optional subgraph, and non-AWS signer hardening are
+merged through PR #162 at `cb1a0e993f5224a04d712f6dbac8a7accdb57517`. The corresponding v0.9.0 tag did not
+receive written independent acceptance and is prohibited from deployment. Autha instead accepted the exact source and
+bytecode of annotated tag `multx-audit-candidate-v0.9.2-20260908`, commit
+`5994f263b9d1fd40c531410d6b23884eade9f5b9`, after the v0.9.1 and v0.9.2 closure remediations. The supplied acceptance
+receipt closes M-03, L-01, L-02, and O-04 and matches all three retained report hashes. Autha O-01 (called package O-02
+in the operator handoff) remains open for operational readiness. The accepted v0.9.2 commit is tagged but was not
+contained in public `main` when verified on 2026-09-09, so the operator must use only the exact accepted source through
+an explicitly approved deployment path; no earlier deployment may be relabeled. Deployment access does not authorize
+infrastructure, contracts, signers, liquidity, canary, or feature flags. MultX, Bridge signing, Swap, and Faucet remain
+disabled, and no production deployment is recorded.
 
 Completed or evidenced:
 
@@ -132,6 +134,17 @@ Completed or evidenced:
 - [x] Prepared the non-AWS signer review candidate: removed AWS runtime/dependencies, enforced direct production mTLS,
       owner-only mounted keys and journals, file-mounted policy, and legacy-variable rejection; 37 API and 24 signer
       tests plus both container builds pass (2026-09-05).
+- [x] PR #162 merged the non-AWS signer candidate as
+      `cb1a0e993f5224a04d712f6dbac8a7accdb57517`, and annotated tag
+      `multx-audit-candidate-v0.9.0-20260905` was published with immutable source/evidence hashes (2026-09-05).
+- [x] Recorded that v0.9.0 never received written independent acceptance and must not be deployed; its open tracker
+      PR #164 is historical/stale evidence, not a deployment approval (2026-09-09).
+- [x] Verified annotated tag `multx-audit-candidate-v0.9.2-20260908` resolves to exact commit
+      `5994f263b9d1fd40c531410d6b23884eade9f5b9` (2026-09-09).
+- [x] Verified the supplied Autha acceptance receipt binds v0.9.2 to source SHA-256
+      `f40e76603d5dff8d8a283a8d426786c375e3e96bd20aea73de516547c50dfecc` and bytecode-evidence SHA-256
+      `6f1ac61bb38939de0ee01db845996ca15cfc7eda6a20ee817d6848562a304bd2`; all three retained report hashes match
+      the receipt. M-03, L-01, L-02, and O-04 are accepted closed (2026-09-09).
 
 Remaining actions:
 
@@ -140,22 +153,29 @@ Remaining actions:
 - [x] Record the explicit project decision that AWS is not used; no AWS connectivity or deployment is authorized.
 - [x] Merge the provider-neutral signer/API/bridge review hardening in PR #93.
 - [x] Regenerate and publish the exact v0.8.2 focused-closure evidence bundle.
-- [ ] Obtain Autha's written acceptance bound to tag `multx-audit-candidate-v0.8.2-20260902`, commit
-      `f67ecfb1d0b3078e53c2eb39d6ba88e0ae373bdd`, and the published evidence checksums.
+- [x] Obtain Autha's written source/bytecode acceptance. Acceptance is bound only to the superseding v0.9.2 tag and
+      commit `5994f263b9d1fd40c531410d6b23884eade9f5b9`; it does not approve v0.9.0.
 - [x] Remove the legacy AWS runtime/dependencies, archive the rejected proposal, and update active mainnet material to
       the approved non-AWS signer architecture in a review candidate.
-- [ ] Merge the non-AWS candidate, publish a new immutable source/evidence release, and obtain independent review of
-      its mounted-key custody, mTLS boundary, persistent anti-equivocation journal, recovery and failure behavior.
-- [ ] Complete independent and operator acceptance, including key custody, host hardening, monitoring, failure
-      behavior, recovery, and rollback before deployment.
+- [x] Merge the non-AWS candidate and obtain independent source/bytecode review through the exact superseding v0.9.2
+      tag. Preserve v0.9.0 only as rejected historical evidence.
+- [ ] Complete Autha O-01/package O-02 operational readiness: approved seven-host inventory and network topology;
+      independent signer custodians and recovery owners; governance, deployer, fee-payer, asset, route, cap, finality,
+      and independent-RPC approvals; source-pinned production image publication/provenance; host/key/PKI hardening;
+      isolated database/coordinator recovery; disabled staging; per-signer recovery; monitoring, alert, and rollback
+      drills.
+- [ ] Merge or otherwise place exact commit `5994f263b9d1fd40c531410d6b23884eade9f5b9` on the explicitly approved
+      deployment path without changing the reviewed source. The accepted tag was not contained in `main` on
+      2026-09-09.
 - [ ] Modernize or explicitly disposition the MultX deployment/test toolchain's transitive audit findings before
       using it as a long-lived privileged runner (full local audit: 3 critical, 14 high; production-only audit: 0).
 - [ ] Obtain Backend/Bridge confirmation of the route contract, token map, relayer/claim behavior, and supported
       source/destination chains.
 - [ ] Complete contract security review and record deployer, admin/ownership, pause, upgradeability, and emergency
       procedures.
-- [ ] Deploy reviewed contracts to Makalu and record addresses, transaction hashes, bytecode hashes, and artifact
-      version.
+- [ ] After all readiness approvals, deploy fresh replacement contracts paused on each approved chain and record
+      addresses, creation transaction hashes, bytecode hashes, governance chain, and artifact version. Do not relabel
+      any earlier deployment.
 - [ ] Seed only approved bounded liquidity and record token sources and initial pool ratios.
 - [ ] Set the released explorer's swap-router configuration and enable swap through the controlled promotion flow.
 - [ ] Run small-value same-chain swaps in both directions, remove liquidity, and reconcile balances.
@@ -196,6 +216,14 @@ Evidence:
   `https://github.com/KaJLabs/Lithosphere/releases/tag/multx-audit-candidate-v0.8.2-20260902`
 - v0.8.2 source archive SHA-256: `8f9c01c6aa176788d271c7edcce7dd7d2b6c0a82ffcba4470800da5d4269456c`
 - v0.8.2 evidence archive SHA-256: `2b35ed93dc2efc9af289bf15ccd6c3ee33aad0467b27b03634c91e1bdc62858d`
+- Rejected v0.9.0 tag (must not deploy):
+  `https://github.com/KaJLabs/Lithosphere/releases/tag/multx-audit-candidate-v0.9.0-20260905`
+- Accepted v0.9.2 annotated tag:
+  `https://github.com/KaJLabs/Lithosphere/tree/multx-audit-candidate-v0.9.2-20260908`
+- v0.9.2 exact commit: `5994f263b9d1fd40c531410d6b23884eade9f5b9`
+- v0.9.2 accepted source SHA-256: `f40e76603d5dff8d8a283a8d426786c375e3e96bd20aea73de516547c50dfecc`
+- v0.9.2 accepted bytecode-evidence SHA-256:
+  `6f1ac61bb38939de0ee01db845996ca15cfc7eda6a20ee817d6848562a304bd2`
 - Live probes: `https://makalu.litho.ai/api/config`, `https://makalu.litho.ai/swap`,
   `https://makalu.litho.ai/cross-swap`, `https://lithoscan.ai/api/config`
 
@@ -836,8 +864,23 @@ Evidence:
 | 2026-09-03 | MX-06 scheduled drift activation | PASS (MANUAL), RECURRENCE OPEN | Private PRs #18 and #19 are merged. The approved `vps2` forced-command runner is active with pinned host trust and environment-scoped credentials; no validator key is stored in GitHub. Manual run `33688898843` passed on all three nodes with zero changed, unreachable, or failed tasks. The first 03:17 UTC scheduled recurrence remains to be observed. |
 | 2026-09-05 | MX-06 protected alert and drift recurrence | PASS, ONE EVIDENCE GATE OPEN | `@lithoagent` approved protected test run `33671700384`; health, approval, and Telegram delivery passed. After two automatic drift attempts failed closed on a reviewed-commit pinning defect, private PR #22 corrected the control, and scheduled run `33953350571` passed with a clean three-host sanitized artifact and zero changed, unreachable, or failed tasks. Only the exact PR #17 UTC maintenance approval/window artifact remains open. |
 | 2026-09-05 | MX-06 final governance closure | COMPLETE | Private PR #23 preserves the missing historical PR #17 approval-window artifact as an accepted exception. The project representative confirmed the named owners privately approved it and instructed `BrewCodeDev` to merge; merge `72162ec8` closed the documentation-only window at `2026-09-05T16:33:22Z`. No historical timestamp was reconstructed and no infrastructure operation occurred. |
+| 2026-09-09 | MX-01 MultX v0.9.2 acceptance | PASS, ACTIVATION GATED | Annotated tag `multx-audit-candidate-v0.9.2-20260908` resolves to `5994f263b9d1fd40c531410d6b23884eade9f5b9`. The supplied Autha receipt binds the accepted source and bytecode-evidence hashes, and all three report-file hashes match. M-03/L-01/L-02/O-04 are closed; Autha O-01/package O-02 operational readiness remains open. The accepted commit is not contained in public `main`; v0.9.0 is unaccepted and must not be deployed. No deployment or activation occurred. |
 
 ## Change log
+
+### 2026-09-09 — MX-01 Autha acceptance moved to superseding v0.9.2
+
+- Verified annotated tag `multx-audit-candidate-v0.9.2-20260908` resolves to exact commit
+  `5994f263b9d1fd40c531410d6b23884eade9f5b9`.
+- Verified the supplied acceptance receipt's v0.9.2 source and bytecode-evidence identities and independently matched
+  all three retained Autha report SHA-256 values.
+- Recorded Autha closure of M-03, L-01, L-02, and O-04; Autha O-01/package O-02 operational readiness remains open.
+- Recorded that v0.9.0 never received written independent acceptance and must not be deployed.
+- Verified the accepted v0.9.2 commit is tagged but not contained in public `main`; an explicitly approved,
+  exact-source deployment path remains required.
+- No contract deployment, signer startup, key access, asset movement, canary, feature activation, or production change
+  was performed.
+- Updated by: `bachal-mb`.
 
 ### 2026-09-05 — MX-06 validator infrastructure cleanup closed
 
