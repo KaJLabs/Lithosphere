@@ -147,3 +147,35 @@ test('an arbitrary uint256 target chain is quarantined without overflowing Postg
   assert.match(fixture.calls[1], /^INSERT INTO bridge_rejected_events/);
   assert.ok(fixture.calls.includes('COMMIT'));
 });
+
+test('removed logs never enter a database transaction', async () => {
+  const f = rangeFixture();
+  const query = f.watcher.contract.queryFilter;
+  f.watcher.contract.queryFilter = async () => (await query()).map(e => ({ ...e, removed: true }));
+  await assert.rejects(processBlockRange(f.watcher, 100, f.database), /Removed or invalid/);
+  assert.deepEqual(f.calls, []);
+});
+
+test('event hashes must match their canonical block', async () => {
+  const f = rangeFixture();
+  f.watcher.provider.getBlock = async () => ({ hash: `0x${'ff'.repeat(32)}` });
+  await assert.rejects(processBlockRange(f.watcher, 100, f.database), /event block hash mismatch/);
+  assert.deepEqual(f.calls, []);
+});
+
+test('range reorganization during database writes rolls back cursor and events', async () => {
+  const f = rangeFixture();
+  let reads = 0;
+  f.watcher.provider.getBlock = async () => ({ hash: ++reads === 1 ? blockHash : `0x${'ff'.repeat(32)}` });
+  await assert.rejects(processBlockRange(f.watcher, 100, f.database), /reorganized before commit/);
+  assert.equal(f.watcher.lastBlock, 99);
+  assert.ok(f.calls.includes('ROLLBACK'));
+  assert.ok(!f.calls.includes('COMMIT'));
+});
+
+test('continuous polling rejects a changed previous checkpoint', async () => {
+  const f = rangeFixture();
+  f.watcher.lastBlockHash = `0x${'ff'.repeat(32)}`;
+  await assert.rejects(processBlockRange(f.watcher, 100, f.database), /checkpoint hash mismatch/);
+  assert.deepEqual(f.calls, []);
+});

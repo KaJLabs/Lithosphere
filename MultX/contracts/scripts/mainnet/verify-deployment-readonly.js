@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { identityType, validateNativeEvidence, validateNativeCheckpoint, verifyNativePrecompile } = require('./verify-native-precompile');
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
@@ -148,6 +149,9 @@ function verifyApprovedDeploymentBindings(planBytes, evidenceBytes, manifest) {
         throw new Error(`${chain.name} ${asset.symbol} routes or cap do not match approved plan`);
       }
       if (chain.chainId === 9005) {
+        if (identityType(asset, 9005, asset.address) !== identityType(approvedAsset, 9005, approvedAsset.originToken)) {
+          throw new Error('asset identity type does not match approved plan');
+        }
         if (!equalAddress(asset.address, approvedAsset.originToken)) {
           throw new Error(`${chain.name} ${asset.symbol} origin token does not match approved plan`);
         }
@@ -294,9 +298,13 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
     const provider = providerFactory(chain.rpcHttps, chain.chainId);
     const network = await provider.getNetwork();
     if (Number(network.chainId) !== chain.chainId) throw new Error(`${chain.name} RPC reports chain ${network.chainId}`);
-    const verificationBlock = await provider.getBlockNumber();
+    const latestBlock = await provider.getBlockNumber();
+    const nativeAsset = chain.chainId === 9005 ? plan.assets.find((asset) => asset.identityType === 'native-precompile') : undefined;
+    const nativeEvidence = nativeAsset ? validateNativeEvidence(nativeAsset, approvedInputs.nativeEvidenceBytes) : undefined;
+    const verificationBlock = nativeEvidence ? nativeEvidence.verificationBlock : latestBlock;
     const verificationHeader = await provider.getBlock(verificationBlock);
     if (!verificationHeader?.hash) throw new Error(`${chain.name} verification block hash is unavailable`);
+    if (nativeEvidence) validateNativeCheckpoint(nativeEvidence, latestBlock, verificationHeader);
 
     const provenBridgeBlock = await verifyCreationProvenance(
       provider, chain.bridge.address, chain.bridge.deploymentTxHash,
@@ -344,7 +352,10 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
       if (cap.toString() !== asset.dailyCapBaseUnits) throw new Error(`${chain.name} ${asset.symbol} daily cap mismatch`);
       if (!locked.isZero()) throw new Error(`${chain.name} ${asset.symbol} lock volume is not zero at deployment verification`);
       if (!released.isZero()) throw new Error(`${chain.name} ${asset.symbol} release volume is not zero at deployment verification`);
-      if (code === '0x' || sha256Code(code) !== asset.runtimeSha256.toLowerCase()) {
+      if (asset.identityType === 'native-precompile') {
+        await verifyNativePrecompile(provider, nativeAsset, approvedInputs.nativeEvidenceBytes,
+          chain.bridge.address, verificationBlock, verificationHeader);
+      } else if (code === '0x' || sha256Code(code) !== asset.runtimeSha256.toLowerCase()) {
         throw new Error(`${chain.name} ${asset.symbol} runtime SHA-256 mismatch`);
       }
 
@@ -383,6 +394,7 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
       assets: chain.assets.length,
       verificationBlock,
       verificationBlockHash: verificationHeader.hash,
+      ...(nativeEvidence ? { nativePrecompileEvidenceSha256: nativeAsset.nativePrecompile.evidenceSha256, nativeImplementationSha256: nativeAsset.nativePrecompile.implementationSha256 } : {}),
       status: 'verified-paused-pristine',
     });
   }
@@ -403,7 +415,10 @@ if (require.main === module) {
   }
   const file = path.resolve(process.argv[index + 1]);
   const manifest = JSON.parse(fs.readFileSync(file, 'utf8'));
+  const nativeIndex = process.argv.indexOf('--native-precompile-evidence');
+  if (nativeIndex !== -1 && !process.argv[nativeIndex + 1]) throw new Error('native evidence path required');
   const approvedInputs = {
+    ...(nativeIndex !== -1 ? { nativeEvidenceBytes: fs.readFileSync(path.resolve(process.argv[nativeIndex + 1])) } : {}),
     planBytes: fs.readFileSync(path.resolve(process.argv[planIndex + 1])),
     evidenceBytes: fs.readFileSync(path.resolve(process.argv[evidenceIndex + 1])),
   };

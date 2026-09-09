@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { validateNativePolicy } = require('./verify-native-precompile');
 const path = require('path');
 const { ethers } = require('ethers');
 const { validateGovernancePolicy } = require('./governance-policy');
@@ -169,6 +170,7 @@ function validateDeploymentPlan(input) {
     }
     if (asset.originChainId !== 9005) throw new Error(`${prefix}.originChainId must be 9005`);
     const originToken = address(asset.originToken, `${prefix}.originToken`);
+    validateNativePolicy(asset);
     const key = `${symbol.toLowerCase()}:${originToken.toLowerCase()}`;
     if (assetKeys.has(key)) throw new Error(`${prefix} duplicates an approved asset`);
     assetKeys.add(key);

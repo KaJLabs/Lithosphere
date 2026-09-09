@@ -1,4 +1,5 @@
 const fs = require('fs');
+const { identityType } = require('./verify-native-precompile');
 const path = require('path');
 const { ethers } = require('ethers');
 
@@ -143,7 +144,9 @@ function validateDeploymentManifest(input) {
         throw new Error(`${assetPrefix}.targetChainIds must contain exactly ${expectedTargets.join(', ')}`);
       }
       baseUnits(asset.dailyCapBaseUnits, `${assetPrefix}.dailyCapBaseUnits`);
-      sha256(asset.runtimeSha256, `${assetPrefix}.runtimeSha256`);
+      const native = identityType(asset, chainId, asset.address) === 'native-precompile';
+      if (!native) sha256(asset.runtimeSha256, `${assetPrefix}.runtimeSha256`);
+      if (native && asset.nativePrecompile !== undefined) throw new Error('native policy belongs in independently approved plan only');
       if (chainId === 9005) {
         if (asset.kind !== 'canonical') throw new Error(`${assetPrefix}.kind must be canonical`);
       } else {
