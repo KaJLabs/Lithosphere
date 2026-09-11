@@ -3,8 +3,8 @@
 - **Status:** Active — closing one stream at a time
 - **Last verified:** 2026-09-12 PKT (UTC+05:00)
 - **Repository:** `KaJLabs/Lithosphere`
-- **Default branch inspected:** `origin/main` at `e75202012bc35fd480f1c009ba482b94118de951`
-- **Latest merged workstream change:** PR #179 at `e75202012bc35fd480f1c009ba482b94118de951`
+- **Default branch inspected:** `origin/main` at `c75aa9a00d9cc10db7f2555244e9da6bd98f8903`
+- **Latest merged workstream change:** PR #180 at `c75aa9a00d9cc10db7f2555244e9da6bd98f8903`
 - **Network in scope:** Makalu testnet, EVM chain ID `700777`, Cosmos chain ID `lithosphere_700777-2`
 
 This is the source of truth for the seven Makalu extra-work streams. Update it whenever code is merged, a release is
@@ -34,6 +34,8 @@ Use these status values:
 
 When changing a status, update the summary, the stream checklist, the verification ledger, and the change log in the
 same commit. Never include wallet keys, API keys, validator snapshots, private inventory, or other secrets here.
+Every task remains a checkbox until its required evidence is verified. Check it in the same tracker update that records
+the exact PR, commit, run, deployment, or owner acceptance; a verbal progress claim alone is not completion evidence.
 
 ## Executive snapshot
 
@@ -76,8 +78,13 @@ Private indexer-verification PR #26 merged as `14ac9ba8f4a54116fc9a71ee2ac81173d
 `6822f6828718ccb663b82fcedde0a0ce71321fd8`; its three CI checks pass, but GitHub records no submitted review and
 no staging run occurred. A two-axis review then found fail-closed gaps in the unexecuted schema-v1 package. Private
 PR #27 at signed head `b29ef9e7bfa641211249445bd2487f6bbf41ff51` supersedes it with schema v2, closes the
-review findings, passes 21 verifier tests plus 32 operator-package tests, and has all three required CI checks green.
-Formal review by `@lithoagent` remains open. Public PR #179 merged the verified Autha/toolchain disposition record as
+review findings, passes 21 verifier tests plus 32 operator-package tests, and merged as
+`97577980c93ea31db6e36e1fa9abdbac9f33f66a`. GitHub still records no submitted review, so written independent
+acceptance by `@lithoagent` remains open. Private PR #29 is open at signed `bachal-mb` head
+`627cc75f44404c2f0da3f6e34acae4e34401a89c`; it adds the network-capable transaction-free collector, pins the
+accepted v0.9.2 source, passes 33 tests and CI run `34646653187`, and records collector SHA-256
+`0d83d5b41e7c860ef25d1f33e8cb1f674f18442fb5c7c40ed460fbbea0659c24`. It is mergeable but has no submitted
+review, so it remains unchecked and must not be used for a run. Public PR #179 merged the verified Autha/toolchain disposition record as
 `e75202012bc35fd480f1c009ba482b94118de951`; both its signed head and GitHub merge commit report valid signatures.
 None of these merges authorizes staging execution, deployment, signing, liquidity, or activation.
 
@@ -91,7 +98,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
 | MX-04 | DNNS | Verified explorer hardening merged and deployed; owner acceptance open | EXTERNAL BLOCKER | DNNS owner confirms the supported interface, fixes public docs, nominates a reverse record, and accepts cache policy. |
 | MX-05 | Quantt | Assumption-free gates deployed; adapter remains disabled | EXTERNAL BLOCKER | Quantt owner supplies the API contract/credential and fixes or replaces the development TLS endpoint. |
-| MX-01 | MultX / Lithoswap | Accepted v0.9.2 lineage and reviewed gates are on public `main`; private readiness, routing, and schema-v2 indexer-verification hardening are prepared; formal review, approved run inputs, and O-01/package O-02 readiness remain open; mainnet disabled | IN PROGRESS | Review and merge private PR #27; then privately supply and approve the source/image, isolated database/read-only role, four-chain route/RPC/finality, operator/reviewer, host/window, collector, and retention inputs before any disabled-staging run. |
+| MX-01 | MultX / Lithoswap | Accepted v0.9.2 lineage and reviewed gates are on public `main`; private readiness, routing, and schema-v2 verifier are merged; collector PR #29, formal acceptance, approved run inputs, and O-01/package O-02 readiness remain open; mainnet disabled | IN PROGRESS | Obtain written PR #27 acceptance and review/merge private PR #29; then privately supply and approve the image, isolated database/read-only role, four-chain route/RPC/finality, operator/reviewer, host/window, and retention inputs before any disabled-staging run. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; four tools remain specification-only and there is no deployable compiler/public release | IN PROGRESS | Obtain approved language/VM semantics and product/release/security acceptance before compiler or public-release work. |
 
 ## Sequential closure queue
@@ -129,6 +136,12 @@ Private PR #25 merged as `e64f7c7a075acd7799fbe253103ca8ec18ffc655`, with review
 V3/native probes pass 25 tests and green CI. The change contains no wallet, signing, submission, deployment, or
 activation path. GitHub records no submitted review on PR #25, so independent post-merge acceptance remains open,
 as do all authentic production route, asset, liquidity, checkpoint, and operator inputs.
+Private schema-v2 verifier PR #27 merged as `97577980c93ea31db6e36e1fa9abdbac9f33f66a`, preserving signed head
+`b29ef9e7bfa641211249445bd2487f6bbf41ff51`; its required CI checks passed. GitHub records no submitted review,
+so written independent acceptance remains open. Private collector PR #29 is open and mergeable at signed head
+`627cc75f44404c2f0da3f6e34acae4e34401a89c`, with CI run `34646653187` passing all 33 tests and collector SHA-256
+`0d83d5b41e7c860ef25d1f33e8cb1f674f18442fb5c7c40ed460fbbea0659c24`. Its requested `@lithoagent` review is
+still pending. No collector run or staging contact occurred.
 The operator must use only the exact accepted source through an explicitly approved deployment path; no earlier
 deployment may be relabeled. Deployment access does not authorize
 infrastructure, contracts, signers, liquidity, canary, or feature flags. MultX, Bridge signing, Swap, and Faucet remain
@@ -213,6 +226,12 @@ Completed or evidenced:
       high to 0 critical/9 high, preserved zero production findings, reproduced all accepted bytecode exactly, and
       added a complete-tree critical CI gate. Residual development-only findings are explicitly prohibited on
       long-lived privileged or production hosts (2026-09-10).
+- [x] Merge private schema-v2 verifier PR #27. It merged as
+      `97577980c93ea31db6e36e1fa9abdbac9f33f66a` with signed head
+      `b29ef9e7bfa641211249445bd2487f6bbf41ff51`; formal independent acceptance remains separately unchecked.
+- [x] Implement the network-capable transaction-free collector. Private PR #29 at signed head
+      `627cc75f44404c2f0da3f6e34acae4e34401a89c` passes 33 tests and CI run `34646653187`; review and merge remain
+      separately unchecked.
 
 Remaining actions:
 
@@ -241,6 +260,12 @@ Remaining actions:
       operator package. GitHub currently records no submitted reviews on PR #173 or private PR #24.
 - [ ] Obtain and record independent post-merge security/operator acceptance for private PR #25. GitHub records no
       submitted review, so the merge alone does not approve its use in production.
+- [ ] Obtain written independent security/operator acceptance for private PR #27 exact head
+      `b29ef9e7bfa641211249445bd2487f6bbf41ff51` and merge
+      `97577980c93ea31db6e36e1fa9abdbac9f33f66a`.
+- [ ] Independently review and merge private collector PR #29 at exact head
+      `627cc75f44404c2f0da3f6e34acae4e34401a89c`, then pin its repository, commit, SHA-256, and review evidence in
+      the approved schema-v2 plan.
 - [x] Complete the retained disposable-node real elapsed-time native cap rollover once after
       `2026-09-10 12:29:01 UTC` and preserve the passed result. The non-idempotent finish is complete and must not be
       rerun. Evidence archive SHA-256:
@@ -253,10 +278,11 @@ Remaining actions:
       #170-#171 cover canonical-range and source-evidence logic, but do not constitute a production indexer run.
       Private PR #26 merged the initial offline verifier and read-only database query; no run occurred. Review found
       that its unexecuted schema-v1 package did not fully bind secrets, role privileges, observed collector/run/RPC
-      identities, execution metadata, or same-clone/same-event replay. Private PR #27 supersedes it with fail-closed
-      schema v2 and all three CI checks pass. Formal review/merge and every approved source/image, isolated database
-      and read-only role, four-chain route/RPC/finality, operator/reviewer, host/window, collector, evidence-store, and
-      retention input remain required before the transaction-free run.
+      identities, execution metadata, or same-clone/same-event replay. Private PR #27 superseded it with fail-closed
+      schema v2 and merged as `97577980c93ea31db6e36e1fa9abdbac9f33f66a`; formal independent acceptance remains
+      open. Private PR #29 implements the network-capable transaction-free collector and passes CI, but review/merge
+      and every approved image, isolated database and read-only role, four-chain route/RPC/finality,
+      operator/reviewer, host/window, evidence-store, and retention input remain required before the run.
 - [x] Modernize and explicitly disposition the MultX deployment/test toolchain's transitive audit findings. The
       deprecated Waffle/Ganache path is removed; the complete tree now reports 0 critical/9 high and the production
       tree reports zero. `MultX/docs/audit/CONTRACT_TOOLCHAIN_DISPOSITION_2026-09-10.md` prohibits the residual
@@ -331,6 +357,13 @@ Evidence:
 - Private quote-only routing and read-only probes: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/25`,
   head `ef4ddb444ffc1006d970e27829bf53a7433872df`, merge
   `e64f7c7a075acd7799fbe253103ca8ec18ffc655`, CI run `34395277331`
+- Private schema-v2 verifier: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/27`, signed head
+  `b29ef9e7bfa641211249445bd2487f6bbf41ff51`, merge
+  `97577980c93ea31db6e36e1fa9abdbac9f33f66a`; written independent acceptance remains open
+- Persistent private run-input checklist: `https://github.com/KaJLabs/Lithosphere-Production-Infra/issues/28`
+- Private network collector: `https://github.com/KaJLabs/Lithosphere-Production-Infra/pull/29`, signed head
+  `627cc75f44404c2f0da3f6e34acae4e34401a89c`, CI run `34646653187`, collector SHA-256
+  `0d83d5b41e7c860ef25d1f33e8cb1f674f18442fb5c7c40ed460fbbea0659c24`; review and merge remain open
 - Live probes: `https://makalu.litho.ai/api/config`, `https://makalu.litho.ai/swap`,
   `https://makalu.litho.ai/cross-swap`, `https://lithoscan.ai/api/config`
 
@@ -979,19 +1012,21 @@ Evidence:
 | 2026-09-10 | MX-01 real-time native cap rollover | AUTHA ITEM CLOSED, NOT AN ACCEPTANCE | On retained disposable `lithosphere_9005-98`, a fresh native block at height 5445/time `13:14:47 UTC` exceeded the `12:29:01 UTC` gate. The runner verified retained state and accepted runtime, then lock block 5451 and release block 5452 both succeeded. Result SHA-256 is `89177a0709844b7ac75c998ebcdd717719f87ac9eddb4ce7bf55ca5b5d5f9845`; completed archive SHA-256 is `a9e089354ef7f653eb2569a2d6e60564d621a47f19b752ccdaa1c667883886d8`. The supplied Autha addendum closes this scoped rehearsal item but leaves L-03, O-01, and all production gates open. |
 | 2026-09-11 | MX-01 Autha cap-rollover addendum receipt | DIGESTS PASS, PROVENANCE LIMITED | Supplied DOCX SHA-256 `215d94d3e58dd2a50ed6eaadab74bf223e13bca776d98fcef3a30c341f14e219` names the exact retained archive/result digests. The archive and sidecar match, and all seven manifest entries verify with zero failures. The addendum explicitly says scoped outstanding item closed, not an acceptance. The DOCX has no digital-signature part and an empty creator field, so issuer authentication is not inferred from this receipt. |
 | 2026-09-10 | MX-01 indexer verification preparation | PRIVATE PR MERGED, RUN NOT AUTHORIZED | Private PR #26 merged as `14ac9ba8f4a54116fc9a71ee2ac81173dbb3053f` with exact head `6822f6828718ccb663b82fcedde0a0ce71321fd8`; CI runs `34487849308` and `34487849463` pass. GitHub records no submitted review, and later two-axis review found fail-closed gaps in the unexecuted schema-v1 package. No staging endpoint, database, signer, chain, or production configuration was contacted or changed. |
-| 2026-09-12 | MX-01 indexer verification hardening | PRIVATE PR OPEN, CHECKS PASS, RUN NOT AUTHORIZED | Private PR #27 at signed `bachal-mb` head `b29ef9e7bfa641211249445bd2487f6bbf41ff51` replaces schema v1 with schema v2 and binds strict evidence fields, recursive database-role privileges, observed host/collector/run/RPC identities, the approved execution window, and same-clone/same-event replay. Both independent review axes report zero blocking findings; 21 verifier and 32 operator tests pass, as do private CI runs `34642890727` and `34642890777`. Formal `@lithoagent` review/merge and all private approved inputs remain open. No staging run, deployment, signer request, database mutation, or chain transaction occurred. |
+| 2026-09-12 | MX-01 indexer verification hardening | PRIVATE PR MERGED, ACCEPTANCE OPEN, RUN NOT AUTHORIZED | Private PR #27 merged as `97577980c93ea31db6e36e1fa9abdbac9f33f66a`, preserving signed `bachal-mb` head `b29ef9e7bfa641211249445bd2487f6bbf41ff51`. Schema v2 binds strict evidence fields, recursive database-role privileges, observed host/collector/run/RPC identities, the approved execution window, and same-clone/same-event replay. All required checks passed, but GitHub records no submitted review; written independent acceptance and all private approved inputs remain open. No staging run, deployment, signer request, database mutation, or chain transaction occurred. |
+| 2026-09-12 | MX-01 indexer collector | PRIVATE PR OPEN, CHECKS PASS, RUN NOT AUTHORIZED | Private PR #29 at signed `bachal-mb` head `627cc75f44404c2f0da3f6e34acae4e34401a89c` implements the network-capable, transaction-free collector against exact accepted v0.9.2 source. All 33 tests and CI run `34646653187` pass; collector SHA-256 is `0d83d5b41e7c860ef25d1f33e8cb1f674f18442fb5c7c40ed460fbbea0659c24`. `@lithoagent` review and merge remain open, so the collector must not be used for a run. |
 | 2026-09-12 | MX-01 disposition record | PUBLIC PR MERGED, SIGNATURES VALID | Public PR #179 merged as `e75202012bc35fd480f1c009ba482b94118de951`; its exact `bachal-mb` head `791c9135b6b6be540668b91cd8bf8eb8de56ba4a` and GitHub merge commit both report valid signatures, `@lithoagent` approved that exact head, and all reported checks passed. This records evidence only and does not authorize deployment or activation. |
 
 ## Change log
 
-### 2026-09-12 — MX-01 indexer verifier hardened; formal review open
+### 2026-09-12 — MX-01 indexer verifier merged; collector review open
 
 - Verified private PR #26 merged as `14ac9ba8f4a54116fc9a71ee2ac81173dbb3053f` with all three checks passing;
   GitHub records no submitted review, and no disabled-staging run occurred.
 - Reviewed the exact PR #26 change independently against repository standards and its specification. The initial
   review identified incomplete secret/field rejection, execution/collector/RPC bindings, role-privilege proof,
   evidence consistency, and same-clone/same-event replay binding.
-- Opened private PR #27 at signed `bachal-mb` head `b29ef9e7bfa641211249445bd2487f6bbf41ff51`. Schema v2 closes every
+- Private PR #27 merged as `97577980c93ea31db6e36e1fa9abdbac9f33f66a`, preserving signed `bachal-mb`
+  head `b29ef9e7bfa641211249445bd2487f6bbf41ff51`. Schema v2 closes every
   blocking finding, rejects schema-v1 evidence, recursively evaluates inherited and assumable PostgreSQL roles,
   binds observed execution identities, and keeps unsafe template values fail closed.
 - Re-ran 21 indexer-verifier tests and 32 operator-package tests; all passed apart from three documented
@@ -999,8 +1034,14 @@ Evidence:
   and `34642890777` passed. Both final independent review axes report zero blocking findings.
 - Verified public PR #179 merged as signed commit `e75202012bc35fd480f1c009ba482b94118de951`; the exact signed head was
   approved by `@lithoagent` and all reported checks passed.
-- Requested formal review of private PR #27 from `@lithoagent`. The actual transaction-free staging exercise remains
-  blocked on the complete approved private plan and a reviewed network-capable collector.
+- GitHub records no submitted review on private PR #27, so written independent acceptance remains open despite the
+  merge.
+- Opened private collector PR #29 at signed `bachal-mb` head
+  `627cc75f44404c2f0da3f6e34acae4e34401a89c`. Its 33 tests and CI run `34646653187` pass, and collector SHA-256 is
+  `0d83d5b41e7c860ef25d1f33e8cb1f674f18442fb5c7c40ed460fbbea0659c24`. Requested review from `@lithoagent`;
+  review and merge remain open.
+- Created private issue #28 as the persistent input-and-evidence checklist. The actual transaction-free staging
+  exercise remains blocked on its complete approved plan and a reviewed, merged, pinned collector.
 - No endpoint, VPS, database, signer, contract, secret, liquidity, or feature flag was accessed or changed. MultX,
   Bridge signing, Swap, and Faucet remain disabled.
 - Updated by: `bachal-mb`.
