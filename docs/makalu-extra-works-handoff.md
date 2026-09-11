@@ -58,6 +58,20 @@ fail-closed address and checkpoint hardening. It neither supplies production rou
 security/operator acceptance. GitHub records no submitted review on the PR, so independent post-merge acceptance
 remains required before production use.
 
+Public PR #177 merged the contract-toolchain dependency disposition as
+`8d7b40355714dad3de29afecf0cdc600c2a31037`. It removes the deprecated Waffle/Ganache path, reduces the complete
+development tree to 0 critical/9 high findings, preserves zero production findings and exact contract bytecode, and
+adds a complete-tree critical CI gate. The remaining development stack is prohibited on long-lived privileged and
+production hosts. This closes the tracked toolchain-disposition action only; it does not approve a deployment
+executor or close the independent MultX security and operational-readiness gates.
+
+The retained disposable-node native cap-rollover finish passed after the real 24-hour interval on
+`lithosphere_9005-98`. Both documented transactions succeeded, the node was stopped, and the completed evidence
+archive is retained locally with SHA-256 `a9e089354ef7f653eb2569a2d6e60564d621a47f19b752ccdaa1c667883886d8`.
+The supplied Autha addendum closes this previously outstanding scoped rehearsal item while explicitly classifying
+the disposition as **not an acceptance**. L-03, Autha O-01, and every production gate remain open. The addendum's
+content and evidence digests were verified; its unsigned DOCX provenance boundary is recorded separately.
+
 The worktree is shared and contains pre-existing changes across several streams. Preserve them, isolate each stream
 into a reviewable change, and never bulk-commit the dirty worktree.
 
@@ -181,10 +195,15 @@ Completed or evidenced:
 - [x] Verified the newer disposable-node packages cover 34-transaction Cosmos bank/EVM/ERC-20 accounting, finite
       maximum allowance, native approval expiry, exact simulated cap boundaries, recipient callback behavior, and
       hostile-token reentrancy rollback. These are scoped local results, not production acceptance (2026-09-10).
-- [x] Removed the deprecated Waffle/Ganache contract-test path, reduced the complete development-tree audit from
-      3 critical/15 high to 0 critical/9 high, preserved zero production findings, and reproduced all accepted
-      bytecode exactly. CI now rejects critical findings in the complete tree, and the residual development-only
-      findings are explicitly prohibited on long-lived privileged or production hosts (2026-09-10).
+- [x] Completed the retained real elapsed-time native cap rollover once after the native block timestamp passed
+      `2026-09-10 12:29:01 UTC`. Lock transaction `0x898d04af...e1648` and release transaction
+      `0x0cd71be6...88245` both succeeded on disposable `lithosphere_9005-98`; the node was stopped and the
+      checksummed completion package was preserved. Independent acceptance remains open (2026-09-10).
+- [x] PR #177 removed the deprecated Waffle/Ganache contract-test path and merged as
+      `8d7b40355714dad3de29afecf0cdc600c2a31037`. It reduced the complete development-tree audit from 3 critical/15
+      high to 0 critical/9 high, preserved zero production findings, reproduced all accepted bytecode exactly, and
+      added a complete-tree critical CI gate. Residual development-only findings are explicitly prohibited on
+      long-lived privileged or production hosts (2026-09-10).
 
 Remaining actions:
 
@@ -213,10 +232,19 @@ Remaining actions:
       operator package. GitHub currently records no submitted reviews on PR #173 or private PR #24.
 - [ ] Obtain and record independent post-merge security/operator acceptance for private PR #25. GitHub records no
       submitted review, so the merge alone does not approve its use in production.
-- [ ] After 2026-09-10 12:29:01 UTC, complete the retained disposable-node real elapsed-time native cap rollover once,
-      preserve the result, and obtain independent acceptance. Do not rerun setup or retry after partial submission.
+- [x] Complete the retained disposable-node real elapsed-time native cap rollover once after
+      `2026-09-10 12:29:01 UTC` and preserve the passed result. The non-idempotent finish is complete and must not be
+      rerun. Evidence archive SHA-256:
+      `a9e089354ef7f653eb2569a2d6e60564d621a47f19b752ccdaa1c667883886d8`.
+- [x] Obtain and record Autha's disposition of the completed native expiry and real-time cap-rollover evidence.
+      The supplied addendum closes the outstanding scoped rehearsal item but explicitly says it is not an
+      acceptance; L-03 and Autha O-01 remain open. Receipt:
+      `MultX/docs/audit/AUTHA_NATIVE_CAP_ROLLOVER_ADDENDUM_RECEIPT_2026-09-11.md`.
 - [ ] Verify production indexer ingestion/reorg/double-credit behavior against approved disabled staging. Public PRs
       #170-#171 cover canonical-range and source-evidence logic, but do not constitute a production indexer run.
+      Private PR #26 prepares a fail-closed offline verifier, read-only database invariant query, blocked input
+      templates, and CI. Its checks pass, but it has not contacted staging or supplied the approved source/image,
+      isolated mainnet-only database, four-chain input, operator, execution, or independent-review evidence.
 - [x] Modernize and explicitly disposition the MultX deployment/test toolchain's transitive audit findings. The
       deprecated Waffle/Ganache path is removed; the complete tree now reports 0 critical/9 high and the production
       tree reports zero. `MultX/docs/audit/CONTRACT_TOOLCHAIN_DISPOSITION_2026-09-10.md` prohibits the residual
@@ -263,6 +291,8 @@ Evidence:
 - Provider-neutral signer hardening: `https://github.com/KaJLabs/Lithosphere/pull/93`
 - Non-AWS signer architecture: `MultX/docs/VPS_SIGNER_ARCHITECTURE.md`
 - Non-AWS signer source manifest: `MultX/docs/audit/AUDIT_SIGNER_SOURCE_MANIFEST_2026-09-05.md`
+- Autha native cap-rollover addendum receipt:
+  `MultX/docs/audit/AUTHA_NATIVE_CAP_ROLLOVER_ADDENDUM_RECEIPT_2026-09-11.md`
 - Autha v0.8.2 remediation PR: `https://github.com/KaJLabs/Lithosphere/pull/150`
 - Exact-commit MultX source gates: `https://github.com/KaJLabs/Lithosphere/actions/runs/33654850127`
 - v0.8.2 focused-closure prerelease:
@@ -933,9 +963,62 @@ Evidence:
 | 2026-09-09 | MX-01 mainline merge topology | CORRECTION OPEN | PR #168 squash-merged accepted source content as `e7322e6`, but exact accepted commit `5994f263` is not an ancestor of `main`. PRs #169-#171 were merged into stacked feature branches rather than `main`. Corrective PR #173 has current `main` and reviewed head `ef0ebc5` as merge parents, contains only the effective #169-#171 diff, preserves every reviewed commit as an ancestor, and passes 60 API, 43 signer, and 153 contract tests. It must be merged with a merge commit; private readiness PR #24 is still open. No deployment or activation occurred. |
 | 2026-09-09 | MX-01 mainline and readiness preparation merges | MERGED, ACCEPTANCE GATES OPEN | PR #173 merged as two-parent commit `b54cb55`; accepted commit `5994f263` and reviewed #169-#171 commits are ancestors of `main`. Private PR #24 merged as two-parent commit `571e96a` with the recovery-owner correction. GitHub records no submitted reviews on either PR, so these merges do not close independent post-acceptance review or Autha O-01/package O-02 operational readiness. No deployment or activation occurred. |
 | 2026-09-10 | MX-01 private routing/probe review | MERGED, INDEPENDENT ACCEPTANCE OPEN | Private PR #25 merged as `e64f7c7` with reviewed head `ef4ddb4` as its second parent after standards/spec review, fail-closed EVM-address and JSON-RPC-checkpoint fixes, 25 passing tests, and green CI run `34395277331`. GitHub records no submitted review. Real elapsed-time cap rollover, production indexer verification, production inputs, and independent acceptance remain open. No deployment or activation occurred. |
-| 2026-09-10 | MX-01 contract toolchain dependency disposition | PASS, DEPLOYMENT NOT APPROVED | Removed deprecated Waffle/Ganache dependencies and moved revert assertions to compatible Hardhat Chai matchers. The complete tree improved from 3 critical/15 high to 0 critical/9 high; the production tree remains at zero. All 153 tests, 12 closure mutations, forced compilation, and exact full-bytecode comparison passed. Residual development dependencies are prohibited on long-lived privileged and production hosts; CI now rejects complete-tree critical findings. |
+| 2026-09-10 | MX-01 contract toolchain dependency disposition | MERGED, DEPLOYMENT NOT APPROVED | PR #177 merged as `8d7b403`. It removed deprecated Waffle/Ganache dependencies and moved revert assertions to compatible Hardhat Chai matchers. The complete tree improved from 3 critical/15 high to 0 critical/9 high; the production tree remains at zero. All 153 tests, 12 closure mutations, forced compilation, exact full-bytecode comparison, and PR checks passed. Residual development dependencies are prohibited on long-lived privileged and production hosts. GitHub records no submitted review, and this merge does not approve a deployment executor. |
+| 2026-09-10 | MX-01 real-time native cap rollover | AUTHA ITEM CLOSED, NOT AN ACCEPTANCE | On retained disposable `lithosphere_9005-98`, a fresh native block at height 5445/time `13:14:47 UTC` exceeded the `12:29:01 UTC` gate. The runner verified retained state and accepted runtime, then lock block 5451 and release block 5452 both succeeded. Result SHA-256 is `89177a0709844b7ac75c998ebcdd717719f87ac9eddb4ce7bf55ca5b5d5f9845`; completed archive SHA-256 is `a9e089354ef7f653eb2569a2d6e60564d621a47f19b752ccdaa1c667883886d8`. The supplied Autha addendum closes this scoped rehearsal item but leaves L-03, O-01, and all production gates open. |
+| 2026-09-11 | MX-01 Autha cap-rollover addendum receipt | DIGESTS PASS, PROVENANCE LIMITED | Supplied DOCX SHA-256 `215d94d3e58dd2a50ed6eaadab74bf223e13bca776d98fcef3a30c341f14e219` names the exact retained archive/result digests. The archive and sidecar match, and all seven manifest entries verify with zero failures. The addendum explicitly says scoped outstanding item closed, not an acceptance. The DOCX has no digital-signature part and an empty creator field, so issuer authentication is not inferred from this receipt. |
+| 2026-09-10 | MX-01 indexer verification preparation | PRIVATE PR OPEN, RUN NOT AUTHORIZED | Private PR #26 adds a fail-closed verifier for fresh sanitized disabled-staging evidence, a repeatable-read/read-only PostgreSQL invariant snapshot, deliberately blocked templates, 15 tests, CI, and operator instructions. Private CI runs `34487849308` and `34487849463` pass. No staging endpoint, database, signer, chain, or production configuration was contacted or changed; the actual run and independent acceptance remain open. |
 
 ## Change log
+
+### 2026-09-11 — MX-01 Autha cap-rollover addendum recorded
+
+- Hashed and reviewed the supplied Autha addendum; document SHA-256 is
+  `215d94d3e58dd2a50ed6eaadab74bf223e13bca776d98fcef3a30c341f14e219`.
+- Verified its target archive and result digests against the retained package and sidecar. All seven package payload
+  hashes match `SHA256SUMS.txt` with zero missing or mismatched entries.
+- Recorded Autha's exact scope: the previously outstanding cap-rollover rehearsal item is closed, but the addendum
+  is not an acceptance, did not independently re-execute the disposable chain, and grants no production authority.
+- Preserved L-03, Autha O-01, production indexer, topology, route, deployment, canary, governance, and activation
+  gates as open.
+- Recorded the unsigned OOXML provenance boundary rather than inferring cryptographic issuer authentication.
+
+### 2026-09-10 — MX-01 indexer verification gate prepared
+
+- Opened private PR #26 at exact head `6822f6828718ccb663b82fcedde0a0ce71321fd8` and requested review from
+  `@lithoagent`.
+- Added a fail-closed offline plan/evidence verifier, read-only repeatable-read SQL invariant collector, incomplete
+  templates, external coordination messages, CI, and private operator-status entry.
+- All 15 unit tests, Python compilation, the expected blocked-template gate, and existing private package checks
+  passed. The SQL was aligned to public source migrations 001 and 005-008; no database connection was attempted.
+- An actual disabled-staging run still requires approved exact source/image identity, isolated mainnet-only database
+  identity and no-Makalu confirmation, four-chain bridge/start/hash/finality/RPC inputs, named operator/reviewer,
+  execution approval, a reviewed controlled collector, and independent acceptance.
+- MultX, Bridge signing, Swap, and Faucet remain disabled; no deployment, key access, signer request, database
+  mutation, or chain transaction occurred.
+
+### 2026-09-10 — MX-01 real-time native cap rollover passed
+
+- Confirmed eligibility using UTC Unix timestamps, then started only the retained disposable node without rerunning
+  setup or prepare.
+- Verified chain `lithosphere_9005-98`, EVM chain ID 9005, runner/checkpoint/binary hashes, and a fresh native block
+  timestamp beyond the recorded eligibility gate.
+- Ran the non-idempotent `finish` operation exactly once. The post-rollover lock and release receipts both have
+  status `1`; the runner also verified cap resets, volumes, escrow, and recipient accounting.
+- Stopped the node and confirmed no listeners remained on ports 19545, 19546, 29656, or 29657.
+- Preserved a completed checksummed package at
+  `client-work/MULTX_NATIVE_EXPIRY_ROLLOVER_COMPLETED_2026-09-10.zip`. The later Autha addendum closes this scoped
+  rehearsal item but explicitly does not constitute acceptance or production approval.
+- No production endpoint, signer, validator, database, contract, liquidity, or feature flag changed.
+
+### 2026-09-10 — MX-01 contract toolchain disposition merged
+
+- Verified public PR #177 merged as `8d7b40355714dad3de29afecf0cdc600c2a31037`, containing exact reviewed head
+  `2fed638c9f3bff26d19c1c46c8f4b9a61011bf29`.
+- Every reported PR check passed, including MultX source gates, Foundry invariants, CodeQL, build, test, typecheck,
+  secret scan, and the new complete-tree critical dependency gate.
+- GitHub records no submitted review. The merge closes only the engineering toolchain-disposition action; it does
+  not supply independent security acceptance or authorize a deployment executor.
+- MultX, Bridge signing, Swap, and Faucet remain disabled; no deployment, key access, or activation occurred.
 
 ### 2026-09-10 — MX-01 routing/probe review merged
 
