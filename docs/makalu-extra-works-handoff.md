@@ -1015,6 +1015,7 @@ Evidence:
 | 2026-09-12 | MX-01 indexer verification hardening | PRIVATE PR MERGED, ACCEPTANCE OPEN, RUN NOT AUTHORIZED | Private PR #27 merged as `97577980c93ea31db6e36e1fa9abdbac9f33f66a`, preserving signed `bachal-mb` head `b29ef9e7bfa641211249445bd2487f6bbf41ff51`. Schema v2 binds strict evidence fields, recursive database-role privileges, observed host/collector/run/RPC identities, the approved execution window, and same-clone/same-event replay. All required checks passed, but GitHub records no submitted review; written independent acceptance and all private approved inputs remain open. No staging run, deployment, signer request, database mutation, or chain transaction occurred. |
 | 2026-09-12 | MX-01 indexer collector | PRIVATE PR OPEN, CHECKS PASS, RUN NOT AUTHORIZED | Private PR #29 at signed `bachal-mb` head `627cc75f44404c2f0da3f6e34acae4e34401a89c` implements the network-capable, transaction-free collector against exact accepted v0.9.2 source. All 33 tests and CI run `34646653187` pass; collector SHA-256 is `0d83d5b41e7c860ef25d1f33e8cb1f674f18442fb5c7c40ed460fbbea0659c24`. `@lithoagent` review and merge remain open, so the collector must not be used for a run. |
 | 2026-09-12 | MX-01 disposition record | PUBLIC PR MERGED, SIGNATURES VALID | Public PR #179 merged as `e75202012bc35fd480f1c009ba482b94118de951`; its exact `bachal-mb` head `791c9135b6b6be540668b91cd8bf8eb8de56ba4a` and GitHub merge commit both report valid signatures, `@lithoagent` approved that exact head, and all reported checks passed. This records evidence only and does not authorize deployment or activation. |
+| 2026-09-12 | Live explorer safety-gate recheck | PASS, BLOCKERS UNCHANGED | Makalu reports EVM/Cosmos IDs `700777` / `lithosphere_700777-2`, Faucet and Bridge enabled, and Swap disabled. Its faucet still reports native LITHO plus ten LEP100 assets; every LEP100 balance remains below the minimum ten-token claim. Quantt still reports `configured: false`. LITHO mainnet reports IDs `9005` / `lithosphere_9005-1` with Faucet, Bridge, and Swap disabled. No checklist item was closed by this observation. |
 
 ## Change log
 
@@ -1042,8 +1043,13 @@ Evidence:
   review and merge remain open.
 - Created private issue #28 as the persistent input-and-evidence checklist. The actual transaction-free staging
   exercise remains blocked on its complete approved plan and a reviewed, merged, pinned collector.
-- No endpoint, VPS, database, signer, contract, secret, liquidity, or feature flag was accessed or changed. MultX,
-  Bridge signing, Swap, and Faucet remain disabled.
+- Rechecked the four public config/status endpoints. Makalu remains `700777` / `lithosphere_700777-2` with Faucet and
+  Bridge enabled and Swap disabled; all ten LEP100 balances remain below the minimum claim; Quantt remains
+  unconfigured. LITHO mainnet remains `9005` / `lithosphere_9005-1` with Faucet, Bridge, and Swap disabled. These
+  observations do not close the funding, owner-acceptance, or operational-readiness checkboxes.
+- Only the listed public read-only endpoints were accessed. No VPS, database, signer, contract, secret, liquidity,
+  deployment, or feature flag was accessed or changed. MultX, Bridge signing, Swap, and Faucet remain disabled on
+  mainnet.
 - Updated by: `bachal-mb`.
 
 ### 2026-09-11 — MX-01 Autha cap-rollover addendum recorded
