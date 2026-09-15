@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.29.1](https://github.com/KaJLabs/Lithosphere/compare/v1.29.0...v1.29.1) (2026-09-15)
+
+
+### Bug Fixes
+
+* **multx:** harden contract toolchain dependencies ([8d7b403](https://github.com/KaJLabs/Lithosphere/commit/8d7b40355714dad3de29afecf0cdc600c2a31037))
+* **multx:** harden contract toolchain dependencies ([2fed638](https://github.com/KaJLabs/Lithosphere/commit/2fed638c9f3bff26d19c1c46c8f4b9a61011bf29))
+* **multx:** harden reviewed API runtime image ([d2e4b39](https://github.com/KaJLabs/Lithosphere/commit/d2e4b39ade7971f4c3d94dd971e5125d2eb3073e))
+* **multx:** harden reviewed API runtime image ([c9cd3d8](https://github.com/KaJLabs/Lithosphere/commit/c9cd3d8fcf6d029c7993d9e50c4e6cd21eac5937))
+
 ## [1.29.0](https://github.com/KaJLabs/Lithosphere/compare/v1.28.2...v1.29.0) (2026-09-09)
 
 
