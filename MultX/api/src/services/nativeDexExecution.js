@@ -7,6 +7,19 @@ import { verifySourceEvidence } from './sourceEvidence.js';
 import { verifyDestinationSettlement } from './destinationSettlement.js';
 import { prepareV2Swap } from './v2SwapPlan.js';
 const lower=v=>ethers.getAddress(v).toLowerCase();
+const transferInterface=new ethers.Interface(['event Transfer(address indexed from,address indexed to,uint256 value)']);
+const transferTopic=transferInterface.getEvent('Transfer').topicHash.toLowerCase();
+
+export function transactionTokenCredit(receipt,token,recipient){
+ let amount=0n;
+ for(const log of receipt?.logs??[]){
+  if(typeof log?.address!=='string'||lower(log.address)!==lower(token)||log.topics?.[0]?.toLowerCase()!==transferTopic)continue;
+  let parsed;
+  try{parsed=transferInterface.parseLog({topics:log.topics,data:log.data});}catch{continue;}
+  if(parsed&&lower(parsed.args.to)===lower(recipient))amount+=BigInt(parsed.args.value);
+ }
+ return amount;
+}
 async function transaction(pool,work){const db=await pool.connect();try{await db.query('BEGIN');await db.query("SET LOCAL lock_timeout='5s'");const result=await work(db);await db.query('COMMIT');return result;}catch(e){await db.query('ROLLBACK');throw e;}finally{db.release();}}
 async function context(db,swapId,active=true){
  const swap=(await db.query('SELECT * FROM native_swaps WHERE swap_id=$1 FOR UPDATE',[swapId])).rows[0];
@@ -69,9 +82,10 @@ export async function verifyNativeDexExecution(pool,provider,swapId){
   const block=await provider.getBlock(height);if(!block||h(block.hash)!==h(receipt.blockHash))throw Error('DEX receipt reorg');
   const token=new ethers.Contract(p.destinationDex.venue.tokenOut,['function balanceOf(address) view returns(uint256)'],provider);
   const [before,after]=await Promise.all([token.balanceOf(p.payoutSender,{blockTag:height-1}),token.balanceOf(p.payoutSender,{blockTag:height})]);
-  if(after-before<BigInt(saved.plan.minimumOutput))throw Error('DEX output credit not established');
+  const credited=transactionTokenCredit(receipt,p.destinationDex.venue.tokenOut,p.payoutSender);
+  if(credited<BigInt(saved.plan.minimumOutput)||after-before<credited)throw Error('DEX transaction output credit not established');
   if(h((await provider.getBlock(height))?.hash)!==h(block.hash))throw Error('DEX receipt reorg');
-  const evidence={transactionHash:saved.transaction_hash,blockNumber:height,blockHash:block.hash,recipient:lower(p.payoutSender),token:lower(p.destinationDex.venue.tokenOut),amount: (after-before).toString()};
+  const evidence={transactionHash:saved.transaction_hash,blockNumber:height,blockHash:block.hash,recipient:lower(p.payoutSender),token:lower(p.destinationDex.venue.tokenOut),amount:credited.toString()};
   await db.query('UPDATE native_dex_executions SET evidence=$2 WHERE swap_id=$1',[swapId,evidence]);
   return {alreadyRecorded:false,evidence};
  });

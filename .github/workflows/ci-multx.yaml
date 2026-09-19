@@ -167,3 +167,69 @@ jobs:
             VITE_GRPC_URL=grpc.invalid:9090
           push: false
           tags: multx-web:ci
+
+  native-candidate-rehearsal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install exact candidate dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          for package in api sdk contracts signer web; do
+            npm --prefix "MultX/$package" ci
+          done
+          npm --prefix MultX/sdk run build
+          cd MultX/web
+          npx playwright install --with-deps chromium
+      - id: postgres
+        name: Resolve disposable PostgreSQL binaries
+        shell: bash
+        run: echo "bindir=$(pg_config --bindir)" >> "$GITHUB_OUTPUT"
+      - name: Run full tag-pinnable native candidate rehearsal
+        shell: bash
+        run: |
+          python3 MultX/scripts/verify-native-candidate.py \
+            --phase all \
+            --postgres-bin-dir "${{ steps.postgres.outputs.bindir }}" \
+            --evidence "$RUNNER_TEMP/native-candidate-evidence"
+      - name: Record exact rehearsal identity
+        if: always()
+        shell: bash
+        run: |
+          evidence="$RUNNER_TEMP/native-candidate-evidence"
+          mkdir -p "$evidence"
+          printf '%s\n' "$GITHUB_SHA" > "$evidence/GIT_COMMIT.txt"
+          git status --short > "$evidence/GIT_STATUS.txt"
+          sha256sum "$evidence"/*.log "$evidence"/*.json > "$evidence/SHA256SUMS.txt" 2>/dev/null || true
+      - name: Upload exact rehearsal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-candidate-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/native-candidate-evidence/GIT_COMMIT.txt
+            ${{ runner.temp }}/native-candidate-evidence/GIT_STATUS.txt
+            ${{ runner.temp }}/native-candidate-evidence/SHA256SUMS.txt
+            ${{ runner.temp }}/native-candidate-evidence/results-all.json
+            ${{ runner.temp }}/native-candidate-evidence/sdk-tests.log
+            ${{ runner.temp }}/native-candidate-evidence/sdk-build.log
+            ${{ runner.temp }}/native-candidate-evidence/api-full-tests.log
+            ${{ runner.temp }}/native-candidate-evidence/contracts-tests.log
+            ${{ runner.temp }}/native-candidate-evidence/contracts-compile.log
+            ${{ runner.temp }}/native-candidate-evidence/signer-tests.log
+            ${{ runner.temp }}/native-candidate-evidence/web-lint.log
+            ${{ runner.temp }}/native-candidate-evidence/web-unit-tests.log
+            ${{ runner.temp }}/native-candidate-evidence/web-build.log
+            ${{ runner.temp }}/native-candidate-evidence/browser-recovery.log
+            ${{ runner.temp }}/native-candidate-evidence/postgres-init.log
+            ${{ runner.temp }}/native-candidate-evidence/postgres.log
+          if-no-files-found: error
+          retention-days: 14

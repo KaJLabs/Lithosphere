@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { ethers } from 'ethers';
 import { assertNativeSourceStepReady, bindSignedNativeSourceStep, recoverNativeSourceIntent } from '../services/nativeSourceIntent.js';
 import { claimNativeWalletMode } from '../services/nativeWalletMode.js';
+import { consumeNativeWalletNonce, verifyNativeWalletRequest } from '../services/nativeWalletAuth.js';
 
 // Explicitly mounted by a reviewed application. No route/intent creation, custody
 // keys or broadcast endpoint. Registry resolves only operator-controlled inputs.
@@ -18,20 +19,15 @@ export function createNativeSourceRouter({pool,registry,audience}){
   if((action==='bind'&&(typeof req.body?.raw!=='string'||Object.keys(req.body).join(',')!=='raw'))||(action==='check'&&body!=='{}'))return res.status(400).json({error:'invalid_source_body'});
   if(action==='reserve'&&(Object.keys(req.body??{}).join(',')!=='attemptId'||!/^0x[0-9a-f]{64}$/.test(req.body?.attemptId??'')))return res.status(400).json({error:'invalid_attempt'});
   if(action==='observe'&&(Object.keys(req.body??{}).join(',')!=='transactionHash'||!/^0x[0-9a-f]{64}$/i.test(req.body?.transactionHash??'')))return res.status(400).json({error:'invalid_observation'});
-  let wallet,nonce;
+  let auth;
   try{
-   nonce=req.get('x-multx-nonce');
-   const timestamp=req.get('x-multx-time'),signature=req.get('x-multx-signature');
-   if(!/^0x[0-9a-f]{64}$/.test(nonce??'')||! /^[0-9]{13}$/.test(timestamp??'')||!/^0x[0-9a-f]{130}$/i.test(signature??''))throw Error();
-   const age=Date.now()-Number(timestamp);if(age< -5000||age>60000)throw Error();
-   const message='MultX source request v1\n'+JSON.stringify([audience,req.method,req.path,ethers.keccak256(ethers.toUtf8Bytes(body)),timestamp,nonce]);
-   wallet=ethers.verifyMessage(message,signature).toLowerCase();
+   auth=verifyNativeWalletRequest({audience,domain:'MultX source request v1',req,body});
   }catch{return res.status(401).json({error:'invalid_wallet_auth'});}
   try{
    const row=(await pool.query('SELECT plan FROM native_source_intents WHERE swap_id=$1',[swapId])).rows[0];
-   if(!row||row.plan.sender.toLowerCase()!==wallet)return res.status(403).json({error:'source_intent_not_owned'});
-   const consumed=await pool.query('INSERT INTO native_wallet_auth_nonces(audience,wallet,nonce) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING nonce',[audience,wallet,nonce]);
-   if(!consumed.rowCount)return res.status(401).json({error:'wallet_auth_replayed'});
+   if(!row||row.plan.sender.toLowerCase()!==auth.wallet)return res.status(403).json({error:'source_intent_not_owned'});
+   try{await consumeNativeWalletNonce(pool,{audience,...auth});}
+   catch{return res.status(401).json({error:'wallet_auth_replayed'});}
    if(req.method==='GET'&&action==='status'){
     const {provider,confirmations}=await registry.resolve(swapId);
     const source=await recoverNativeSourceIntent(pool,provider,swapId,confirmations);

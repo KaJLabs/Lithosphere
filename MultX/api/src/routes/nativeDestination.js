@@ -1,7 +1,7 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { ethers } from 'ethers';
 import { prepareNativeDestinationStep, reserveNativeDestinationAttempt, observeNativeDestinationTransaction, inspectNativeDestinationProgress } from '../services/nativeDestinationWallet.js';
+import { consumeNativeWalletNonce, verifyNativeWalletRequest } from '../services/nativeWalletAuth.js';
 
 // Wallet-owned actions only. No caller-supplied targets, raw signing, keys or
 // broadcast endpoint. Historical observations remain available after revocation.
@@ -18,19 +18,15 @@ export function createNativeDestinationRouter({pool,registry,audience}){
   if(action==='check'&&body!=='{}')return res.status(400).json({error:'invalid_destination_body'});
   if(action==='reserve'&&(Object.keys(req.body??{}).join(',')!=='attemptId'||!/^0x[0-9a-f]{64}$/.test(req.body?.attemptId??'')))return res.status(400).json({error:'invalid_destination_attempt'});
   if(action==='observe'&&(Object.keys(req.body??{}).join(',')!=='transactionHash'||!/^0x[0-9a-f]{64}$/i.test(req.body?.transactionHash??'')))return res.status(400).json({error:'invalid_destination_observation'});
-  let wallet,nonce;
+  let auth;
   try{
-   nonce=req.get('x-multx-nonce');const timestamp=req.get('x-multx-time'),signature=req.get('x-multx-signature');
-   if(!/^0x[0-9a-f]{64}$/.test(nonce??'')||! /^[0-9]{13}$/.test(timestamp??'')||!/^0x[0-9a-f]{130}$/i.test(signature??''))throw Error();
-   const age=Date.now()-Number(timestamp);if(age< -5000||age>60000)throw Error();
-   const message='MultX destination request v1\n'+JSON.stringify([audience,req.method,req.path,ethers.keccak256(ethers.toUtf8Bytes(body)),timestamp,nonce]);
-   wallet=ethers.verifyMessage(message,signature).toLowerCase();
+   auth=verifyNativeWalletRequest({audience,domain:'MultX destination request v1',req,body});
   }catch{return res.status(401).json({error:'invalid_wallet_auth'});}
   try{
    const intent=(await pool.query('SELECT plan FROM native_source_intents WHERE swap_id=$1',[swapId])).rows[0];
-   if(!intent||intent.plan.sender.toLowerCase()!==wallet)return res.status(403).json({error:'destination_intent_not_owned'});
-   const consumed=await pool.query('INSERT INTO native_wallet_auth_nonces(audience,wallet,nonce) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING nonce',[audience,wallet,nonce]);
-   if(!consumed.rowCount)return res.status(401).json({error:'wallet_auth_replayed'});
+   if(!intent||intent.plan.sender.toLowerCase()!==auth.wallet)return res.status(403).json({error:'destination_intent_not_owned'});
+   try{await consumeNativeWalletNonce(pool,{audience,...auth});}
+   catch{return res.status(401).json({error:'wallet_auth_replayed'});}
    const swap=(await pool.query('SELECT state,destination_chain FROM native_swaps WHERE swap_id=$1',[swapId])).rows[0];
    if(status&&swap.state==='awaiting_settlement')return res.json({swapId,chainId:Number(swap.destination_chain),state:'awaiting_settlement'});
    if(status&&swap.state==='recovery_required')return res.json({swapId,chainId:Number(swap.destination_chain),state:'recovery_required'});

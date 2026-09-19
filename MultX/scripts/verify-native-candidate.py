@@ -83,6 +83,10 @@ def listening(value):
 
 
 def core_checks():
+    # The local-chain API integration tests deploy the exact Hardhat artifacts.
+    # Compile them here so the core phase is reproducible from a clean checkout
+    # instead of depending on a previous package-phase or developer build.
+    check('contracts-compile', [npm, 'run', 'compile'], 'contracts')
     check('sdk-tests', [npm, 'test'], 'sdk')
     check('sdk-build', [npm, 'run', 'build'], 'sdk')
     ports = (args.postgres_port, args.destination_port, args.source_port)
@@ -156,7 +160,8 @@ if args.phase in ('core', 'all'):
     core_checks()
 if args.phase in ('packages', 'all'):
     check('contracts-tests', [npm, 'test'], 'contracts')
-    check('contracts-compile', [npm, 'run', 'compile'], 'contracts')
+    if args.phase == 'packages':
+        check('contracts-compile', [npm, 'run', 'compile'], 'contracts')
     check('signer-tests', [npm, 'test'], 'signer')
 if args.phase in ('web', 'packages', 'all'):
     check('web-lint', [npm, 'run', 'lint'], 'web')

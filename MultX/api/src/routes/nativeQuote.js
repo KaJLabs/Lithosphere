@@ -1,33 +1,13 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { ethers } from 'ethers';
 import { acceptNativeQuote, createNativeQuote } from '../services/nativeQuote.js';
+import { consumeNativeWalletNonce, verifyNativeWalletRequest } from '../services/nativeWalletAuth.js';
 
 const quoteKeys = ['destinationChain', 'inputAmount', 'minimumOutput', 'recipient', 'sourceChain'];
 
 function exactKeys(value, keys) {
   return value && typeof value === 'object' && !Array.isArray(value) &&
     Object.keys(value).sort().join(',') === keys.slice().sort().join(',');
-}
-
-async function authenticate(pool, audience, req, body) {
-  const nonce = req.get('x-multx-nonce');
-  const timestamp = req.get('x-multx-time');
-  const signature = req.get('x-multx-signature');
-  if (!/^0x[0-9a-f]{64}$/.test(nonce ?? '') || !/^[0-9]{13}$/.test(timestamp ?? '') ||
-      !/^0x[0-9a-f]{130}$/i.test(signature ?? '')) throw Error('invalid auth');
-  const age = Date.now() - Number(timestamp);
-  if (age < -5000 || age > 60000) throw Error('invalid auth');
-  const message = 'MultX quote request v1\n' + JSON.stringify([
-    audience, req.method, req.path, ethers.keccak256(ethers.toUtf8Bytes(body)), timestamp, nonce,
-  ]);
-  const wallet = ethers.verifyMessage(message, signature).toLowerCase();
-  const consumed = await pool.query(
-    'INSERT INTO native_wallet_auth_nonces(audience,wallet,nonce) VALUES($1,$2,$3) ON CONFLICT DO NOTHING RETURNING nonce',
-    [audience, wallet, nonce],
-  );
-  if (!consumed.rowCount) throw Error('replayed auth');
-  return wallet;
 }
 
 // Mounted only by a reviewed application. The registry maps a user request to
@@ -43,7 +23,11 @@ export function createNativeQuoteRouter({ pool, registry, audience }) {
     if (!exactKeys(req.body, quoteKeys)) return res.status(400).json({ error: 'invalid_quote_body' });
     const body = JSON.stringify(req.body);
     let wallet;
-    try { wallet = await authenticate(pool, audience, req, body); }
+    try {
+      const auth = verifyNativeWalletRequest({ audience, domain: 'MultX quote request v1', req, body });
+      wallet = auth.wallet;
+      await consumeNativeWalletNonce(pool, { audience, ...auth });
+    }
     catch { return res.status(401).json({ error: 'invalid_wallet_auth' }); }
     try {
       const selected = await registry.resolve(req.body, wallet);
@@ -56,7 +40,11 @@ export function createNativeQuoteRouter({ pool, registry, audience }) {
     if (JSON.stringify(req.body ?? {}) !== '{}') return res.status(400).json({ error: 'invalid_accept_body' });
     const body = '{}';
     let wallet;
-    try { wallet = await authenticate(pool, audience, req, body); }
+    try {
+      const auth = verifyNativeWalletRequest({ audience, domain: 'MultX quote request v1', req, body });
+      wallet = auth.wallet;
+      await consumeNativeWalletNonce(pool, { audience, ...auth });
+    }
     catch { return res.status(401).json({ error: 'invalid_wallet_auth' }); }
     try { return res.json(await acceptNativeQuote(pool, req.params.quoteId, wallet, registry)); }
     catch { return res.status(409).json({ error: 'quote_acceptance_rejected' }); }

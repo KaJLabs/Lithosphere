@@ -4,7 +4,8 @@
 
 > **Current architecture notice (2026-08-19):** LITHO mainnet uses Cosmos ID
 > `lithosphere_9005-1` and EVM chain ID `9005`. MultX remains disabled. The
-> production candidate uses seven independent signer VPSs with distinct
+> current production candidate uses five independent signer VPSs with a 3-of-5
+> threshold, distinct
 > mounted keys, fsync-backed anti-equivocation journals and direct mTLS
 > endpoints. The contracts and this off-chain signer
 > protocol require independent review before MultX can be enabled. Historical
@@ -93,8 +94,8 @@ User                  MultXBridge (dest)         Validator service       MultXBr
 | # | Assumption | What we mitigate / accept |
 |---|---|---|
 | T1 | Bridge signer key custody is secure | Each independent signer VPS holds one owner-restricted mounted secp256k1 key. The API holds no validator private keys. Direct TLS 1.3 mutual authentication restricts API-to-signer traffic. Review `MultX/signer/`, `api/src/services/remoteSigner.js`, and `docs/VPS_SIGNER_ARCHITECTURE.md`. |
-| T2 | At least `signaturesRequired` bridge signers (target: **5 of 7**) act honestly | This is the core security assumption. A quorum can authorize false releases, but every supported production asset must have a positive fixed-window outbound cap. The target set is not active on mainnet yet. |
-| T3 | LITHO mainnet itself remains within its BFT safety assumptions | Bridge security inherits chain security. LITHO runs CometBFT consensus with a consensus validator set that is separate from the seven MultX bridge signers. |
+| T2 | At least `signaturesRequired` bridge signers (current candidate: **3 of 5**) act honestly | This is the core security assumption. A quorum can authorize false releases, but every supported production asset must have a positive fixed-window outbound cap. The candidate set is not active on mainnet yet. |
+| T3 | LITHO mainnet itself remains within its BFT safety assumptions | Bridge security inherits chain security. LITHO runs CometBFT consensus with a consensus validator set that is separate from the five current-candidate MultX bridge signers. |
 | T4 | Source-chain RPC providers return honest state to bridge signers | Every signer queries its configured RPC and verifies the exact event and confirmation depth. Quorum does not provide independence if multiple signers share the same compromised upstream; endpoint/provider diversity must be reviewed before activation. |
 | T5 | Compiler (`solc 0.8.24` with optimizer runs=200) is sound | Standard assumption; well-known compiler, widely used. |
 | T6 | OpenZeppelin contracts (Pausable, ReentrancyGuard, SafeERC20, ERC20Burnable) are sound | OZ audited and battle-tested. |
@@ -279,7 +280,8 @@ We'd like the audit to specifically opine on:
   - `#4 0xc8C5c89ddb70CAEC942f2C5A77F4F4001ef3B415`
   - `#5 0x4CDd6D160Bd79fe7d4Bab06a9E0607870e8108D9`
   - `#6 0xB161611185Ce2c95849134188AC9F5DbC26bfD2D`
-- Validator keys: the LITHO mainnet candidate uses seven independently
+- Validator keys: the historical Kamet deployment above uses seven signers. The
+  current LITHO mainnet candidate instead requires exactly five independently
   operated signer VPSs with one mounted key and persistent decision journal
   per signer. Production rejects permissive or symlinked key/journal paths,
   non-mTLS transport and environment-supplied policy. Release signing remains

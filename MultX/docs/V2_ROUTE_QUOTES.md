@@ -73,8 +73,10 @@ configured payout sender. Signed binding checks every execution field and refuse
 replacement hashes. Approval remains a separate wallet action.
 
 verifyNativeDexExecution checks the assigned successful transaction, exact call,
-canonical receipt block, finality and historical output-token credit to the payout
-sender before recording evidence. Replay returns the stored proof. Revocation
+canonical receipt block, finality, transaction-attributed output-token Transfer
+logs, and the historical balance transition before recording evidence. It records
+only output credited to the approved payout sender by the assigned receipt, so an
+unrelated same-block transfer cannot satisfy the minimum. Replay returns the stored proof. Revocation
 blocks new preparation/binding but does not hide a transaction that already mined.
 Payout preparation, binding and submission require this evidence when destinationDex
 is configured. Preparation/submission also recheck its block hash and confirmation

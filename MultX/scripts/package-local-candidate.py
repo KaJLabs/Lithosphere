@@ -15,7 +15,6 @@ args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
 evidence = Path(args.evidence).resolve()
 output = Path(args.output).resolve()
-listed = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=root).decode().split('\0')
 blocked_parts = {'.git','node_modules','dist','artifacts','cache','test-results','playwright-report','.venv','__pycache__'}
 
 def allowed(name):
@@ -29,23 +28,42 @@ def allowed(name):
         return False
     return name.startswith('MultX/') or (name.startswith('Makalu/contracts/src/dex/') and name.endswith('.sol'))
 
+if subprocess.run(['git', 'diff-index', '--quiet', 'HEAD', '--'], cwd=root).returncode:
+    raise SystemExit('Refusing candidate packaging from a checkout with tracked changes')
+untracked = subprocess.check_output(
+    ['git', 'ls-files', '--others', '--exclude-standard', '-z'], cwd=root
+).decode().split('\0')
+eligible_untracked = sorted(name for name in untracked if allowed(name))
+if eligible_untracked:
+    raise SystemExit('Refusing eligible untracked source: ' + eligible_untracked[0])
+
+tree = subprocess.check_output(['git', 'ls-tree', '-r', '-z', 'HEAD'], cwd=root).split(b'\0')
+blobs = {}
+for raw in tree:
+    if not raw:
+        continue
+    metadata, encoded_name = raw.split(b'\t', 1)
+    mode, kind, oid = metadata.decode().split(' ')
+    name = encoded_name.decode()
+    if allowed(name):
+        if mode == '120000' or kind != 'blob':
+            raise SystemExit('Refusing non-regular source: ' + name)
+        blobs[name] = oid
+
 inventory = []
-for name in sorted(set(filter(allowed, listed))):
-    path = root / name
-    if path.is_symlink() or not path.is_file():
-        raise SystemExit('Refusing non-regular source: ' + name)
-    data = path.read_bytes()
+for name, oid in sorted(blobs.items()):
+    data = subprocess.check_output(['git', 'cat-file', 'blob', oid], cwd=root)
     if re.search(rb'-----BEGIN (?:EC |RSA )?PRIVATE KEY-----\r?\n[A-Za-z0-9+/]{32,}',data):
         raise SystemExit('Refusing embedded private key: ' + name)
-    inventory.append({'path':name,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
+    inventory.append({'path':name,'blob':oid,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest()})
 if not inventory:
     raise SystemExit('Source inventory is empty')
-identity = {'kind':'unpublished-local-source-snapshot','baseCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root).decode().strip(),
+identity = {'kind':'git-commit-source-snapshot','baseCommit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=root).decode().strip(),
             'files':inventory}
 (evidence / 'SOURCE_MANIFEST.json').write_text(json.dumps(identity, indent=2) + '\n')
 with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
     for entry in inventory:
-        data=(root / entry['path']).read_bytes()
+        data=subprocess.check_output(['git','cat-file','blob',entry['blob']],cwd=root)
         if hashlib.sha256(data).hexdigest()!=entry['sha256']:
             raise SystemExit('Source changed while packaging: ' + entry['path'])
         archive.writestr(entry['path'],data)

@@ -129,7 +129,10 @@ test('two local chains: lock, 3-of-5 release, DEX, native redemption and payout'
   const dexPlan=await prepareNativeDexExecution(pool,dest,'cross');
   if(dexPlan.approval)await(await destSigner.sendTransaction(dexPlan.approval)).wait();
   const dexTransaction=await destWallet.populateTransaction(dexPlan.transaction);
-  dexTransaction.gasLimit=(dexTransaction.gasLimit*120n+99n)/100n;
+  // This fixture exercises immutable binding and lost-broadcast recovery. Sign
+  // at the approved policy ceiling so a later safety re-estimate cannot make
+  // the test nondeterministically under-gassed.
+  dexTransaction.gasLimit=BigInt(policy.destinationDex.maxGas);
   const dexRaw=await destWallet.signTransaction(dexTransaction);
   const dexBinding=await bindSignedNativeDexExecution(pool,'cross',dexRaw);
   assert.equal((await bindSignedNativeDexExecution(pool,'cross',dexRaw)).alreadyBound,true);
@@ -147,8 +150,10 @@ test('two local chains: lock, 3-of-5 release, DEX, native redemption and payout'
   assert.equal((await reconcileNativeDexBatch(pool,new Map([[9005,dest]]))).results[0].state,'dex_verified');
   assert.deepEqual((await reconcileNativeDexBatch(pool,new Map([[9005,dest]]))).results,[]);
   const dexProof=await verifyNativeDexExecution(pool,dest,'cross');
+  const dexCredited=await dexToken.balanceOf(destWallet.address)-dexBefore;
   assert.equal(dexProof.evidence.transactionHash,dexBinding.transactionHash);
-  assert.ok(await dexToken.balanceOf(destWallet.address)-dexBefore>=2500n);
+  assert.equal(dexProof.evidence.amount,dexCredited.toString());
+  assert.ok(dexCredited>=2500n);
   assert.equal((await verifyNativeDexExecution(pool,dest,'cross')).alreadyRecorded,true);
   await assert.rejects(prepareNativePayout(pool,dest,'cross'),/native redemption required/);
   const redemptionPlan=await prepareNativeRedemption(pool,dest,'cross');

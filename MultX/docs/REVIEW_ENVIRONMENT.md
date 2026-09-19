@@ -6,6 +6,10 @@ PostgreSQL data directory for every core run, starts loopback-only Hardhat nodes
 refuses occupied ports and shuts every service down in `finally`. It never reads
 deployment keys and must not be pointed at production endpoints.
 
+Candidate packaging must run from a checkout with no tracked changes and no
+eligible untracked source files. The packager reads source blobs from `HEAD`, not
+from mutable working-tree paths, and records each Git blob identity and SHA-256.
+
 ## Clean reviewer setup
 
 Install Python 3, Node/npm, PostgreSQL (including `initdb` and `pg_ctl`) and the
