@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.30.0](https://github.com/KaJLabs/Lithosphere/compare/v1.29.0...v1.30.0) (2026-09-19)
+
+
+### Features
+
+* add validator explorer details ([b60df4a](https://github.com/KaJLabs/Lithosphere/commit/b60df4a0deae773cb45764d10313a5d4d26f3c04))
+* **explorer:** ship validator explorer and LithoScan branding ([acb3ff6](https://github.com/KaJLabs/Lithosphere/commit/acb3ff6a4ade6372e8959ce4bd2a3a5ec5fab9c6))
+
+
+### Bug Fixes
+
+* **explorer:** harden validator metrics and branding ([7571e70](https://github.com/KaJLabs/Lithosphere/commit/7571e709c6c5d7743f7a3476a648bea0208ad6e1))
+* **explorer:** unblock validator deployment ([f80f8be](https://github.com/KaJLabs/Lithosphere/commit/f80f8be950c7128c75eec2c74149a14ac3451087))
+* **multx:** harden contract toolchain dependencies ([8d7b403](https://github.com/KaJLabs/Lithosphere/commit/8d7b40355714dad3de29afecf0cdc600c2a31037))
+* **multx:** harden contract toolchain dependencies ([2fed638](https://github.com/KaJLabs/Lithosphere/commit/2fed638c9f3bff26d19c1c46c8f4b9a61011bf29))
+* **multx:** harden reviewed API runtime image ([d2e4b39](https://github.com/KaJLabs/Lithosphere/commit/d2e4b39ade7971f4c3d94dd971e5125d2eb3073e))
+* **multx:** harden reviewed API runtime image ([c9cd3d8](https://github.com/KaJLabs/Lithosphere/commit/c9cd3d8fcf6d029c7993d9e50c4e6cd21eac5937))
+
 ## [1.29.0](https://github.com/KaJLabs/Lithosphere/compare/v1.28.2...v1.29.0) (2026-09-09)
 
 
