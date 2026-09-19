@@ -1,0 +1,11 @@
+import { beforeEach, expect, it, vi } from 'vitest';
+import { openNativeWalletSession } from './nativeWalletSession';
+const mocks=vi.hoisted(()=>({destroy:vi.fn(),getSigner:vi.fn(),openStore:vi.fn(),close:vi.fn()}));
+vi.mock('ethers',()=>({BrowserProvider:class {getSigner=mocks.getSigner;destroy=mocks.destroy;}}));
+vi.mock('@litho/multx-sdk',()=>({createNativeQuoteBackend:()=>({}),createNativeSourceWalletBackend:()=>({}),createNativeDestinationWalletBackend:()=>({}),openNativeSourceSignedStore:mocks.openStore,submitInjectedNativeSourceStep:vi.fn(),submitInjectedNativeDestinationStep:vi.fn()}));
+const wallet={isConnected:true,account:'0x123',provider:{provider:{request:vi.fn()}}};
+const config={enabled:true,baseUrl:'https://example.test/native',audience:'test'};
+beforeEach(()=>{vi.clearAllMocks();mocks.getSigner.mockResolvedValue({});mocks.openStore.mockResolvedValue({close:mocks.close});});
+it('closes provider if opening durable storage fails',async()=>{mocks.openStore.mockRejectedValueOnce(Error('storage unavailable'));await expect(openNativeWalletSession(wallet,config)).rejects.toThrow('storage unavailable');expect(mocks.destroy).toHaveBeenCalledOnce();});
+it('closes both resources after a session',async()=>{const session=await openNativeWalletSession(wallet,config);session.close();expect(mocks.close).toHaveBeenCalledOnce();expect(mocks.destroy).toHaveBeenCalledOnce();});
+it('does not select an unrelated injected wallet when the connected provider is incompatible',async()=>{await expect(openNativeWalletSession({...wallet,provider:{}},config)).rejects.toThrow('not supported');expect(mocks.getSigner).not.toHaveBeenCalled();});

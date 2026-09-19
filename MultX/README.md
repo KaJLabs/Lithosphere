@@ -3,6 +3,11 @@
 This directory is the audit-visible source package for the Lithosphere MultX
 cross-chain bridge.
 
+Current product direction and next work:
+[native swap delivery plan](docs/NATIVE_SWAP_DELIVERY_PLAN.md). Native asset swaps,
+prioritizing ETH/BNB to LITHO and back, require routing and native execution work
+beyond this bridge. The one-origin wrapper launch proposal is superseded.
+
 ## Components
 
 - `contracts/`: bridge, wrapped-token and governance contracts; tests;
@@ -11,7 +16,7 @@ cross-chain bridge.
   validator-signature services.
 - `signer/`: isolated non-AWS VPS signer using a dedicated mounted key,
   fsync-backed anti-equivocation journal and direct mTLS endpoint for each of
-  seven signers.
+  five signers under the current 3-of-5 candidate policy.
 - `sdk/`: `@litho/multx-sdk` v0.3.0 source, React adapter, presets and tests.
 - `web/`: the complete Vite/React application containing the MultX bridge UI.
 - `infra/`: testnet-only Compose and legacy Ansible deployment references.

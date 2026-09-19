@@ -25,9 +25,9 @@ const validPlan = () => ({
     approvalRecordUrl: 'https://evidence.example/change-window',
   },
   bridgeSignerSet: {
-    threshold: 5,
-    addresses: addresses.slice(0, 7),
-    acceptanceRecords: Array.from({ length: 7 }, (_, index) => `https://evidence.example/signer-${index}`),
+    threshold: 3,
+    addresses: addresses.slice(0, 5),
+    acceptanceRecords: Array.from({ length: 5 }, (_, index) => `https://evidence.example/signer-${index}`),
   },
   chains: [9005, 1, 56, 8453].map((chainId, index) => ({
     chainId,
@@ -64,7 +64,21 @@ const validPlan = () => ({
 });
 
 describe('mainnet deployment plan', () => {
-  it('accepts a complete four-chain 5-of-7 approval plan', () => {
+  it('rejects old quorum and isolated signer/acceptance count drift', () => {
+    for (const mutate of [
+      p => { p.bridgeSignerSet.threshold = 5; },
+      p => { p.bridgeSignerSet.threshold = 2; },
+      p => { p.bridgeSignerSet.addresses.pop(); },
+      p => { p.bridgeSignerSet.addresses.push(addresses[5]); },
+      p => { p.bridgeSignerSet.acceptanceRecords.pop(); },
+      p => { p.bridgeSignerSet.acceptanceRecords.push('https://evidence.example/extra'); },
+      p => { p.bridgeSignerSet = {threshold: 5, addresses: addresses.slice(0,7), acceptanceRecords: Array(7).fill('https://evidence.example/old')}; },
+    ]) {
+      const plan = validPlan(); mutate(plan);
+      expect(() => validateDeploymentPlan(plan)).to.throw();
+    }
+  });
+  it('accepts a complete four-chain 3-of-5 approval plan', () => {
     expect(() => validateDeploymentPlan(validPlan())).not.to.throw();
   });
 
@@ -76,7 +90,7 @@ describe('mainnet deployment plan', () => {
 
   it('rejects duplicate signer identities', () => {
     const plan = validPlan();
-    plan.bridgeSignerSet.addresses[6] = plan.bridgeSignerSet.addresses[0];
+    plan.bridgeSignerSet.addresses[4] = plan.bridgeSignerSet.addresses[0];
     expect(() => validateDeploymentPlan(plan)).to.throw('must be unique');
   });
 
@@ -86,7 +100,7 @@ describe('mainnet deployment plan', () => {
     expect(() => validateDeploymentPlan(plan)).to.throw('chains must contain');
     const second = validPlan();
     second.assets[0].destinationChainIds = [1, 56];
-    expect(() => validateDeploymentPlan(second)).to.throw('must contain 1, 56 and 8453');
+    expect(() => validateDeploymentPlan(second)).to.throw('must contain 1, 56, 8453');
   });
 
   it('rejects unsafe governance separation and short timelocks', () => {

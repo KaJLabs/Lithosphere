@@ -38,7 +38,7 @@ services:
       DB_PASSWORD_FILE: /run/secrets/db-password
       MULTX_NETWORK_CONFIG_FILE: /run/config/network.json
       MOCK_VALIDATOR: "false"
-      SIGNATURES_REQUIRED: "5"
+      SIGNATURES_REQUIRED: "3"
       TRUST_PROXY_HOPS: "1"
       VALIDATOR_SIGNER_TIMEOUT_MS: "8000"
       VALIDATOR_SIGNER_URL_0: https://REPLACE_WITH_PRIVATE_SIGNER_VPS_0:9443
@@ -66,16 +66,6 @@ services:
       VALIDATOR_SIGNER_CA_FILE_4: /run/secrets/signers/signer-4-ca.crt
       VALIDATOR_SIGNER_CERT_FILE_4: /run/secrets/signers/signer-4-client.crt
       VALIDATOR_SIGNER_KEY_FILE_4: /run/secrets/signers/signer-4-client.key
-      VALIDATOR_SIGNER_URL_5: https://REPLACE_WITH_PRIVATE_SIGNER_VPS_5:9443
-      VALIDATOR_SIGNER_ADDRESS_5: REPLACE_WITH_SIGNER_5_ADDRESS
-      VALIDATOR_SIGNER_CA_FILE_5: /run/secrets/signers/signer-5-ca.crt
-      VALIDATOR_SIGNER_CERT_FILE_5: /run/secrets/signers/signer-5-client.crt
-      VALIDATOR_SIGNER_KEY_FILE_5: /run/secrets/signers/signer-5-client.key
-      VALIDATOR_SIGNER_URL_6: https://REPLACE_WITH_PRIVATE_SIGNER_VPS_6:9443
-      VALIDATOR_SIGNER_ADDRESS_6: REPLACE_WITH_SIGNER_6_ADDRESS
-      VALIDATOR_SIGNER_CA_FILE_6: /run/secrets/signers/signer-6-ca.crt
-      VALIDATOR_SIGNER_CERT_FILE_6: /run/secrets/signers/signer-6-client.crt
-      VALIDATOR_SIGNER_KEY_FILE_6: /run/secrets/signers/signer-6-client.key
     ports:
       - "127.0.0.1:4000:4000"
     volumes:

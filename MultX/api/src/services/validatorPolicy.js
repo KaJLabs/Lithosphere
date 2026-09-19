@@ -31,11 +31,17 @@ export function validateValidatorSet(validators, signaturesRequired) {
 }
 
 export function validateProductionSignerEnvironment(env = process.env) {
+  for (const key of Object.keys(env)) {
+    const match = /^VALIDATOR_SIGNER_(?:URL|ADDRESS|CA_FILE|CERT_FILE|KEY_FILE|TOKEN_FILE)_(.+)$/.exec(key);
+    if (match && env[key] && !/^[0-4]$/.test(match[1])) {
+      throw new Error('production requires exactly signer indices 0 through 4');
+    }
+  }
   for (const name of ['AWS_REGION', 'VALIDATOR_KMS_KEY_ARN', 'SIGNER_KMS_KEY_ARN']) {
     if (env[name]) throw new Error(`${name} is not supported by the non-AWS production signer path`);
   }
-  if (String(env.SIGNATURES_REQUIRED) !== '5') {
-    throw new Error('production SIGNATURES_REQUIRED must be exactly 5');
+  if (String(env.SIGNATURES_REQUIRED) !== '3') {
+    throw new Error('production SIGNATURES_REQUIRED must be exactly 3');
   }
   const configured = [];
   for (let index = 0; index < 10; index += 1) {
@@ -49,14 +55,14 @@ export function validateProductionSignerEnvironment(env = process.env) {
       env[`VALIDATOR_SIGNER_KEY_FILE_${index}`],
       env[`VALIDATOR_SIGNER_TOKEN_FILE_${index}`],
     ];
-    if (index < 7 && (!url || !signerAddress)) {
+    if (index < 5 && (!url || !signerAddress)) {
       throw new Error(`production validator signer ${index} URL and address are required`);
     }
-    if (index >= 7 && signerFields.some(Boolean)) {
-      throw new Error('production requires exactly signer indices 0 through 6');
+    if (index >= 5 && signerFields.some(Boolean)) {
+      throw new Error('production requires exactly signer indices 0 through 4');
     }
-    if (index < 7) configured.push({ index, url, address: signerAddress });
-    if (index < 7) {
+    if (index < 5) configured.push({ index, url, address: signerAddress });
+    if (index < 5) {
       if (env[`VALIDATOR_SIGNER_TOKEN_FILE_${index}`]) {
         throw new Error(`production validator signer ${index} must use mTLS, not bearer authentication`);
       }
@@ -67,11 +73,15 @@ export function validateProductionSignerEnvironment(env = process.env) {
       }
     }
   }
-  validateValidatorSet(configured, 5);
+  validateValidatorSet(configured, 3);
   return configured;
 }
 
 export async function verifyLiveValidatorTopology(chains, expectedAddresses, providerFactory) {
+  if (!Array.isArray(expectedAddresses) || expectedAddresses.length !== 5) {
+    throw new Error('expected exactly five production validator addresses');
+  }
+  expectedAddresses = validateValidatorSet(expectedAddresses.map(address => ({ address })), 3).addresses;
   const abi = [
     'function signaturesRequired() view returns (uint256)',
     'function getValidatorCount() view returns (uint256)',
@@ -89,8 +99,8 @@ export async function verifyLiveValidatorTopology(chains, expectedAddresses, pro
     ]);
     const threshold = Number(thresholdValue.toString());
     const count = Number(countValue.toString());
-    if (threshold !== 5 || count !== 7 || live.length !== 7) {
-      throw new Error(`${chain.name} live bridge topology is not exact 5-of-7`);
+    if (threshold !== 3 || count !== 5 || live.length !== 5) {
+      throw new Error(`${chain.name} live bridge topology is not exact 3-of-5`);
     }
     if (live.some((item, index) => item.toLowerCase() !== expectedAddresses[index])) {
       throw new Error(`${chain.name} live validator set does not match configured signers`);

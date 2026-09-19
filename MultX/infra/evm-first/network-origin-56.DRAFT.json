@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 2,
+  "environment": "multx-evm-mainnet",
+  "rollout": "evm-first",
+  "sourceChainId": 56,
+  "originTokenAddress": "REPLACE_WITH_APPROVED_ORIGIN_ERC20",
+  "supportedChains": [
+    {
+      "chainId": 1,
+      "name": "1",
+      "symbol": "ETH",
+      "bridge": "REPLACE_WITH_BRIDGE_1"
+    },
+    {
+      "chainId": 56,
+      "name": "56",
+      "symbol": "BNB",
+      "bridge": "REPLACE_WITH_BRIDGE_56"
+    },
+    {
+      "chainId": 8453,
+      "name": "8453",
+      "symbol": "ETH",
+      "bridge": "REPLACE_WITH_BRIDGE_8453"
+    }
+  ],
+  "chainsToWatch": [
+    {
+      "chainId": 1,
+      "name": "1",
+      "bridge": "REPLACE_WITH_BRIDGE_1",
+      "rpc": "REPLACE_WITH_HTTPS_RPC",
+      "ws": "REPLACE_WITH_WSS_RPC",
+      "startBlock": "REPLACE_WITH_DEPLOYMENT_BLOCK",
+      "confirmations": "REPLACE_WITH_APPROVED_CONFIRMATIONS",
+      "reorgOverlap": "REPLACE_WITH_APPROVED_OVERLAP"
+    },
+    {
+      "chainId": 56,
+      "name": "56",
+      "bridge": "REPLACE_WITH_BRIDGE_56",
+      "rpc": "REPLACE_WITH_HTTPS_RPC",
+      "ws": "REPLACE_WITH_WSS_RPC",
+      "startBlock": "REPLACE_WITH_DEPLOYMENT_BLOCK",
+      "confirmations": "REPLACE_WITH_APPROVED_CONFIRMATIONS",
+      "reorgOverlap": "REPLACE_WITH_APPROVED_OVERLAP"
+    },
+    {
+      "chainId": 8453,
+      "name": "8453",
+      "bridge": "REPLACE_WITH_BRIDGE_8453",
+      "rpc": "REPLACE_WITH_HTTPS_RPC",
+      "ws": "REPLACE_WITH_WSS_RPC",
+      "startBlock": "REPLACE_WITH_DEPLOYMENT_BLOCK",
+      "confirmations": "REPLACE_WITH_APPROVED_CONFIRMATIONS",
+      "reorgOverlap": "REPLACE_WITH_APPROVED_OVERLAP"
+    }
+  ],
+  "tokenPairs": [
+    {
+      "sourceChain": 56,
+      "sourceToken": "REPLACE_WITH_APPROVED_ORIGIN_ERC20",
+      "targetChain": 1,
+      "releaseToken": "REPLACE_WITH_WRAPPED_1"
+    },
+    {
+      "sourceChain": 1,
+      "sourceToken": "REPLACE_WITH_WRAPPED_1",
+      "targetChain": 56,
+      "releaseToken": "REPLACE_WITH_APPROVED_ORIGIN_ERC20"
+    },
+    {
+      "sourceChain": 56,
+      "sourceToken": "REPLACE_WITH_APPROVED_ORIGIN_ERC20",
+      "targetChain": 8453,
+      "releaseToken": "REPLACE_WITH_WRAPPED_8453"
+    },
+    {
+      "sourceChain": 8453,
+      "sourceToken": "REPLACE_WITH_WRAPPED_8453",
+      "targetChain": 56,
+      "releaseToken": "REPLACE_WITH_APPROVED_ORIGIN_ERC20"
+    }
+  ]
+}

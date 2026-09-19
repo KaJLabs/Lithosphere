@@ -1,5 +1,7 @@
 # MultX Bridge — Threat Model
 
+> Historical bridge model. For current 3-of-5 quorum and native/quote/custody risks, see [NATIVE_CANDIDATE_THREAT_MODEL.md](NATIVE_CANDIDATE_THREAT_MODEL.md). Older 5-of-7 statements below are historical, not current activation policy.
+
 > **Current architecture notice (2026-08-19):** LITHO mainnet uses Cosmos ID
 > `lithosphere_9005-1` and EVM chain ID `9005`. MultX remains disabled. The
 > production candidate uses seven independent signer VPSs with distinct

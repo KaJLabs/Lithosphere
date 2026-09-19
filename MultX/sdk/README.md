@@ -1,5 +1,23 @@
 # @litho/multx-sdk
 
+The unpublished native candidate adds `createNativeQuoteBackend`, authenticated
+source and destination progress, durable IndexedDB storage, separate source
+raw/send-only submission paths, and wallet-owned destination approval/trade
+submission through `createNativeDestinationWalletBackend`. It does not ship live production routes. See
+[native quote API](../docs/NATIVE_QUOTE_API.md) and
+[current completion/dependencies](../docs/NATIVE_SWAP_COMPLETION_CHECKLIST.md).
+An accepted fixed-fill quote reserves one approved policy and preserves its fees,
+native output and recovery terms. The original user minimum is a tolerance; the
+approved fixed native output is paid. New policy versions require fresh funding
+approval. DEX-backed mode includes a verified destination quote and requires
+wrapped-native redemption before payout. This candidate does not establish
+general market-priced mainnet swaps.
+
+## Legacy ERC-20 API reference
+
+The following describes the original bridge API and historical Kamet presets.
+It does not confirm live mainnet routes or native execution service URLs.
+
 TypeScript SDK for the **MultX cross-chain bridge** on Lithosphere Kamet.
 Framework-agnostic core (`MultXClient`) with an optional React adapter
 (`useMultX`).
@@ -246,3 +264,76 @@ Future additions:
 ## License
 
 UNLICENSED. Internal Lithosphere infrastructure component.
+
+## Native source wallet candidate
+
+`submitNativeSourceStep({ swapId, step, signer, backend, store })` executes one
+explicit wrap/approve/lock step (indices 0/1/2). It validates wallet identity,
+loads the original step from the authenticated backend, checks current eligibility,
+saves signed bytes through durable atomic `putIfAbsent`, binds the hash to the
+backend intent, rechecks eligibility, then submits only those bytes. Retry reads
+the same saved payload and checks its hash on-chain before rebroadcasting.
+A broadcast error returns `uncertain` with the bound hash; it never changes nonce
+or advances to the next step. `submitted` means RPC visibility/acceptance, not
+finality or cross-chain completion.
+
+Applications must implement these exported interfaces:
+
+- NativeSourceWalletBackend: getStep, assertCanSubmit and bindSignedStep using
+  authenticated calls scoped to the original swap and wallet. The server maps
+  preflight to assertNativeSourceStepReady and binding to bindSignedNativeSourceStep;
+  policy/input and confirmations must come from trusted configuration.
+- NativeSourceSignedStore: get and durable atomic putIfAbsent. Store the winning
+  signed payload across browser/process restarts before acknowledging the write.
+  Never substitute an in-memory Map or overwrite an existing value in production.
+
+The backend must enforce prior-step finality, active policy, unchanged intent and
+route state. Only advance after recovery confirms the preceding step. Use
+recoverNativeSourceIntent for source progress and the separate payout status for
+swap completion. No unauthenticated HTTP endpoints are supplied by this SDK.
+
+This path requires a signer supporting signTransaction. Wallets exposing only
+sendTransaction are not supported by this candidate; there is no unsafe fallback
+that broadcasts before recording the signed hash. No production chain preset,
+route, wrapper or custody approval is implied. The SDK remains private/unpublished.
+
+Validation: TypeScript build and 40 SDK tests pass. New tests cover lost-response
+retry, failed durable writes, revoked approval before broadcast, mismatched binding
+hash and corrupt saved payload. The local two-chain rehearsal also runs source
+transactions through this SDK against actual contracts and PostgreSQL bindings.
+Build the SDK before running that opt-in API integration test.
+
+### Built-in browser signed-transaction storage
+
+Use `const store = await openNativeSourceSignedStore()` and pass it to
+submitNativeSourceStep. Reopen the same database name on the same application
+origin after reload. Call store.close() when finished with the connection; this
+does not delete retained transactions.
+
+The IndexedDB adapter performs atomic insert-if-absent inside one read/write
+transaction and resolves only after transaction completion, requesting strict
+durability. Concurrent tabs return the same winning bytes. Storage failures,
+closed connections, unavailable IndexedDB and corrupt records reject; there is
+no in-memory fallback. A version change closes the old connection. Do not clear
+this database during an unresolved swap. Browser data eviction, user clearing and
+cross-origin/device changes still require backend/wallet recovery; local storage
+is not an independent backup. Normal same-origin application protections apply
+because stored signed transactions can be broadcast, although they contain no
+private signing key.
+
+The application now only needs its authenticated NativeSourceWalletBackend
+adapter for this candidate path; the durable browser store is supplied by the SDK.
+Injected-wallet signTransaction compatibility remains a separate requirement.
+Validation uses fake-indexeddb for transaction/reopen/concurrency behavior and an
+SDK lost-response/reopen test; a real-browser storage/reload smoke test is still
+required when integrating into the target application.
+
+### Wallet-authenticated backend adapter
+
+The SDK now supplies createNativeSourceWalletBackend({baseUrl, audience, signer}).
+Pass its result as backend alongside openNativeSourceSignedStore(). Configure the
+matching server createNativeSourceRouter with a trusted registry and the same
+unique deployment audience. See ../docs/NATIVE_WALLET_API.md for routes, request
+signing, replay protection and deployment limits. Authentication requires a wallet
+message signature per request; contract-wallet/session authentication is not supplied.
+The router remains unmounted in production and the SDK remains unpublished.

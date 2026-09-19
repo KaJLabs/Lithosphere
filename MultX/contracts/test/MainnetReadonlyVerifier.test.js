@@ -2,9 +2,10 @@ const { expect } = require('chai');
 const {
   verifyCreationProvenance,
   verifyExactValidatorSet,
+  verifyRequiredThreshold,
 } = require('../scripts/mainnet/verify-deployment-readonly');
 
-const validators = Array.from({ length: 7 }, (_, index) =>
+const validators = Array.from({ length: 5 }, (_, index) =>
   `0x${String(index + 1).padStart(40, '0')}`
 );
 
@@ -76,18 +77,27 @@ describe('mainnet read-only validator verification', function () {
     expect(await verifyExactValidatorSet(bridgeWith(validators), validators, 'LITHO')).to.deep.equal(validators);
   });
 
-  it('rejects seven expected validators plus one hidden live validator', async function () {
+  it('rejects five expected validators plus one hidden live validator', async function () {
     const live = [...validators, '0x0000000000000000000000000000000000000008'];
-    await expectReject(verifyExactValidatorSet(bridgeWith(live), validators, 'LITHO'), /live validator count 8/);
+    await expectReject(verifyExactValidatorSet(bridgeWith(live), validators, 'LITHO'), /live validator count 6/);
   });
 
-  it('rejects seven expected validators plus five hidden live validators', async function () {
+  it('rejects five expected validators plus five hidden live validators', async function () {
     const extra = Array.from({ length: 5 }, (_, index) =>
       `0x${String(index + 8).padStart(40, '0')}`
     );
     await expectReject(
       verifyExactValidatorSet(bridgeWith([...validators, ...extra]), validators, 'LITHO'),
-      /live validator count 12/
+      /live validator count 10/
     );
+  });
+});
+
+describe('candidate live threshold', function () {
+  it('accepts three and rejects legacy, insufficient and malformed thresholds', function () {
+    expect(() => verifyRequiredThreshold(3, 'candidate')).not.to.throw();
+    for (const value of [0, 1, 2, 4, 5, 7, '3x']) {
+      expect(() => verifyRequiredThreshold(value, 'candidate')).to.throw('threshold is not 3');
+    }
   });
 });

@@ -1,0 +1,208 @@
+{
+  "schemaVersion": 2,
+  "status": "DRAFT_DO_NOT_EXECUTE",
+  "release": {
+    "auditedTag": "REPLACE_WITH_FINAL_AUDITED_REMEDIATION_TAG",
+    "commit": "REPLACE_WITH_40_HEX_COMMIT",
+    "auditReportUrl": "REPLACE_WITH_FINAL_AUDIT_REPORT_HTTPS_URL",
+    "fixReviewUrl": "REPLACE_WITH_FINAL_FIX_REVIEW_HTTPS_URL",
+    "bytecodeEvidenceSha256": "REPLACE_WITH_64_HEX_EVIDENCE_SHA256",
+    "sourceBridgeRuntimeSha256": "REPLACE_WITH_AUDITED_SOURCE_BRIDGE_RUNTIME_SHA256",
+    "destinationBridgeRuntimeSha256": "REPLACE_WITH_AUDITED_DESTINATION_BRIDGE_RUNTIME_SHA256",
+    "wrappedTokenNormalizedRuntimeSha256": "REPLACE_WITH_AUDITED_WRAPPED_TOKEN_NORMALIZED_RUNTIME_SHA256",
+    "govTimelockRuntimeSha256": "REPLACE_WITH_AUDITED_TIMELOCK_RUNTIME_SHA256"
+  },
+  "changeWindow": {
+    "startUtc": "REPLACE_WITH_ISO_UTC_START",
+    "endUtc": "REPLACE_WITH_ISO_UTC_END",
+    "approvalRecordUrl": "REPLACE_WITH_APPROVAL_HTTPS_URL"
+  },
+  "bridgeSignerSet": {
+    "threshold": 3,
+    "addresses": [
+      "REPLACE_WITH_SIGNER_0_ADDRESS",
+      "REPLACE_WITH_SIGNER_1_ADDRESS",
+      "REPLACE_WITH_SIGNER_2_ADDRESS",
+      "REPLACE_WITH_SIGNER_3_ADDRESS",
+      "REPLACE_WITH_SIGNER_4_ADDRESS"
+    ],
+    "acceptanceRecords": [
+      "REPLACE_WITH_SIGNER_0_ACCEPTANCE_URL",
+      "REPLACE_WITH_SIGNER_1_ACCEPTANCE_URL",
+      "REPLACE_WITH_SIGNER_2_ACCEPTANCE_URL",
+      "REPLACE_WITH_SIGNER_3_ACCEPTANCE_URL",
+      "REPLACE_WITH_SIGNER_4_ACCEPTANCE_URL"
+    ]
+  },
+  "chains": [
+    {
+      "chainId": 1,
+      "name": "Ethereum Mainnet",
+      "expectedBridgeAddress": "REPLACE_WITH_PRECOMPUTED_ETHEREUM_BRIDGE_ADDRESS",
+      "bridgeKind": "destination",
+      "rpcHttps": "REPLACE_WITH_APPROVED_ETHEREUM_HTTPS_RPC",
+      "rpcWss": "REPLACE_WITH_APPROVED_ETHEREUM_WSS_RPC",
+      "confirmations": "REPLACE_WITH_APPROVED_CONFIRMATION_DEPTH",
+      "safe": "REPLACE_WITH_ETHEREUM_SAFE",
+      "timelock": "REPLACE_WITH_ETHEREUM_TIMELOCK",
+      "pauseGuardian": "REPLACE_WITH_ETHEREUM_PAUSE_GUARDIAN",
+      "deployer": "REPLACE_WITH_ETHEREUM_DEPLOYER",
+      "feePayer": "REPLACE_WITH_ETHEREUM_FEE_PAYER",
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_ETHEREUM_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_ETHEREUM_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_ETHEREUM_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_ETHEREUM_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
+    },
+    {
+      "chainId": 56,
+      "name": "BNB Smart Chain Mainnet",
+      "expectedBridgeAddress": "REPLACE_WITH_PRECOMPUTED_BNB_BRIDGE_ADDRESS",
+      "bridgeKind": "source",
+      "rpcHttps": "REPLACE_WITH_APPROVED_BNB_HTTPS_RPC",
+      "rpcWss": "REPLACE_WITH_APPROVED_BNB_WSS_RPC",
+      "confirmations": "REPLACE_WITH_APPROVED_CONFIRMATION_DEPTH",
+      "safe": "REPLACE_WITH_BNB_SAFE",
+      "timelock": "REPLACE_WITH_BNB_TIMELOCK",
+      "pauseGuardian": "REPLACE_WITH_BNB_PAUSE_GUARDIAN",
+      "deployer": "REPLACE_WITH_BNB_DEPLOYER",
+      "feePayer": "REPLACE_WITH_BNB_FEE_PAYER",
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_BNB_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_BNB_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_BNB_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_BNB_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
+    },
+    {
+      "chainId": 8453,
+      "name": "Base Mainnet",
+      "expectedBridgeAddress": "REPLACE_WITH_PRECOMPUTED_BASE_BRIDGE_ADDRESS",
+      "bridgeKind": "destination",
+      "rpcHttps": "REPLACE_WITH_APPROVED_BASE_HTTPS_RPC",
+      "rpcWss": "REPLACE_WITH_APPROVED_BASE_WSS_RPC",
+      "confirmations": "REPLACE_WITH_APPROVED_CONFIRMATION_DEPTH",
+      "safe": "REPLACE_WITH_BASE_SAFE",
+      "timelock": "REPLACE_WITH_BASE_TIMELOCK",
+      "pauseGuardian": "REPLACE_WITH_BASE_PAUSE_GUARDIAN",
+      "deployer": "REPLACE_WITH_BASE_DEPLOYER",
+      "feePayer": "REPLACE_WITH_BASE_FEE_PAYER",
+      "timelockDelaySeconds": 172800,
+      "governance": {
+        "timelock": {
+          "deployer": "REPLACE_WITH_APPROVED_TIMELOCK_DEPLOYER",
+          "proposers": [
+            "REPLACE_WITH_BASE_SAFE"
+          ],
+          "executors": [
+            "REPLACE_WITH_BASE_SAFE"
+          ],
+          "cancellers": [
+            "REPLACE_WITH_BASE_SAFE"
+          ],
+          "admins": [
+            "REPLACE_WITH_BASE_TIMELOCK"
+          ],
+          "constructorAdmin": "0x0000000000000000000000000000000000000000"
+        },
+        "safe": {
+          "version": "1.4.1",
+          "implementation": "REPLACE_WITH_REVIEWED_SAFE_IMPLEMENTATION",
+          "proxyRuntimeSha256": "REPLACE_WITH_REVIEWED_PROXY_HASH",
+          "implementationRuntimeSha256": "REPLACE_WITH_REVIEWED_SAFE_HASH",
+          "owners": [
+            "REPLACE_WITH_SAFE_OWNER_1",
+            "REPLACE_WITH_SAFE_OWNER_2"
+          ],
+          "threshold": 2,
+          "modules": [],
+          "guard": "0x0000000000000000000000000000000000000000",
+          "fallbackHandler": "0x0000000000000000000000000000000000000000",
+          "approvalRecordUrl": "REPLACE_WITH_INDEPENDENT_SAFE_REVIEW_URL"
+        }
+      }
+    }
+  ],
+  "assets": [
+    {
+      "symbol": "REPLACE_WITH_APPROVED_ASSET_SYMBOL",
+      "name": "REPLACE_WITH_APPROVED_ASSET_NAME",
+      "decimals": 18,
+      "originChainId": 56,
+      "originToken": "REPLACE_WITH_APPROVED_ORIGIN_ERC20",
+      "destinationChainIds": [
+        1,
+        8453
+      ],
+      "dailyCapBaseUnits": {
+        "1": "REPLACE_WITH_APPROVED_ETHEREUM_CAP",
+        "56": "REPLACE_WITH_APPROVED_BNB_CAP",
+        "8453": "REPLACE_WITH_APPROVED_BASE_CAP"
+      },
+      "destinationTokenAddresses": {
+        "1": "REPLACE_WITH_PRECOMPUTED_ETHEREUM_WRAPPED_TOKEN",
+        "8453": "REPLACE_WITH_PRECOMPUTED_BASE_WRAPPED_TOKEN"
+      },
+      "approvalRecordUrl": "REPLACE_WITH_ASSET_APPROVAL_HTTPS_URL"
+    }
+  ],
+  "rollout": "evm-first",
+  "sourceChainId": 56
+}

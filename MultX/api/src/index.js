@@ -7,6 +7,7 @@ import rateLimit from 'express-rate-limit';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config.js';
 import { pool } from './db/pool.js';
+import { runMigrations } from './db/migrate.js';
 import { startEventListener } from './services/eventListener.js';
 import { startMockValidator } from './services/mockValidator.js';
 import { startValidatorService } from './services/validatorService.js';
@@ -73,12 +74,8 @@ async function startup() {
     // 1. Run migrations
     console.log('[Startup] Running database migrations...');
     const migrationDir = path.join(__dirname, 'db', 'migrations');
-    for (const file of fs.readdirSync(migrationDir).sort()) {
-      if (!file.endsWith('.sql')) continue;
-      const sql = fs.readFileSync(path.join(migrationDir, file), 'utf-8');
-      await pool.query(sql);
-      console.log(`[Startup] Migration applied: ${file}`);
-    }
+    const migrations = await runMigrations(pool, migrationDir);
+    console.log(`[Startup] Applied ${migrations.applied.length} migrations; ${migrations.alreadyApplied} already recorded.`);
 
     // 2. Start event listener
     console.log('[Startup] Starting event listener...');

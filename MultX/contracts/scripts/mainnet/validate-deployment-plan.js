@@ -4,8 +4,7 @@ const path = require('path');
 const { ethers } = require('ethers');
 const { validateGovernancePolicy } = require('./governance-policy');
 
-const REQUIRED_CHAIN_IDS = [9005, 1, 56, 8453];
-const DESTINATION_CHAIN_IDS = [1, 56, 8453];
+const { rolloutPolicy } = require('./rollout-policy');
 const PLACEHOLDER = /(REPLACE_WITH|PENDING|TBD|CHANGEME|DRAFT_DO_NOT_EXECUTE)/i;
 
 const requiredObject = (value, field) => {
@@ -84,7 +83,8 @@ const assertNoPlaceholders = (value, field = 'plan') => {
 function validateDeploymentPlan(input) {
   requiredObject(input, 'plan');
   assertNoPlaceholders(input);
-  if (input.schemaVersion !== 1) throw new Error('schemaVersion must be 1');
+  const rollout = rolloutPolicy(input);
+  const REQUIRED_CHAIN_IDS = rollout.chains, DESTINATION_CHAIN_IDS = rollout.destinations;
   if (input.status !== 'approved-for-deployment') throw new Error('status must be approved-for-deployment');
 
   const release = requiredObject(input.release, 'release');
@@ -111,21 +111,21 @@ function validateDeploymentPlan(input) {
   exactHttpsUrl(window.approvalRecordUrl, 'changeWindow.approvalRecordUrl');
 
   const signerSet = requiredObject(input.bridgeSignerSet, 'bridgeSignerSet');
-  if (signerSet.threshold !== 5) throw new Error('bridgeSignerSet.threshold must be 5');
-  if (!Array.isArray(signerSet.addresses) || signerSet.addresses.length !== 7) {
-    throw new Error('bridgeSignerSet.addresses must contain exactly seven addresses');
+  if (signerSet.threshold !== 3) throw new Error('bridgeSignerSet.threshold must be 3');
+  if (!Array.isArray(signerSet.addresses) || signerSet.addresses.length !== 5) {
+    throw new Error('bridgeSignerSet.addresses must contain exactly five addresses');
   }
   const signerAddresses = signerSet.addresses.map((item, index) => address(item, `bridgeSignerSet.addresses[${index}]`));
-  if (new Set(signerAddresses.map((item) => item.toLowerCase())).size !== 7) {
+  if (new Set(signerAddresses.map((item) => item.toLowerCase())).size !== 5) {
     throw new Error('bridgeSignerSet.addresses must be unique');
   }
-  if (!Array.isArray(signerSet.acceptanceRecords) || signerSet.acceptanceRecords.length !== 7) {
-    throw new Error('bridgeSignerSet.acceptanceRecords must contain exactly seven URLs');
+  if (!Array.isArray(signerSet.acceptanceRecords) || signerSet.acceptanceRecords.length !== 5) {
+    throw new Error('bridgeSignerSet.acceptanceRecords must contain exactly five URLs');
   }
   signerSet.acceptanceRecords.forEach((item, index) => exactHttpsUrl(item, `bridgeSignerSet.acceptanceRecords[${index}]`));
 
-  if (!Array.isArray(input.chains) || input.chains.length !== 4) {
-    throw new Error('chains must contain LITHO, Ethereum, BNB and Base exactly once');
+  if (!Array.isArray(input.chains) || input.chains.length !== REQUIRED_CHAIN_IDS.length) {
+    throw new Error(`chains must contain ${REQUIRED_CHAIN_IDS.join(", ")} exactly once`);
   }
   const chains = new Map();
   for (const [index, chain] of input.chains.entries()) {
@@ -133,7 +133,7 @@ function validateDeploymentPlan(input) {
     requiredObject(chain, prefix);
     const chainId = positiveInteger(chain.chainId, `${prefix}.chainId`);
     if (!REQUIRED_CHAIN_IDS.includes(chainId) || chains.has(chainId)) throw new Error(`${prefix}.chainId is unsupported or duplicated`);
-    const expectedKind = chainId === 9005 ? 'source' : 'destination';
+    const expectedKind = chainId === rollout.source ? 'source' : 'destination';
     if (chain.bridgeKind !== expectedKind) throw new Error(`${prefix}.bridgeKind must be ${expectedKind}`);
     requiredText(chain.name, `${prefix}.name`);
     address(chain.expectedBridgeAddress, `${prefix}.expectedBridgeAddress`);
@@ -159,6 +159,7 @@ function validateDeploymentPlan(input) {
   });
 
   if (!Array.isArray(input.assets) || input.assets.length === 0) throw new Error('assets must be non-empty');
+  if (input.schemaVersion === 2 && input.assets.length !== 1) throw new Error('EVM-first profile requires exactly one origin asset');
   const assetKeys = new Set();
   input.assets.forEach((asset, index) => {
     const prefix = `assets[${index}]`;
@@ -168,18 +169,18 @@ function validateDeploymentPlan(input) {
     if (!Number.isInteger(asset.decimals) || asset.decimals < 0 || asset.decimals > 255) {
       throw new Error(`${prefix}.decimals must be an integer from 0 to 255`);
     }
-    if (asset.originChainId !== 9005) throw new Error(`${prefix}.originChainId must be 9005`);
+    if (asset.originChainId !== rollout.source) throw new Error(`${prefix}.originChainId must be ${rollout.source}`);
     const originToken = address(asset.originToken, `${prefix}.originToken`);
     validateNativePolicy(asset);
     const key = `${symbol.toLowerCase()}:${originToken.toLowerCase()}`;
     if (assetKeys.has(key)) throw new Error(`${prefix} duplicates an approved asset`);
     assetKeys.add(key);
     if (!Array.isArray(asset.destinationChainIds) ||
-        asset.destinationChainIds.length !== 3 ||
+        asset.destinationChainIds.length !== DESTINATION_CHAIN_IDS.length ||
         !DESTINATION_CHAIN_IDS.every((chainId) => asset.destinationChainIds.includes(chainId))) {
-      throw new Error(`${prefix}.destinationChainIds must contain 1, 56 and 8453 exactly once`);
+      throw new Error(`${prefix}.destinationChainIds must contain ${DESTINATION_CHAIN_IDS.join(", ")} exactly once`);
     }
-    if (new Set(asset.destinationChainIds).size !== 3) throw new Error(`${prefix}.destinationChainIds contains duplicates`);
+    if (new Set(asset.destinationChainIds).size !== DESTINATION_CHAIN_IDS.length) throw new Error(`${prefix}.destinationChainIds contains duplicates`);
     const caps = requiredObject(asset.dailyCapBaseUnits, `${prefix}.dailyCapBaseUnits`);
     REQUIRED_CHAIN_IDS.forEach((chainId) => positiveBaseUnits(caps[String(chainId)], `${prefix}.dailyCapBaseUnits.${chainId}`));
     const destinationTokens = requiredObject(asset.destinationTokenAddresses, `${prefix}.destinationTokenAddresses`);

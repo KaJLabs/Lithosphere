@@ -1,6 +1,8 @@
 /* eslint-disable no-unused-vars */
 import '../../scss/pages/Swap/swapPage.scss';
 
+import { NativeSwapResume } from './NativeSwapResume';
+
 import SettingsIcon from '../../assets/icons/settings.svg?react';
 import ArrowIcon from '../../assets/icons/arrow-down.svg?react';
 import ArrowSwap from '../../assets/icons/arrowWhiteLeft.svg?react';
@@ -274,6 +276,7 @@ export const Swap = () => {
 
   return (
     <div className="swap">
+      <NativeSwapResume wallet={wallet} />
       <a className="swap-title">
         Bridge LEP100 tokens from Lithosphere Kamet to Ethereum, BNB Chain, and Base with MultX.
       </a>

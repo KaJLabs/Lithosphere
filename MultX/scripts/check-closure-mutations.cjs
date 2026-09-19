@@ -7,6 +7,28 @@ const root = path.resolve(__dirname, '..');
 const group = process.argv[2];
 const cases = {
   contracts: [
+    ['E01 rollout marker', 'scripts/mainnet/rollout-policy.js', "input.rollout !== 'evm-first'", 'false'],
+    ['E01 profile agreement', 'scripts/mainnet/verify-deployment-readonly.js', "manifest.schemaVersion !== plan.schemaVersion || require('./rollout-policy').rolloutPolicy(manifest).source !== sourceChainId", 'false'],
+    ['E01 plan asset count', 'scripts/mainnet/validate-deployment-plan.js', 'input.schemaVersion === 2 && input.assets.length !== 1', 'false'],
+    ['E01 manifest asset count', 'scripts/mainnet/validate-deployment-manifest.js', 'input.schemaVersion === 2 && chain.assets.length !== 1', 'false'],
+    ['EVM origin allowlist', 'scripts/mainnet/rollout-policy.js', '!chains.includes(input.sourceChainId)', 'false'],
+    ['EVM source creation selection', 'scripts/mainnet/verify-deployment-readonly.js', 'chain.chainId === sourceChainId ? evidence.contracts.sourceBridge.creationBytecode : evidence.contracts.destinationBridge.creationBytecode', 'evidence.contracts.destinationBridge.creationBytecode'],
+    ['EVM destination creation selection', 'scripts/mainnet/verify-deployment-readonly.js', 'chain.chainId === sourceChainId ? evidence.contracts.sourceBridge.creationBytecode : evidence.contracts.destinationBridge.creationBytecode', 'evidence.contracts.sourceBridge.creationBytecode'],
+    ['EVM wrapped origin guard', 'scripts/mainnet/verify-deployment-readonly.js', 'originChainId.toNumber() !== sourceChainId', 'false'],
+    ['EVM legacy wrapped origin regression', 'scripts/mainnet/verify-deployment-readonly.js', 'originChainId.toNumber() !== sourceChainId', 'originChainId.toNumber() !== 9005'],
+    ['EVM live route universe', 'scripts/mainnet/verify-deployment-readonly.js', 'await verifyRouteUniverse(provider, bridge, asset, manifest, chain, verificationBlock);', '/* omitted */'],
+    ['fallback chain', 'scripts/mainnet/governance-policy.js', '!Object.hasOwn(FALLBACK_CHAINS, chainId)', 'false'],
+    ['fallback address', 'scripts/mainnet/governance-policy.js', "typeof safe.fallbackHandler !== 'string' || safe.fallbackHandler.toLowerCase() !== FALLBACK_CHAINS[chainId]", 'false'],
+    ['fallback hash pin', 'scripts/mainnet/governance-policy.js', 'safe.fallbackHandlerRuntimeSha256 !== FALLBACK_SHA256', 'false'],
+    ['zero handler hash', 'scripts/mainnet/governance-policy.js', 'safe.fallbackHandlerRuntimeSha256 !== undefined', 'false'],
+    ['fallback plan call', 'scripts/mainnet/governance-policy.js', 'validateFallbackPolicy(chain.chainId, s);', '/* omitted */'],
+    ['fallback live policy call', 'scripts/mainnet/verify-governance.js', 'validateFallbackPolicy(chainId, policy);', '/* omitted */'],
+    ['fallback live branch', 'scripts/mainnet/verify-governance.js', 'policy.fallbackHandler !== ethers.constants.AddressZero', 'false'],
+    ['fallback live empty code', 'scripts/mainnet/verify-governance.js', "handlerCode === '0x'", 'false'],
+    ['fallback live hash', 'scripts/mainnet/verify-governance.js', 'hashCode(handlerCode) !== policy.fallbackHandlerRuntimeSha256', 'false'],
+    ['Safe verification call site', 'scripts/mainnet/verify-governance.js', 'await verifySafe(provider, approved.safe, approved.governance.safe, blockTag, helpers.sha256Code, contractFactory, approved.chainId);', '/* omitted */'],
+    ['candidate threshold call site', 'scripts/mainnet/verify-deployment-readonly.js', 'verifyRequiredThreshold(threshold, chain.name);', '/* omitted for mutation */'],
+    ['candidate live threshold', 'scripts/mainnet/verify-deployment-readonly.js', "threshold.toString() !== '3'", 'false'],
     ['plan digest', 'scripts/mainnet/verify-deployment-readonly.js', 'sha256Bytes(planBytes) !== manifest.release.deploymentPlanSha256.toLowerCase()', 'false'],
     ['evidence plan digest', 'scripts/mainnet/verify-deployment-readonly.js', 'sha256Bytes(evidenceBytes) !== plan.release.bytecodeEvidenceSha256.toLowerCase()', 'false'],
     ['evidence manifest digest', 'scripts/mainnet/verify-deployment-readonly.js', 'sha256Bytes(evidenceBytes) !== manifest.release.bytecodeEvidenceSha256.toLowerCase()', 'false'],
@@ -21,10 +43,14 @@ const cases = {
     ['stale compiler source', 'scripts/mainnet/generate-bytecode-evidence.js', "!local.equals(Buffer.from(input.content, 'utf8'))", 'false'],
   ],
   api: [
+    ['E01 API schema allowlist', 'src/networkConfig.js', 'input.schemaVersion !== undefined && ![1,2].includes(input.schemaVersion)', 'false'],
+    ['EVM explicit origin', 'src/networkConfig.js', '(!requiredIds.has(input.sourceChainId))', 'false'],
+    ['EVM reciprocal token mapping', 'src/networkConfig.js', 'forward.releaseToken!==reverse.sourceToken', 'false'],
+    ['EVM exact route count', 'src/networkConfig.js', 'tokenPairs.length !== destinations.length * 2', 'false'],
     ['live RPC chain', 'src/services/validatorPolicy.js', 'Number(network.chainId) !== Number(chain.chainId)', 'false'],
-    ['live threshold', 'src/services/validatorPolicy.js', 'threshold !== 5', 'false'],
-    ['live count', 'src/services/validatorPolicy.js', 'count !== 7', 'false'],
-    ['live array length', 'src/services/validatorPolicy.js', 'live.length !== 7', 'false'],
+    ['live threshold', 'src/services/validatorPolicy.js', 'threshold !== 3', 'false'],
+    ['live count', 'src/services/validatorPolicy.js', 'count !== 5', 'false'],
+    ['live array length', 'src/services/validatorPolicy.js', 'live.length !== 5', 'false'],
     ['live addresses', 'src/services/validatorPolicy.js', 'live.some((item, index) => item.toLowerCase() !== expectedAddresses[index])', 'false'],
   ],
   signer: [
@@ -37,8 +63,8 @@ if (!cases[group]) throw new Error('Usage: node scripts/check-closure-mutations.
 if (group === 'signer' && process.platform === 'win32') throw new Error('Signer mutations require Linux; skipped permission tests cannot prove closure');
 const cwd = path.join(root, group);
 const args = group === 'contracts' ? ['node_modules/mocha/bin/mocha.js', 'test/MainnetApprovedBinding.test.js',
-  'test/MainnetReadonlyVerifier.test.js', 'test/ClosureNegativeCoverage.test.js', 'test/BytecodeSourceIdentity.test.js']
-  : ['--test', group === 'api' ? 'test/validatorPolicy.test.js' : 'test/stateIdentity.test.js'];
+  'test/MainnetReadonlyVerifier.test.js', 'test/ClosureNegativeCoverage.test.js', 'test/BytecodeSourceIdentity.test.js', 'test/FallbackPolicy.test.js', 'test/EvmFirstReadonly.test.js']
+  : group === 'api' ? ['--test', 'test/validatorPolicy.test.js', 'test/networkConfig.test.js'] : ['--test', 'test/stateIdentity.test.js'];
 function test() {
   const result = spawnSync(process.execPath, args, { cwd, encoding: 'utf8', timeout: 60000 });
   if (result.error || result.signal || result.status === null) throw result.error || new Error('test process did not complete');

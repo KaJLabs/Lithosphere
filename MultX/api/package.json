@@ -24,5 +24,8 @@
   },
   "overrides": {
     "qs": "6.16.0"
+  },
+  "devDependencies": {
+    "solc": "0.8.24"
   }
 }

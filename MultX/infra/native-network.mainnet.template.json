@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "environment": "multx-native-mainnet",
+  "phase": "evm-initial",
+  "enabled": false,
+  "audience": "multx.production.native.v1",
+  "allowedOrigins": [
+    "https://REPLACE_WITH_APPROVED_APP_ORIGIN"
+  ],
+  "chains": [
+    {
+      "chainId": 1,
+      "name": "Ethereum Mainnet",
+      "rpcHttps": "https://REPLACE_WITH_APPROVED_ETHEREUM_RPC",
+      "bridge": "REPLACE_WITH_ETHEREUM_ESCROW_BRIDGE",
+      "wrapper": "REPLACE_WITH_ETHEREUM_NATIVE_WRAPPER",
+      "bridgeCodeHash": "REPLACE_WITH_ETHEREUM_BRIDGE_RUNTIME_HASH",
+      "wrapperCodeHash": "REPLACE_WITH_ETHEREUM_WRAPPER_RUNTIME_HASH",
+      "confirmations": "REPLACE_WITH_EXACT_CONFIRMATIONS",
+      "approvalRef": "https://REPLACE_WITH_ETHEREUM_APPROVAL_RECORD",
+      "expiresAt": "REPLACE_WITH_APPROVAL_EXPIRY_UNIX_SECONDS",
+      "targetChains": [56, 8453]
+    },
+    {
+      "chainId": 56,
+      "name": "BNB Smart Chain Mainnet",
+      "rpcHttps": "https://REPLACE_WITH_APPROVED_BNB_RPC",
+      "bridge": "REPLACE_WITH_BNB_ESCROW_BRIDGE",
+      "wrapper": "REPLACE_WITH_BNB_NATIVE_WRAPPER",
+      "bridgeCodeHash": "REPLACE_WITH_BNB_BRIDGE_RUNTIME_HASH",
+      "wrapperCodeHash": "REPLACE_WITH_BNB_WRAPPER_RUNTIME_HASH",
+      "confirmations": "REPLACE_WITH_EXACT_CONFIRMATIONS",
+      "approvalRef": "https://REPLACE_WITH_BNB_APPROVAL_RECORD",
+      "expiresAt": "REPLACE_WITH_APPROVAL_EXPIRY_UNIX_SECONDS",
+      "targetChains": [1, 8453]
+    },
+    {
+      "chainId": 8453,
+      "name": "Base Mainnet",
+      "rpcHttps": "https://REPLACE_WITH_APPROVED_BASE_RPC",
+      "bridge": "REPLACE_WITH_BASE_ESCROW_BRIDGE",
+      "wrapper": "REPLACE_WITH_BASE_NATIVE_WRAPPER",
+      "bridgeCodeHash": "REPLACE_WITH_BASE_BRIDGE_RUNTIME_HASH",
+      "wrapperCodeHash": "REPLACE_WITH_BASE_WRAPPER_RUNTIME_HASH",
+      "confirmations": "REPLACE_WITH_EXACT_CONFIRMATIONS",
+      "approvalRef": "https://REPLACE_WITH_BASE_APPROVAL_RECORD",
+      "expiresAt": "REPLACE_WITH_APPROVAL_EXPIRY_UNIX_SECONDS",
+      "targetChains": [1, 56]
+    }
+  ]
+}

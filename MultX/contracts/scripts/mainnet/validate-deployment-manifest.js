@@ -3,7 +3,7 @@ const { identityType } = require('./verify-native-precompile');
 const path = require('path');
 const { ethers } = require('ethers');
 
-const REQUIRED_CHAIN_IDS = [9005, 1, 56, 8453];
+const { rolloutPolicy } = require('./rollout-policy');
 const PLACEHOLDER = /(REPLACE_WITH|PENDING|TBD|CHANGEME|DRAFT_DO_NOT_USE)/i;
 
 const object = (value, field) => {
@@ -72,7 +72,8 @@ const rejectPlaceholders = (value, field = 'manifest') => {
 function validateDeploymentManifest(input) {
   object(input, 'manifest');
   rejectPlaceholders(input);
-  if (input.schemaVersion !== 1) throw new Error('schemaVersion must be 1');
+  const rollout = rolloutPolicy(input);
+  const REQUIRED_CHAIN_IDS = rollout.chains;
   if (input.status !== 'deployed-paused-verified') throw new Error('status must be deployed-paused-verified');
 
   const release = object(input.release, 'release');
@@ -87,7 +88,7 @@ function validateDeploymentManifest(input) {
   url(release.deploymentApprovalUrl, 'release.deploymentApprovalUrl');
   exactUtc(release.deployedAtUtc, 'release.deployedAtUtc');
 
-  if (!Array.isArray(input.chains) || input.chains.length !== 4) throw new Error('chains must contain exactly four mainnets');
+  if (!Array.isArray(input.chains) || input.chains.length !== REQUIRED_CHAIN_IDS.length) throw new Error('chains must contain exactly the rollout mainnets');
   const chains = new Map();
   let expectedValidators = null;
   let expectedSymbols = null;
@@ -96,7 +97,7 @@ function validateDeploymentManifest(input) {
     object(chain, prefix);
     const chainId = positiveInteger(chain.chainId, `${prefix}.chainId`);
     if (!REQUIRED_CHAIN_IDS.includes(chainId) || chains.has(chainId)) throw new Error(`${prefix}.chainId is unsupported or duplicated`);
-    const expectedKind = chainId === 9005 ? 'source' : 'destination';
+    const expectedKind = chainId === rollout.source ? 'source' : 'destination';
     if (chain.bridgeKind !== expectedKind) throw new Error(`${prefix}.bridgeKind must be ${expectedKind}`);
     text(chain.name, `${prefix}.name`);
     url(chain.rpcHttps, `${prefix}.rpcHttps`);
@@ -109,7 +110,7 @@ function validateDeploymentManifest(input) {
     hash(bridge.deploymentTxHash, 32, `${prefix}.bridge.deploymentTxHash`);
     positiveInteger(bridge.deploymentBlock, `${prefix}.bridge.deploymentBlock`);
     const bridgeRuntimeHash = sha256(bridge.runtimeSha256, `${prefix}.bridge.runtimeSha256`);
-    const auditedRuntimeHash = chainId === 9005 ? sourceRuntimeHash : destinationRuntimeHash;
+    const auditedRuntimeHash = chainId === rollout.source ? sourceRuntimeHash : destinationRuntimeHash;
     if (bridgeRuntimeHash !== auditedRuntimeHash) throw new Error(`${prefix}.bridge.runtimeSha256 does not match the audited release`);
     const owner = address(bridge.owner, `${prefix}.bridge.owner`);
     const governanceSafe = address(bridge.governanceSafe, `${prefix}.bridge.governanceSafe`);
@@ -118,16 +119,17 @@ function validateDeploymentManifest(input) {
       throw new Error(`${prefix}.bridge owner, governance Safe and pause guardian must be distinct`);
     }
     if (bridge.paused !== true) throw new Error(`${prefix}.bridge.paused must be true`);
-    if (bridge.signaturesRequired !== 5) throw new Error(`${prefix}.bridge.signaturesRequired must be 5`);
-    if (!Array.isArray(bridge.validators) || bridge.validators.length !== 7) throw new Error(`${prefix}.bridge.validators must contain seven addresses`);
+    if (bridge.signaturesRequired !== 3) throw new Error(`${prefix}.bridge.signaturesRequired must be 3`);
+    if (!Array.isArray(bridge.validators) || bridge.validators.length !== 5) throw new Error(`${prefix}.bridge.validators must contain five addresses`);
     const validators = bridge.validators.map((item, signerIndex) => address(item, `${prefix}.bridge.validators[${signerIndex}]`).toLowerCase());
-    if (new Set(validators).size !== 7) throw new Error(`${prefix}.bridge.validators must be unique`);
+    if (new Set(validators).size !== 5) throw new Error(`${prefix}.bridge.validators must be unique`);
     if (expectedValidators && JSON.stringify(validators) !== JSON.stringify(expectedValidators)) throw new Error(`${prefix}.bridge.validators does not match the approved cross-chain set`);
     expectedValidators ||= validators;
     url(bridge.explorerUrl, `${prefix}.bridge.explorerUrl`);
     if (bridge.sourceVerified !== true) throw new Error(`${prefix}.bridge.sourceVerified must be true`);
 
     if (!Array.isArray(chain.assets) || chain.assets.length === 0) throw new Error(`${prefix}.assets must be non-empty`);
+    if (input.schemaVersion === 2 && chain.assets.length !== 1) throw new Error('EVM-first profile requires exactly one origin asset');
     const symbols = new Set();
     chain.assets.forEach((asset, assetIndex) => {
       const assetPrefix = `${prefix}.assets[${assetIndex}]`;
@@ -136,7 +138,7 @@ function validateDeploymentManifest(input) {
       if (symbols.has(symbol)) throw new Error(`${assetPrefix}.symbol is duplicated`);
       symbols.add(symbol);
       address(asset.address, `${assetPrefix}.address`);
-      const expectedTargets = chainId === 9005 ? [1, 56, 8453] : [9005];
+      const expectedTargets = chainId === rollout.source ? rollout.destinations : [rollout.source];
       if (!Array.isArray(asset.targetChainIds) ||
           asset.targetChainIds.length !== expectedTargets.length ||
           !expectedTargets.every((target) => asset.targetChainIds.includes(target)) ||
@@ -147,11 +149,11 @@ function validateDeploymentManifest(input) {
       const native = identityType(asset, chainId, asset.address) === 'native-precompile';
       if (!native) sha256(asset.runtimeSha256, `${assetPrefix}.runtimeSha256`);
       if (native && asset.nativePrecompile !== undefined) throw new Error('native policy belongs in independently approved plan only');
-      if (chainId === 9005) {
+      if (chainId === rollout.source) {
         if (asset.kind !== 'canonical') throw new Error(`${assetPrefix}.kind must be canonical`);
       } else {
         if (asset.kind !== 'wrapped') throw new Error(`${assetPrefix}.kind must be wrapped`);
-        if (asset.originChainId !== 9005) throw new Error(`${assetPrefix}.originChainId must be 9005`);
+        if (asset.originChainId !== rollout.source) throw new Error(`${assetPrefix}.originChainId must be ${rollout.source}`);
         address(asset.originToken, `${assetPrefix}.originToken`);
         hash(asset.deploymentTxHash, 32, `${assetPrefix}.deploymentTxHash`);
         positiveInteger(asset.deploymentBlock, `${assetPrefix}.deploymentBlock`);

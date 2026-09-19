@@ -1,5 +1,5 @@
 const { ethers } = require('ethers');
-const { sameSet } = require('./governance-policy');
+const { sameSet, validateFallbackPolicy } = require('./governance-policy');
 const ROLE_ABI = [
   'event RoleGranted(bytes32 indexed role,address indexed account,address indexed sender)',
   'event RoleRevoked(bytes32 indexed role,address indexed account,address indexed sender)',
@@ -47,7 +47,8 @@ async function verifyRoles(provider, timelock, approved, fromBlock, blockTag, ge
   }
 }
 
-async function verifySafe(provider, safeAddress, policy, blockTag, hashCode, contractFactory) {
+async function verifySafe(provider, safeAddress, policy, blockTag, hashCode, contractFactory, chainId) {
+  validateFallbackPolicy(chainId, policy);
   const [proxy, singletonSlot, singleton] = await Promise.all([
     provider.getCode(safeAddress, blockTag), provider.getStorageAt(safeAddress, 0, blockTag),
     provider.getCode(policy.implementation, blockTag),
@@ -65,6 +66,11 @@ async function verifySafe(provider, safeAddress, policy, blockTag, hashCode, con
       modules[0].length !== 0 || modules[1].toLowerCase() !== SENTINEL ||
       storageAddress(guard).toLowerCase() !== policy.guard.toLowerCase() ||
       storageAddress(fallback).toLowerCase() !== policy.fallbackHandler.toLowerCase()) throw new Error('Safe authority state mismatch');
+  if (policy.fallbackHandler !== ethers.constants.AddressZero) {
+    const handlerCode = await provider.getCode(policy.fallbackHandler, blockTag);
+    if (handlerCode === '0x') throw new Error('fallback handler has no runtime code');
+    if (hashCode(handlerCode) !== policy.fallbackHandlerRuntimeSha256) throw new Error('fallback handler live runtime hash mismatch');
+  }
 }
 
 async function verifyGovernance(provider, chain, approved, evidence, blockTag, helpers,
@@ -85,6 +91,6 @@ async function verifyGovernance(provider, chain, approved, evidence, blockTag, h
   const timelock = contractFactory(approved.timelock, ROLE_ABI, provider);
   if ((await timelock.getMinDelay({ blockTag })).toString() !== String(approved.timelockDelaySeconds)) throw new Error('timelock delay mismatch');
   await verifyRoles(provider, timelock, t, record.timelockDeploymentBlock, blockTag, helpers.getLogsByTopics);
-  await verifySafe(provider, approved.safe, approved.governance.safe, blockTag, helpers.sha256Code, contractFactory);
+  await verifySafe(provider, approved.safe, approved.governance.safe, blockTag, helpers.sha256Code, contractFactory, approved.chainId);
 }
 module.exports = { verifyGovernance, verifyRoles, verifySafe, ROLE_ABI, ROLES, GUARD_SLOT, FALLBACK_SLOT };

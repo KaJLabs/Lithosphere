@@ -1,5 +1,7 @@
 # MultX Bridge Integration — Kamet Explorer Deployment Guide
 
+> Historical deployment guide. Production MultX remains disabled; use [the current native completion/dependency checklist](../docs/NATIVE_SWAP_COMPLETION_CHECKLIST.md). Earlier readiness statements below do not authorize deployment or activation.
+
 > **Historical testnet record:** this document describes the retired Kamet
 > KMS-era backend and is not a LITHO-mainnet deployment procedure. The project
 > does not use AWS. Use `../docs/VPS_SIGNER_ARCHITECTURE.md` and

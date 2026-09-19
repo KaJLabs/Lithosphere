@@ -45,3 +45,21 @@ export type {
   SupportedToken,
   TokenMeta,
 } from './types.js';
+
+export { submitNativeSourceStep } from './nativeSource.js';
+export type { NativeSourceStep, NativeSourceWalletBackend, NativeSourceSignedStore, NativeSourceSubmission } from './nativeSource.js';
+
+export { openNativeSourceSignedStore } from './nativeSourceStore.js';
+export type { NativeSourceBrowserStore } from './nativeSourceStore.js';
+
+export { createNativeSourceWalletBackend } from './nativeSourceBackend.js';
+
+export type { NativeSourceProgress, NativeSourceHttpBackend } from './nativeSourceBackend.js';
+
+export { submitInjectedNativeSourceStep } from './nativeInjectedWallet.js';
+
+export { createNativeQuoteBackend } from './nativeQuoteBackend.js';
+export type { NativeQuote, NativeQuoteRequest, NativeQuoteHttpBackend } from './nativeQuoteBackend.js';
+
+export { createNativeDestinationWalletBackend, submitInjectedNativeDestinationStep } from './nativeDestination.js';
+export type { NativeDestinationStep, NativeDestinationProgress, NativeDestinationWalletBackend } from './nativeDestination.js';

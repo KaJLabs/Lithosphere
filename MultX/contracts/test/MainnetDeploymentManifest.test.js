@@ -2,7 +2,7 @@ const { expect } = require('chai');
 const { validateDeploymentManifest } = require('../scripts/mainnet/validate-deployment-manifest');
 
 const address = (index) => `0x${index.toString(16).padStart(40, '0')}`;
-const validators = Array.from({ length: 7 }, (_, index) => address(index + 1));
+const validators = Array.from({ length: 5 }, (_, index) => address(index + 1));
 
 const validManifest = () => ({
   schemaVersion: 1,
@@ -32,7 +32,7 @@ const validManifest = () => ({
       governanceSafe: address(90 + index),
       pauseGuardian: address(31 + index * 2),
       paused: true,
-      signaturesRequired: 5,
+      signaturesRequired: 3,
       validators: [...validators],
       explorerUrl: `https://explorer.example/${chainId}/bridge`,
       sourceVerified: true,
@@ -57,6 +57,16 @@ const validManifest = () => ({
 });
 
 describe('mainnet deployment manifest', () => {
+  it('rejects legacy thresholds, duplicate signers and count drift', () => {
+    for (const mutate of [
+      b => { b.signaturesRequired = 5; }, b => { b.signaturesRequired = 2; },
+      b => { b.validators.pop(); }, b => { b.validators.push(address(99)); },
+      b => { b.validators[4] = b.validators[0]; },
+    ]) {
+      const manifest = validManifest(); mutate(manifest.chains[0].bridge);
+      expect(() => validateDeploymentManifest(manifest)).to.throw();
+    }
+  });
   it('accepts a complete paused and verified four-chain manifest', () => {
     expect(() => validateDeploymentManifest(validManifest())).not.to.throw();
   });
@@ -69,7 +79,7 @@ describe('mainnet deployment manifest', () => {
 
   it('rejects signer-set drift across chains', () => {
     const manifest = validManifest();
-    manifest.chains[2].bridge.validators[6] = address(99);
+    manifest.chains[2].bridge.validators[4] = address(99);
     expect(() => validateDeploymentManifest(manifest)).to.throw('does not match');
   });
 

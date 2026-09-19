@@ -1,5 +1,19 @@
 const { ethers } = require('ethers');
 const ZERO = ethers.constants.AddressZero;
+const FALLBACK_ADDRESS = '0xfd0732dc9e303f09fcef3a7388ad10a83459ec99';
+const FALLBACK_SHA256 = '8143b6ff3cf48028121244d88321907a1bddc24f1a6f12db01364511e816259a';
+const FALLBACK_CHAINS = Object.freeze({1: FALLBACK_ADDRESS, 56: FALLBACK_ADDRESS, 8453: FALLBACK_ADDRESS});
+function validateFallbackPolicy(chainId, safe) {
+  if (safe.fallbackHandler === ZERO) {
+    if (safe.fallbackHandlerRuntimeSha256 !== undefined) throw new Error('zero handler must omit runtime hash');
+    return;
+  }
+  if (!Object.hasOwn(FALLBACK_CHAINS, chainId)) throw new Error('fallback handler chain not allowlisted');
+  if (typeof safe.fallbackHandler !== 'string' || safe.fallbackHandler.toLowerCase() !== FALLBACK_CHAINS[chainId]) {
+    throw new Error('fallback handler address not allowlisted');
+  }
+  if (safe.fallbackHandlerRuntimeSha256 !== FALLBACK_SHA256) throw new Error('fallback handler runtime hash not pinned');
+}
 const sameSet = (a, b) => a.map(x => x.toLowerCase()).sort().join(',') === b.map(x => x.toLowerCase()).sort().join(',');
 const address = (value, zero = false) => {
   if (!ethers.utils.isAddress(value) || (!zero && value.toLowerCase() === ZERO)) throw new Error('invalid governance address');
@@ -30,10 +44,11 @@ function validateGovernancePolicy(chain) {
   s.owners.forEach(x => address(x));
   if (new Set(s.owners.map(x => x.toLowerCase())).size !== s.owners.length ||
       !Number.isInteger(s.threshold) || s.threshold < 2 || s.threshold > s.owners.length) throw new Error('invalid Safe owner threshold');
-  if (!Array.isArray(s.modules) || s.modules.length || s.guard !== ZERO || s.fallbackHandler !== ZERO) {
-    throw new Error('Safe modules, guard and fallback handler must be disabled for this release');
+  if (!Array.isArray(s.modules) || s.modules.length || s.guard !== ZERO) {
+    throw new Error('Safe modules and guard must be disabled for this release');
   }
+  validateFallbackPolicy(chain.chainId, s);
   const approval = new URL(s.approvalRecordUrl);
   if (approval.protocol !== 'https:' || approval.username || approval.password) throw new Error('Safe independent acceptance URL required');
 }
-module.exports = { validateGovernancePolicy, sameSet };
+module.exports = { validateGovernancePolicy, validateFallbackPolicy, sameSet };

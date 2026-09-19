@@ -28,15 +28,13 @@
         "governanceSafe": "REPLACE_WITH_LITHO_SAFE",
         "pauseGuardian": "REPLACE_WITH_LITHO_PAUSE_GUARDIAN",
         "paused": true,
-        "signaturesRequired": 5,
+        "signaturesRequired": 3,
         "validators": [
           "REPLACE_WITH_SIGNER_0_ADDRESS",
           "REPLACE_WITH_SIGNER_1_ADDRESS",
           "REPLACE_WITH_SIGNER_2_ADDRESS",
           "REPLACE_WITH_SIGNER_3_ADDRESS",
-          "REPLACE_WITH_SIGNER_4_ADDRESS",
-          "REPLACE_WITH_SIGNER_5_ADDRESS",
-          "REPLACE_WITH_SIGNER_6_ADDRESS"
+          "REPLACE_WITH_SIGNER_4_ADDRESS"
         ],
         "explorerUrl": "REPLACE_WITH_VERIFIED_EXPLORER_HTTPS_URL",
         "sourceVerified": true

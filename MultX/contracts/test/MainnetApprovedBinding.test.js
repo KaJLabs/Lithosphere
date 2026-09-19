@@ -5,7 +5,7 @@ const { verifyApprovedDeploymentBindings } = require('../scripts/mainnet/verify-
 
 const addr = (value) => `0x${value.toString(16).padStart(40, '0')}`;
 const digest = (bytes) => crypto.createHash('sha256').update(bytes).digest('hex');
-const validators = Array.from({ length: 7 }, (_, index) => addr(index + 1));
+const validators = Array.from({ length: 5 }, (_, index) => addr(index + 1));
 const evidence = {
   auditedTag: 'multx-audited-v1.0.0', commit: 'a'.repeat(40),
   contracts: {
@@ -34,7 +34,7 @@ function fixture() {
       approvalRecordUrl: 'https://evidence.example/window',
     },
     bridgeSignerSet: {
-      threshold: 5, addresses: validators,
+      threshold: 3, addresses: validators,
       acceptanceRecords: validators.map((_, index) => `https://evidence.example/signer-${index}`),
     },
     chains: chainIds.map((chainId, index) => ({
@@ -73,7 +73,7 @@ function fixture() {
         deploymentBlock: 100 + index,
         runtimeSha256: approved.chainId === 9005 ? plan.release.sourceBridgeRuntimeSha256 : plan.release.destinationBridgeRuntimeSha256,
         owner: approved.timelock, governanceSafe: approved.safe, pauseGuardian: approved.pauseGuardian, paused: true,
-        signaturesRequired: 5, validators,
+        signaturesRequired: 3, validators,
         explorerUrl: `https://explorer.example/${approved.chainId}`, sourceVerified: true,
       },
       assets: [{
@@ -93,7 +93,114 @@ function fixture() {
   return { planBytes, manifest };
 }
 
+  function evmFixture(origin) {
+    const f=fixture(), plan=JSON.parse(f.planBytes), manifest=f.manifest;
+    for(const document of [plan,manifest]) {
+      document.schemaVersion=2; document.rollout='evm-first'; document.sourceChainId=origin;
+      document.chains=document.chains.filter(c=>c.chainId!==origin);
+      const source=document.chains.find(c=>c.chainId===9005);
+      source.chainId=origin;
+    }
+    const asset=plan.assets[0]; asset.originChainId=origin;
+    asset.destinationChainIds=asset.destinationChainIds.filter(id=>id!==origin);
+    delete asset.destinationTokenAddresses[origin]; delete asset.dailyCapBaseUnits[9005];
+    for(const chain of manifest.chains) for(const token of chain.assets) {
+      token.targetChainIds=chain.chainId===origin?asset.destinationChainIds:[origin];
+      if(token.kind==='wrapped') token.originChainId=origin;
+    }
+    const planBytes=Buffer.from(JSON.stringify(plan)); manifest.release.deploymentPlanSha256=digest(planBytes);
+    return {plan,manifest,planBytes};
+  }
 describe('approved deployment root binding', function () {
+  it('requires the schema-2 rollout declaration', function () {
+    const { validateDeploymentPlan } = require('../scripts/mainnet/validate-deployment-plan');
+    for (const rollout of [undefined, 'other']) {
+      const f = evmFixture(1); f.plan.rollout = rollout;
+      expect(() => validateDeploymentPlan(f.plan)).to.throw('requires evm-first rollout');
+    }
+  });
+  it('checks agreement before downstream identity checks on independently valid profiles', function () {
+    const approved = evmFixture(1), other = evmFixture(56);
+    other.manifest.release.deploymentPlanSha256 = digest(approved.planBytes);
+    expect(() => verifyApprovedDeploymentBindings(approved.planBytes, evidenceBytes, other.manifest))
+      .to.throw('rollout profile does not match approved plan');
+  });
+  it('rejects otherwise valid additional assets in each schema-2 validator', function () {
+    const { validateDeploymentPlan } = require('../scripts/mainnet/validate-deployment-plan');
+    const { validateDeploymentManifest } = require('../scripts/mainnet/validate-deployment-manifest');
+    const f = evmFixture(1);
+    f.plan.assets.push({...f.plan.assets[0], symbol:'SECOND', originToken:addr(501),
+      destinationTokenAddresses:{56:addr(502),8453:addr(503)}});
+    expect(() => validateDeploymentPlan(f.plan)).to.throw('exactly one origin asset');
+    for (const chain of f.manifest.chains) chain.assets.push({...chain.assets[0],symbol:'SECOND',address:addr(500+chain.chainId)});
+    expect(() => validateDeploymentManifest(f.manifest)).to.throw('exactly one origin asset');
+  });
+  for(const origin of [1,56,8453]) it(`binds explicit EVM-first origin ${origin} and rejects rollout drift`,()=>{
+    const f=evmFixture(origin);
+    expect(()=>verifyApprovedDeploymentBindings(f.planBytes,evidenceBytes,f.manifest)).not.to.throw();
+    for(const mutate of [
+      p=>{delete p.sourceChainId;}, p=>{p.sourceChainId=9005;},
+      p=>{p.chains.push({...p.chains[0],chainId:9005});},
+      p=>{p.assets[0].originChainId=9005;},
+      p=>{p.assets[0].destinationChainIds=[9005];},
+      p=>{p.chains[0].bridgeKind='destination';},
+    ]) {
+      const next=evmFixture(origin); mutate(next.plan);
+      const bytes=Buffer.from(JSON.stringify(next.plan)); next.manifest.release.deploymentPlanSha256=digest(bytes);
+      expect(()=>verifyApprovedDeploymentBindings(bytes,evidenceBytes,next.manifest)).to.throw();
+    }
+    f.manifest.sourceChainId=origin===1?56:1;
+    expect(()=>verifyApprovedDeploymentBindings(f.planBytes,evidenceBytes,f.manifest)).to.throw();
+  });
+  it('enforces the live threshold through the deployment verifier call site', async function () {
+    const { ethers } = require('ethers');
+    const { verifyDeploymentReadonly } = require('../scripts/mainnet/verify-deployment-readonly');
+    const f = fixture(), plan = JSON.parse(f.planBytes);
+    const ev = JSON.parse(evidenceBytes);
+    const runtime = '0x6000', runtimeHash = digest(Buffer.from('6000', 'hex'));
+    ev.contracts.sourceBridge.runtimeSha256 = runtimeHash;
+    plan.release.sourceBridgeRuntimeSha256 = runtimeHash;
+    f.manifest.release.sourceBridgeRuntimeSha256 = runtimeHash;
+    f.manifest.chains[0].bridge.runtimeSha256 = runtimeHash;
+    const evBytes = Buffer.from(JSON.stringify(ev));
+    plan.release.bytecodeEvidenceSha256 = digest(evBytes);
+    f.manifest.release.bytecodeEvidenceSha256 = digest(evBytes);
+    const bytes = Buffer.from(JSON.stringify(plan));
+    f.manifest.release.deploymentPlanSha256 = digest(bytes);
+    const chain = f.manifest.chains[0], approved = plan.chains[0];
+    const iface = new ethers.utils.Interface([
+      'function owner() view returns(address)', 'function pauseGuardian() view returns(address)',
+      'function paused() view returns(bool)', 'function signaturesRequired() view returns(uint256)',
+    ]);
+    let threshold = 3, downstreamReached = false;
+    const provider = {
+      _isProvider: true,
+      getNetwork: async () => ({chainId:9005}), getBlockNumber: async () => 1000,
+      getBlock: async () => ({hash:'0x'+'a'.repeat(64)}),
+      getCode: async (_address, block) => block === 99 ? '0x' : runtime,
+      resolveName: async name => name,
+      getTransactionReceipt: async hash => {
+        if (hash !== chain.bridge.deploymentTxHash) { downstreamReached = true; throw Error('DOWNSTREAM_GOVERNANCE_BOUNDARY'); }
+        return {status:1, blockNumber:100, contractAddress:chain.bridge.address};
+      },
+      getTransaction: async hash => ({hash, from:approved.deployer, data:'0x60'}),
+      call: async ({data}) => {
+        const name = iface.parseTransaction({data}).name;
+        return iface.encodeFunctionResult(name, [{owner:approved.timelock, pauseGuardian:approved.pauseGuardian, paused:true, signaturesRequired:threshold}[name]]);
+      },
+    };
+    const run = () => verifyDeploymentReadonly(f.manifest, {planBytes:bytes,evidenceBytes:evBytes}, () => provider);
+    let error;
+    try { await run(); } catch (e) { error = e; }
+    expect(error.message).to.equal('DOWNSTREAM_GOVERNANCE_BOUNDARY');
+    expect(downstreamReached).to.equal(true);
+    for (const wrong of [2, 4, 5]) {
+      threshold = wrong; downstreamReached = false; error = undefined;
+      try { await run(); } catch (e) { error = e; }
+      expect(error.message).to.equal('Chain 9005 threshold is not 3');
+      expect(downstreamReached).to.equal(false);
+    }
+  });
   it('rejects valid but byte-different approved plan without relying on policy drift', function () {
     const { planBytes, manifest } = fixture();
     const changed = Buffer.concat([planBytes, Buffer.from('\n')]);
@@ -138,6 +245,8 @@ describe('approved deployment root binding', function () {
   });
 });
 
+
+module.exports = { evmFixture, evidence, digest };
 
 describe('native identity approved-plan integration', function () {
   function nativeFixture() {
