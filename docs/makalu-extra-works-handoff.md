@@ -1,10 +1,10 @@
 # Makalu extra works — living handoff
 
 - **Status:** Active — closing one stream at a time
-- **Last verified:** 2026-09-14 PKT (UTC+05:00)
+- **Last verified:** 2026-09-19 PKT (UTC+05:00)
 - **Repository:** `KaJLabs/Lithosphere`
-- **Default branch inspected:** `origin/main` at `839cc3b92c1d0950165d78864c945fdb4b7f5236`
-- **Latest merged workstream change:** PR #181 at `839cc3b92c1d0950165d78864c945fdb4b7f5236`
+- **Default branch inspected:** `origin/main` at `a3c9c7d2a417dd2aa9afd4051cf0fd54b78e0a26`
+- **Latest merged workstream change:** PR #184 at `d2e4b39ade7971f4c3d94dd971e5125d2eb3073e`
 - **Network in scope:** Makalu testnet, EVM chain ID `700777`, Cosmos chain ID `lithosphere_700777-2`
 
 This is the source of truth for the seven Makalu extra-work streams. Update it whenever code is merged, a release is
@@ -88,27 +88,37 @@ v0.9.2 source, passes 33 tests and CI run `34646653187`, and its merged file mat
 evidence-backed checklist as `839cc3b92c1d0950165d78864c945fdb4b7f5236` after `@lithoagent` approved exact
 signed head `af42b5ac4304cfb47d66c508f67f3c623b674df1` and all checks passed. Public PR #179 merged the verified Autha/toolchain disposition record as
 `e75202012bc35fd480f1c009ba482b94118de951`; both its signed head and GitHub merge commit report valid signatures.
-Public PR #183 is open at signed `bachal-mb` head `9a4a33bf1d1c637b0483260835d2aaaa6416b427` with all current
-checks passing. It adds a manual protected workflow to publish only the Autha-accepted v0.9.2 API image after
-`@lithoagent` review. The required `multx-image-publish` environment exists with `@lithoagent` as reviewer,
-self-review prevention enabled, admin bypass disabled, and zero environment secrets. Private PR #30 merged as
+Public PR #183 merged as `d98fff39489b20cf519f514414a9a0b12d9e575f` after `@lithoagent` approved exact
+head `9a4a33bf1d1c637b0483260835d2aaaa6416b427`. Its first protected publication run failed closed on fixable
+runtime dependency findings before registry login. PR #184 then hardened the runtime packaging and merged as
+`d2e4b39ade7971f4c3d94dd971e5125d2eb3073e` after independent approval. Protected run `34965720154` passed,
+publishing the Autha-accepted v0.9.2 API image with an immutable digest and provenance. This closes image publication,
+not operational readiness, deployment, signing, liquidity, or activation. Private PR #30 merged as
 `d2b9eb11b9e7d4054133a57f6d6ac64f3b8e753f` with signature-valid signed head
 `9044ca6c248ca2a3bb632e36acbdcdfaea23c1d2` and signature-valid GitHub merge commit. It pins the accepted source and
 reviewed collector identities in the schema-v2 example plan while leaving all operational inputs fail-closed.
 GitHub records no submitted review on PR #30, so the merge does not imply independent operational acceptance.
 None of these merges authorizes staging execution, deployment, signing, liquidity, or activation.
 
+On 2026-09-19, native-settlement PR #188 at tagged head
+`d77bd4214dbbbbcabe99df373a2d86ad572e7819` passed hosted checks and local API, contract, SDK, and web verification.
+A two-axis review nevertheless found unresolved security and evidence gaps: conflicting 3-of-5 versus 5-of-7 current
+operator guidance, block-wide rather than transaction-attributed DEX output evidence, unbounded wallet-auth nonce
+retention, mutable working-tree candidate packaging, and no exact tag-pinned full-rehearsal artifact. The findings
+are recorded on the PR, which was converted to draft. The candidate remains outside Autha acceptance and MultX stays
+disabled.
+
 The worktree is shared and contains pre-existing changes across several streams. Preserve them, isolate each stream
 into a reviewable change, and never bulk-commit the dirty worktree.
 
 | ID | Workstream | Current gate | Status | Immediate next action |
 | --- | --- | --- | --- | --- |
-| MX-06 | Validator cleanup and safety | All technical, monitoring, recovery, ownership, and governance-exception gates are evidenced | COMPLETE | Continue routine monitoring; any future node change requires a new approved window. |
+| MX-06 | Validator cleanup and safety | Tracked three-node mainnet gates are evidenced; no separate Makalu-node cleanup scope is recorded | COMPLETE | Continue routine mainnet monitoring; obtain a Makalu inventory and owners if the client intends a distinct testnet cleanup. |
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
 | MX-04 | DNNS | Verified explorer hardening merged and deployed; owner acceptance open | EXTERNAL BLOCKER | DNNS owner confirms the supported interface, fixes public docs, nominates a reverse record, and accepts cache policy. |
 | MX-05 | Quantt | Assumption-free gates deployed; adapter remains disabled | EXTERNAL BLOCKER | Quantt owner supplies the API contract/credential and fixes or replaces the development TLS endpoint. |
-| MX-01 | MultX / Lithoswap | Accepted v0.9.2 lineage and reviewed gates are on public `main`; private readiness, routing, schema-v2 verifier, reviewed collector, and plan-pinned example are merged; image-publication PR #183 is open with checks passing; formal PR #27 acceptance, approved run inputs, and O-01/package O-02 readiness remain open; mainnet disabled | IN PROGRESS | Obtain review/merge for PR #183; publish and independently accept the immutable image digest; obtain verifiable written PR #27 acceptance; then privately supply and approve isolated database/read-only role, four-chain route/RPC/finality, operator/reviewer, host/window, and retention inputs before any disabled-staging run. |
+| MX-01 | MultX / Lithoswap | Accepted v0.9.2 image is published; native-settlement PR #188 is draft with open security/evidence findings; O-01/package O-02 and production inputs remain open; MultX disabled | IN PROGRESS | Correct and independently review PR #188, attach exact full-rehearsal evidence, then approve private route/infrastructure inputs before any disabled-staging run. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; four tools remain specification-only and there is no deployable compiler/public release | IN PROGRESS | Obtain approved language/VM semantics and product/release/security acceptance before compiler or public-release work. |
 
 ## Sequential closure queue
@@ -1699,6 +1709,21 @@ Evidence:
 - Updated verification counts to API 163 passing tests and explorer 126 passing tests.
 - Recorded the local-only delivery risk for DEX contracts/scripts, faucet safeguards, validator audit assets, and the
   expanded developer toolchain/CI.
+
+### 2026-09-19 — Scope revalidation and MultX review gate
+
+- Reverified the live Makalu release at `a3c9c7d2a417dd2aa9afd4051cf0fd54b78e0a26`: bridge enabled, Swap disabled,
+  Quantt unconfigured, Quantt insights fail closed, and every LEP100 faucet asset remains below its minimum claim.
+- Recorded successful PR #183/#184 image publication closure and protected run `34965720154`.
+- Reviewed native-settlement PR #188 on standards and specification axes, reproduced 146 passing API tests with seven
+  skips, 186 contract tests, 55 SDK tests plus build, and 63 web tests plus lint/build, and recorded five blocking
+  security/evidence findings on the PR.
+- Converted PR #188 to draft; no merge, deployment, signing, liquidity, or activation occurred.
+- Replaced the stale June dependency requests with current forwardable requests for Backend/Bridge, Faucet/Treasury,
+  Thanos, DNNS, Quantt, validator-scope owners, and the compiler/release program.
+- Clarified that MX-06 closure evidences the tracked mainnet infrastructure; a distinct Makalu-node cleanup requires
+  an authoritative inventory, owners, desired-state policy, and separately approved audit/change windows.
+- Updated by: `BrewCodeDev`.
 
 ## Update template
 

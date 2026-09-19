@@ -1,93 +1,142 @@
-# Makalu "Extra Works" — Dependency Requests
+# Makalu extra works — current dependency requests
 
-These are the concrete inputs needed from external teams to unblock streams 2–6 of the Makalu extra-works
-backlog. Each block is written so it can be forwarded as-is. Full plan:
-`~/.claude/plans/have-some-extra-works-warm-rossum.md`.
+- **Verified:** 2026-09-19
+- **Repository baseline:** `a3c9c7d2a417dd2aa9afd4051cf0fd54b78e0a26`
+- **Network:** Makalu EVM chain `700777`; Cosmos chain `lithosphere_700777-2`
 
-> Status snapshot (2026-06-21): Stream 1 (LEP100 faucet) is **done** — verified working in prod, fixed an
-> FGPT/MUSA metadata swap. Stream 7 (toolchain) is unblocked and independent of all teams below.
+These requests contain only the external inputs and approvals still needed. Repository work that is already merged or
+deployed is not presented as missing. Do not send credentials, private keys, private inventories, or unredacted
+infrastructure evidence through chat or repository issues.
 
----
+## MultX / Lithoswap — Backend, Bridge, Security, and Operations
 
-## Stream 2 — MultX Swap (→ Backend / Bridge team)
+The bridge, swap, signer, SDK, API, and UI source exists. The Autha-accepted v0.9.2 API image was published by run
+`34965720154`. MultX and Swap remain disabled. Native-settlement PR
+[#188](https://github.com/KaJLabs/Lithosphere/pull/188) is a draft after review found unresolved security and
+evidence issues.
 
-The MultXBridge contract is deployed at `0x5832D5E609c6690f74c7683606Eb20F89ff096a6` on chain 700777, but
-there is **no bridge/swap code in the Makalu monorepo**. To build the in-repo swap UI + API + indexing, we need:
+Required next inputs and approvals:
 
-1. **MultXBridge ABI** (JSON) — the deployed contract's ABI, plus its source if available.
-2. **Counterpart-chain details** — the bridge contract address(es) on the other chain(s) and which chains
-   are supported, plus the **token map** (which LEP-100 / ERC-20 tokens bridge to what on each side).
-3. **Lock/release event signatures** — the exact events emitted on lock and on release/claim (names +
-   indexed topics) so the indexer can ingest them into a `bridge_transfers` table.
-4. **Claim/release flow spec** — since release is claim-based (no auto-executor), what exactly does a user
-   submit to claim? The proof/attestation format (signature scheme, message structure, who signs), and the
-   function signature they call.
-5. **Where the existing bridge UI lives** — prior notes reference `BridgeRelease.jsx` and `relay-release.js`
-   from the 2026-06-17 deploy. Which repo/path? We may port that logic rather than rewrite it.
+1. Backend/Bridge owners provide the approved route inventory for Ethereum, BNB Chain, Base, and LITHO: RPC
+   providers, finality, bridge/router/pool/token addresses, code hashes, asset backing, executable amounts, limits,
+   fees, recovery behavior, and supported directions.
+2. Governance owners approve the exact five bridge signers, 3-of-5 threshold, Safe/Timelock/guardian identities,
+   deployer, fee payer, caps, liquidity owners, and activation authority. Historical 5-of-7 material is not the
+   current candidate policy.
+3. Operations privately provide the isolated database/read-only role, signer hosts and custodians, recovery owners,
+   deployment host/window, monitoring, retention, rollback, and recovery-drill evidence required by Autha O-01 /
+   package O-02.
+4. Security reviewers close the PR #188 findings: transaction-attributed DEX evidence, bounded wallet-auth nonce
+   retention, consistent quorum documentation, immutable clean-tree packaging, and exact tag-pinned full-rehearsal
+   evidence.
+5. After independent review, authorize a **disabled** staging rebuild and P-01 isolation/runtime verification.
+   Deployment, liquidity, signing, canary, and activation require separate approvals.
 
-With the above we can ship: SDK ABI export, `/api/bridge/*` (tokens, history, claimable), indexer ingestion,
-and an explorer `bridge.tsx` + claim component.
+Acceptance evidence must identify the exact source commit, image digest, configuration digest, reviewer, run IDs,
+and rollback result. No earlier or unreviewed MultX candidate may be relabeled as accepted.
 
----
+## LEP100 faucet — Client, Treasury, and Faucet Operations
 
-## Stream 3 — Thanos Wallet (→ Wallet team)
+The live faucet exposes native LITHO and ten LEP100 assets, but every LEP100 balance is below the minimum ten-token
+claim. On 2026-09-19, WLITHO, LITBTC, JOT, COLLE, and FGPT had zero; LAX, IMAGE, AGII, BLDR, and MUSA had five.
+The client deferred this stream on 2026-08-23. Take no funding, key, deployment, or claim action until it is explicitly
+reprioritized.
 
-The explorer already uses Web3Modal v5 + WalletConnect (`Makalu/explorer/context/WalletContext.tsx`). Wiring
-Thanos in is small once we know **what kind of wallet it is**:
+If reactivated, required inputs are:
 
-1. **If Thanos is a WalletConnect wallet:** its **WalletConnect Explorer (registry) ID** (the hex ID used in
-   `featuredWalletIds`). Confirm it is listed in the WalletConnect registry.
-2. **If Thanos is a browser extension / injected wallet:** its **EIP-6963 provider RDNS** (and whether it
-   exposes a standard EIP-1193 provider), or a link to its SDK/integration docs.
-3. Confirm Thanos supports **chain 700777** (EVM RPC `https://rpc.litho.ai`); if it needs a custom
-   add-chain config, provide the expected parameters.
+1. Client confirmation that the deferred stream is active again.
+2. Faucet owner confirmation that the exposed funding key was rotated through the approved secret path.
+3. VPS owner installation of restricted faucet deploy and rollback wrappers.
+4. Treasury-approved reserve and replenishment thresholds for every asset.
+5. Named low-balance alert destination and replenishment owner.
 
-With (1) or (2) we can make Thanos the primary/featured wallet and smoke-test connect + a signed tx.
+Acceptance requires an immutable secured image deployment, one successful claim and retained transaction hash for
+each asset, post-claim balances, alert delivery, and rollback evidence.
 
----
+## Thanos Wallet — Wallet Team
 
-## Stream 4 — DNNS integration (→ DNNS team, dnns.litho.ai)
+Thanos discovery, prioritization, `window.thanos` fallback, Makalu add/switch, SIWE, replay protection, server
+sessions, sign-out, and install fallback are merged and deployed. The supported published extension recorded by the
+integration is Chrome version `0.9.33`.
 
-The explorer currently resolves only literal `0x…` and `litho1…` addresses. To add `*.litho`-style name
-resolution we need the **resolution interface** — either:
+Please provide one acceptance record containing:
 
-- **On-chain resolver:** resolver **contract address + ABI** on 700777, with the methods for forward
-  (`name → address`) and reverse (`address → name`) resolution, and the domain suffix convention; **or**
-- **REST API:** base URL + endpoints for forward/reverse lookup, the response schema, auth (if any), and
-  rate limits.
+1. Tester, date, browser and exact extension version.
+2. Fresh install, late EIP-6963 announcement, user rejection, wrong-chain handling, Makalu add/switch, reconnect,
+   sign-out, extension restart, and browser restart results.
+3. Successful SIWE plus rejected replay and session continuity after an API restart.
+4. One approved low-value Makalu transaction hash verified in Lithoscan.
+5. Wallet-team approver and explicit acceptance or defect list.
 
-Also useful: a couple of **known registered names** for testing, and whether resolution should be cached
-(TTL guidance). The public docs page renders client-side and didn't expose these — a short integration spec
-or OpenAPI/ABI file is ideal.
+## DNNS — DNNS Owner
 
----
+Forward `.litho` resolution and forward-verified reverse display are deployed in the explorer. The verified live
+interface is the Kamet v0 registry on chain `900523`, not an independently confirmed Makalu registry. Public DNNS
+documentation currently describes a different reference architecture and does not provide an authoritative deployed
+Makalu interface.
 
-## Stream 5 — Quantts integration (→ Quantt team, research.quantt.at / dev.quantt.at)
+Please provide:
 
-Greenfield; the public endpoint returns 403 so we have no contract to build against. We need:
+1. Written confirmation that the Kamet v0 registry remains the supported explorer interface, or a reviewed Makalu
+   replacement address, ABI, network identity, migration plan, and activation date.
+2. Correct public documentation for network IDs, contract addresses, normalization, forward resolution, and reverse
+   record rules.
+3. One stable reverse-record fixture with expected checksum address and name.
+4. Approval of the explorer's no-persistent-cache policy, or bounded positive and negative TTL requirements.
+5. DNNS-owner acceptance after forward, reverse, missing, malformed, and RPC-failure smoke tests.
 
-1. **API base URL** (prod + dev) and **auth scheme** — API key? OAuth? Where do we get a key/credentials?
-2. **Endpoints + response schemas** for the data we'd surface — confirm with the product owner *what* should
-   appear in the explorer (e.g. token analytics, risk metrics, quant research, price feeds).
-3. **Rate limits / caching guidance** (we'll proxy server-side via `/api/quant/*` and cache in Redis so the
-   key never reaches the browser bundle).
+Do not silently substitute an undocumented registry or display an unverified reverse name.
 
-With the API spec + a key we can build the server-side proxy and the explorer analytics widget(s).
+## Quantt — Quantt and Product Owners
 
----
+The credentials-safe API proxy, explorer page, status endpoint, validation, tests, and OpenAPI paths are deployed but
+fail closed. On 2026-09-19, `/api/quantt/status` reported `configured: false`, insights returned HTTP 503,
+`research.quantt.at` was reachable, and `dev.quantt.at` failed certificate hostname validation.
 
-## Stream 6 — Validator infra cleanup (→ Validator infra team)
+Please provide:
 
-This is ops work in the **Ansible/validator-infra repo, which is not in this monorepo**. To execute we need:
+1. Approved production and development API base URLs with valid TLS.
+2. Authentication scheme and a credential delivered through the approved secret store.
+3. Versioned endpoint paths, parameters, response schemas, and representative fixtures.
+4. Product decision for the research/analytics fields shown to users.
+5. Rate limits, caching, redistribution, attribution, and retention requirements.
+6. Quantt and product-owner acceptance criteria and named approvers.
 
-1. **Repo access** to the validator Ansible repo (and confirmation of which inventory is authoritative).
-2. **A change window** for config pushes / sentry restarts.
+After receipt, Dev Infra will add exact schema validation, configure staging secrets, test reference/error/rate-limit
+cases, promote to Makalu, and retain live acceptance evidence.
 
-Scope once unblocked (from prior findings):
-- Clean `app.toml.j2` so an `ansible --tags config` dry-run shows **only** intended deltas — today it carries
-  40+ pending drift changes (RPC `0.0.0.0` exposure, telemetry flips, economics) that make `--tags config`
-  unsafe, forcing surgical `sed` edits and defeating intent-as-code.
-- Align the four drifted sentries (two legacy AWS roles plus two VPS roles) from
-  `timeout_commit=3s / timeout_propose=900ms` to match the active validators (`timeout_commit=500ms`).
-- Add **automated drift detection** (scheduled diff of live `config.toml`/`app.toml` vs. Ansible intent),
-  since drift has recurred (Kamet val-04 2026-05-05, mtest-val-01 2026-05-08).
+## Validator infrastructure — scope clarification only
+
+The tracked three-node **mainnet** cleanup, monitoring, dual-recipient signing-state backup, drift checks, alert
+ownership, and governance-exception record are complete. Routine monitoring continues.
+
+If the requested work instead means a separate **Makalu validator** cleanup, provide:
+
+1. The authoritative private repository and Makalu inventory path.
+2. Node roles and expected topology, without sending secrets or live private snapshots through chat.
+3. Desired-state policy for consensus timeouts, RPC exposure, pruning, telemetry, peers, and service ownership.
+4. Named Validator Infra, Chain, CAB, rollback, monitoring, and recovery owners.
+5. An approved UTC read-only audit window. Any apply/restart window must be approved separately after the audit.
+
+Until that scope is supplied, the completed mainnet work must not be represented as a completed Makalu-node cleanup.
+
+## Developer toolchain — Product, Lithic/VM, Security, and Release Owners
+
+All eight version `0.0.1` command boundaries and three-OS preview builds exist. This is not a public full release.
+`lithls`, `lithtest`, `lithsec`, and `lithpkg` remain specification-only; `lithc` does not emit deployable bytecode;
+and `lithdev deploy` intentionally refuses deployment.
+
+Required decisions and inputs:
+
+1. Approved full function-body grammar, type/overload/map/return semantics, ABI and VM bytecode target, diagnostics,
+   source maps, gas behavior, and conformance vectors.
+2. Formatter v0 decision: accept literal-safe whitespace-only behavior or specify AST-canonical formatting.
+3. Linter rule/version, configuration, and suppression policy.
+4. LSP 3.17/editor support boundary; test syntax/execution/coverage boundary; security threat model/rules; package
+   manifest, lock, resolution, integrity, and trust policy.
+5. Approved devnet account/network/signing policy for safe `lithdev deploy` simulation and E2E verification.
+6. Supported OS/architecture matrix, versioning/compatibility policy, signing identity, release channel, and named
+   compiler/security/release approvers.
+
+Only after these decisions are approved should implementation proceed to typed IR/code generation, VM execution,
+the four currently specification-only tools, signed/checksummed public archives, and clean-install smoke tests.
