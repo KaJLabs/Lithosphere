@@ -1,0 +1,982 @@
+{
+  "app_name": "evmosd",
+  "app_version": "",
+  "genesis_time": "2026-02-07T06:07:44.931662Z",
+  "chain_id": "lithosphere_700777-2",
+  "initial_height": 1,
+  "app_hash": "",
+  "app_state": {
+    "07-tendermint": null,
+    "auth": {
+      "params": {
+        "max_memo_characters": "256",
+        "tx_sig_limit": "7",
+        "tx_size_cost_per_byte": "10",
+        "sig_verify_cost_ed25519": "590",
+        "sig_verify_cost_secp256k1": "1000"
+      },
+      "accounts": [
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1jqa20fhuxlceg7mwflpcxgfe4r2p2g2f0nrnj5",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1fe7hgzhc384dejgzlycyx9t80ere4vakcnphsm",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho13qvmr0wdwun3rqq5qqahqxvzm8c3559pfwwwr0",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1yzxrtd9uetfy5hmzzzqhq2sv2yteaafzes2e67",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1v43usrfpru2t7caph9snajs7nf5j2ghuqwxyfc",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho17y8ecmw5p0e5kmvuq2q3m3t98hwz0r2t8su5ng",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho12sdvp8mtl9elhec5mk630u3ge9t8hj5p383gu9",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1kuaqzyng4prjn7cp45qel58nqweajx7mx45ayp",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho13rf5cdrsrk073gl3npslv857ya7uufww5437lz",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1kaltpxap8ymlfcykekggpgt228zst3lly2t6mm",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1spzck5q8cymezjyaqw62g8s6hjfsg8cxqsrvww",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1h4cl2cxaxzzfxw7qgamn2zuj7cfwjwts6w6rkw",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho14c3y86hfd69kwqmdkup9y90ertu53cu6ewpr7h",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho1g5vc8rcxla03p2456gsfayevpwt44yhxm72naj",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/cosmos.auth.v1beta1.BaseAccount",
+          "address": "litho187m5cwfthxyspdzrpqvzs9c6f6k5gzenw8lkq2",
+          "pub_key": null,
+          "account_number": "0",
+          "sequence": "0"
+        },
+        {
+          "@type": "/ethermint.types.v1.EthAccount",
+          "base_account": {
+            "address": "litho1hkfps97etgev4y6k9cls0m3hxh3txgc7wz9vnu",
+            "pub_key": {
+              "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+              "key": "ApN856TEDxkMVaOGaqpUXid49SV4DAckZ8uxwuh3cdp5"
+            },
+            "account_number": "0",
+            "sequence": "0"
+          },
+          "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+        },
+        {
+          "@type": "/ethermint.types.v1.EthAccount",
+          "base_account": {
+            "address": "litho1zax9c29ussr9ntspxscy647zx5l0scp3te6xpp",
+            "pub_key": {
+              "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+              "key": "Ao/xyxIUfBF2Qepqox+nUFKlhPeV0ttwqHxh37c6aDTY"
+            },
+            "account_number": "0",
+            "sequence": "0"
+          },
+          "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+        },
+        {
+          "@type": "/ethermint.types.v1.EthAccount",
+          "base_account": {
+            "address": "litho1es2ge7anxfyj3t4enjlyznaqr53uyzmu9wu3yn",
+            "pub_key": {
+              "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+              "key": "A9CLbbAagTobRkxptB9RDKLIR4188SrHJYvrifgShS0T"
+            },
+            "account_number": "0",
+            "sequence": "0"
+          },
+          "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+        },
+        {
+          "@type": "/ethermint.types.v1.EthAccount",
+          "base_account": {
+            "address": "litho1y0jrqjzax6l3adqmvlf6kckt790gxnmq9r73e8",
+            "pub_key": {
+              "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+              "key": "A+LnRITCtcMkFArYEfYeIP4tx3PI3jUEvXZgZPRGQBXp"
+            },
+            "account_number": "0",
+            "sequence": "0"
+          },
+          "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470"
+        }
+      ]
+    },
+    "authz": {
+      "authorization": []
+    },
+    "bank": {
+      "params": {
+        "send_enabled": [],
+        "default_send_enabled": true
+      },
+      "balances": [
+        {
+          "address": "litho1jqa20fhuxlceg7mwflpcxgfe4r2p2g2f0nrnj5",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "139835000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1fe7hgzhc384dejgzlycyx9t80ere4vakcnphsm",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "190000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho13qvmr0wdwun3rqq5qqahqxvzm8c3559pfwwwr0",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "50000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1yzxrtd9uetfy5hmzzzqhq2sv2yteaafzes2e67",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "50000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1v43usrfpru2t7caph9snajs7nf5j2ghuqwxyfc",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "75000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho17y8ecmw5p0e5kmvuq2q3m3t98hwz0r2t8su5ng",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "75000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho12sdvp8mtl9elhec5mk630u3ge9t8hj5p383gu9",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "50000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1kuaqzyng4prjn7cp45qel58nqweajx7mx45ayp",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "50000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho13rf5cdrsrk073gl3npslv857ya7uufww5437lz",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "25000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1kaltpxap8ymlfcykekggpgt228zst3lly2t6mm",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "25000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1spzck5q8cymezjyaqw62g8s6hjfsg8cxqsrvww",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "35000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1h4cl2cxaxzzfxw7qgamn2zuj7cfwjwts6w6rkw",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "35000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho14c3y86hfd69kwqmdkup9y90ertu53cu6ewpr7h",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "40000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1g5vc8rcxla03p2456gsfayevpwt44yhxm72naj",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "40000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho187m5cwfthxyspdzrpqvzs9c6f6k5gzenw8lkq2",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "70000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1hkfps97etgev4y6k9cls0m3hxh3txgc7wz9vnu",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "50000000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1zax9c29ussr9ntspxscy647zx5l0scp3te6xpp",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "55000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1es2ge7anxfyj3t4enjlyznaqr53uyzmu9wu3yn",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "55000000000000000000000"
+            }
+          ]
+        },
+        {
+          "address": "litho1y0jrqjzax6l3adqmvlf6kckt790gxnmq9r73e8",
+          "coins": [
+            {
+              "denom": "ulitho",
+              "amount": "55000000000000000000000"
+            }
+          ]
+        }
+      ],
+      "supply": [
+        {
+          "denom": "ulitho",
+          "amount": "1000000000000000000000000000"
+        }
+      ],
+      "denom_metadata": [
+        {
+          "description": "The native staking token of Lithosphere",
+          "denom_units": [
+            {
+              "denom": "ulitho",
+              "exponent": 0,
+              "aliases": [
+                "attolitho"
+              ]
+            },
+            {
+              "denom": "litho",
+              "exponent": 18,
+              "aliases": [
+                "LITHO"
+              ]
+            }
+          ],
+          "base": "ulitho",
+          "display": "litho",
+          "name": "Lithosphere",
+          "symbol": "LITHO"
+        }
+      ],
+      "send_enabled": []
+    },
+    "capability": {
+      "index": "1",
+      "owners": []
+    },
+    "consensus": null,
+    "distribution": {
+      "params": {
+        "community_tax": "0.020000000000000000",
+        "base_proposer_reward": "0.000000000000000000",
+        "bonus_proposer_reward": "0.000000000000000000",
+        "withdraw_addr_enabled": true
+      },
+      "fee_pool": {
+        "community_pool": []
+      },
+      "delegator_withdraw_infos": [],
+      "previous_proposer": "",
+      "outstanding_rewards": [],
+      "validator_accumulated_commissions": [],
+      "validator_historical_rewards": [],
+      "validator_current_rewards": [],
+      "delegator_starting_infos": [],
+      "validator_slash_events": []
+    },
+    "epochs": {
+      "epochs": [
+        {
+          "identifier": "week",
+          "start_time": "0001-01-01T00:00:00Z",
+          "duration": "604800s",
+          "current_epoch": "0",
+          "current_epoch_start_time": "0001-01-01T00:00:00Z",
+          "epoch_counting_started": false,
+          "current_epoch_start_height": "0"
+        },
+        {
+          "identifier": "day",
+          "start_time": "0001-01-01T00:00:00Z",
+          "duration": "86400s",
+          "current_epoch": "0",
+          "current_epoch_start_time": "0001-01-01T00:00:00Z",
+          "epoch_counting_started": false,
+          "current_epoch_start_height": "0"
+        }
+      ]
+    },
+    "erc20": {
+      "params": {
+        "enable_erc20": true,
+        "native_precompiles": [
+          "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517"
+        ],
+        "dynamic_precompiles": []
+      },
+      "token_pairs": [
+        {
+          "erc20_address": "0xD4949664cD82660AaE99bEdc034a0deA8A0bd517",
+          "denom": "ulitho",
+          "enabled": true,
+          "contract_owner": "OWNER_MODULE"
+        }
+      ]
+    },
+    "evidence": {
+      "evidence": []
+    },
+    "evm": {
+      "accounts": [],
+      "params": {
+        "evm_denom": "ulitho",
+        "extra_eips": [
+          "ethereum_3855"
+        ],
+        "chain_config": {
+          "homestead_block": "0",
+          "dao_fork_block": "0",
+          "dao_fork_support": true,
+          "eip150_block": "0",
+          "eip150_hash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+          "eip155_block": "0",
+          "eip158_block": "0",
+          "byzantium_block": "0",
+          "constantinople_block": "0",
+          "petersburg_block": "0",
+          "istanbul_block": "0",
+          "muir_glacier_block": "0",
+          "berlin_block": "0",
+          "london_block": "0",
+          "arrow_glacier_block": "0",
+          "gray_glacier_block": "0",
+          "merge_netsplit_block": "0",
+          "shanghai_block": "0",
+          "cancun_block": "0"
+        },
+        "allow_unprotected_txs": false,
+        "evm_channels": [
+          "channel-10",
+          "channel-31",
+          "channel-83"
+        ],
+        "access_control": {
+          "create": {
+            "access_type": "ACCESS_TYPE_PERMISSIONLESS",
+            "access_control_list": []
+          },
+          "call": {
+            "access_type": "ACCESS_TYPE_PERMISSIONLESS",
+            "access_control_list": []
+          }
+        },
+        "active_static_precompiles": [
+          "0x0000000000000000000000000000000000000100",
+          "0x0000000000000000000000000000000000000400",
+          "0x0000000000000000000000000000000000000800",
+          "0x0000000000000000000000000000000000000801",
+          "0x0000000000000000000000000000000000000802",
+          "0x0000000000000000000000000000000000000803",
+          "0x0000000000000000000000000000000000000804",
+          "0x0000000000000000000000000000000000000805"
+        ]
+      }
+    },
+    "feegrant": {
+      "allowances": []
+    },
+    "feemarket": {
+      "params": {
+        "no_base_fee": false,
+        "base_fee_change_denominator": 8,
+        "elasticity_multiplier": 2,
+        "enable_height": "0",
+        "base_fee": "1000000000",
+        "min_gas_price": "0.000000000000000000",
+        "min_gas_multiplier": "0.500000000000000000"
+      },
+      "block_gas": "0"
+    },
+    "genutil": {
+      "gen_txs": [
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "validator-01",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "lithovaloper1hkfps97etgev4y6k9cls0m3hxh3txgc7lxqc9c",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "iCUQXj50xX3421nq7AAGXXSxbPK8uVPY39DwWCbrM4M="
+                },
+                "value": {
+                  "denom": "ulitho",
+                  "amount": "50000000000000000000000000"
+                }
+              }
+            ],
+            "memo": "63dfe97c46165176199271349ec2e137689c71c8@10.0.12.139:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "ApN856TEDxkMVaOGaqpUXid49SV4DAckZ8uxwuh3cdp5"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [],
+              "gas_limit": "200000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "vbmCFrOZmMR63/7AcufNnz8iEnKWxPWOMQt7FPBIBftCIUiwHTBexs/Ws0SszLNlnXdLyHOl5VUXTFwlPhOvDwE="
+          ]
+        },
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "makalu-val-02",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "lithovaloper1zax9c29ussr9ntspxscy647zx5l0scp36aljh9",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "aZc80n5fBTn/j2hBBoEdmy6yvemlA0C1QNuJOLvah5w="
+                },
+                "value": {
+                  "denom": "ulitho",
+                  "amount": "50000000000000000000000"
+                }
+              }
+            ],
+            "memo": "c13be91f752de0b09ab9ba7160c3bb07287ac559@31.97.39.138:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "Ao/xyxIUfBF2Qepqox+nUFKlhPeV0ttwqHxh37c6aDTY"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [],
+              "gas_limit": "200000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "gZXGIjzJQlDonUjNXcVKNUmC1zcHPWYUpXvoMbPBfAYi0YrAi+O90RZmn+gi+wv/mnI18VQyHNMPKVYRqlHcOgE="
+          ]
+        },
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "makalu-val-03",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "lithovaloper1es2ge7anxfyj3t4enjlyznaqr53uyzmu52e9jh",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "sr8gMWpnT58vXXbD7X5XB76gCAJCZ7dSiycJUpADPbA="
+                },
+                "value": {
+                  "denom": "ulitho",
+                  "amount": "50000000000000000000000"
+                }
+              }
+            ],
+            "memo": "bb7858235412041bf011e6eeb5efe8fc2755443b@31.97.39.138:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "A9CLbbAagTobRkxptB9RDKLIR4188SrHJYvrifgShS0T"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [],
+              "gas_limit": "200000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "F0k7kL82u284hUs6aAobZSqECp/ezqe7CxNZBIOYdMRU+mGMqdoDyrIg29rWQsfThsgRAEdwhzPWdqHbKAJxcAA="
+          ]
+        },
+        {
+          "body": {
+            "messages": [
+              {
+                "@type": "/cosmos.staking.v1beta1.MsgCreateValidator",
+                "description": {
+                  "moniker": "makalu-val-04",
+                  "identity": "",
+                  "website": "",
+                  "security_contact": "",
+                  "details": ""
+                },
+                "commission": {
+                  "rate": "0.100000000000000000",
+                  "max_rate": "0.200000000000000000",
+                  "max_change_rate": "0.010000000000000000"
+                },
+                "min_self_delegation": "1",
+                "delegator_address": "",
+                "validator_address": "lithovaloper1y0jrqjzax6l3adqmvlf6kckt790gxnmq58m90r",
+                "pubkey": {
+                  "@type": "/cosmos.crypto.ed25519.PubKey",
+                  "key": "9pPk6VlzuGyL2CwS7GQ7Tz+TJnYgIUNm7QSoi2NnOI4="
+                },
+                "value": {
+                  "denom": "ulitho",
+                  "amount": "50000000000000000000000"
+                }
+              }
+            ],
+            "memo": "fd9a7a563ef9e262f5bb8b36898f46161796cef7@187.124.51.229:26656",
+            "timeout_height": "0",
+            "extension_options": [],
+            "non_critical_extension_options": []
+          },
+          "auth_info": {
+            "signer_infos": [
+              {
+                "public_key": {
+                  "@type": "/ethermint.crypto.v1.ethsecp256k1.PubKey",
+                  "key": "A+LnRITCtcMkFArYEfYeIP4tx3PI3jUEvXZgZPRGQBXp"
+                },
+                "mode_info": {
+                  "single": {
+                    "mode": "SIGN_MODE_DIRECT"
+                  }
+                },
+                "sequence": "0"
+              }
+            ],
+            "fee": {
+              "amount": [],
+              "gas_limit": "200000",
+              "payer": "",
+              "granter": ""
+            },
+            "tip": null
+          },
+          "signatures": [
+            "dGvDQpLKWBPdBRG5N9rX6MK7ingFuaCyEnWpB42VvIMe48d9L5BXmi0vAc90+1hLPk6njDnZvXFf+PqJLiOYHwE="
+          ]
+        }
+      ]
+    },
+    "gov": {
+      "starting_proposal_id": "1",
+      "deposits": [],
+      "votes": [],
+      "proposals": [],
+      "deposit_params": null,
+      "voting_params": null,
+      "tally_params": null,
+      "params": {
+        "min_deposit": [
+          {
+            "denom": "ulitho",
+            "amount": "10000000000000000000000"
+          }
+        ],
+        "max_deposit_period": "172800s",
+        "voting_period": "172800s",
+        "quorum": "0.334000000000000000",
+        "threshold": "0.500000000000000000",
+        "veto_threshold": "0.334000000000000000",
+        "min_initial_deposit_ratio": "0.000000000000000000",
+        "proposal_cancel_ratio": "0.500000000000000000",
+        "proposal_cancel_dest": "",
+        "expedited_voting_period": "86400s",
+        "expedited_threshold": "0.667000000000000000",
+        "expedited_min_deposit": [
+          {
+            "denom": "ulitho",
+            "amount": "50000000000000000000000"
+          }
+        ],
+        "burn_vote_quorum": false,
+        "burn_proposal_deposit_prevote": false,
+        "burn_vote_veto": true,
+        "min_deposit_ratio": "0.010000000000000000"
+      },
+      "constitution": ""
+    },
+    "ibc": {
+      "client_genesis": {
+        "clients": [],
+        "clients_consensus": [],
+        "clients_metadata": [],
+        "params": {
+          "allowed_clients": [
+            "06-solomachine",
+            "07-tendermint"
+          ]
+        },
+        "create_localhost": false,
+        "next_client_sequence": "0"
+      },
+      "connection_genesis": {
+        "connections": [],
+        "client_connection_paths": [],
+        "next_connection_sequence": "0",
+        "params": {
+          "max_expected_time_per_block": "30000000000"
+        }
+      },
+      "channel_genesis": {
+        "channels": [],
+        "acknowledgements": [],
+        "commitments": [],
+        "receipts": [],
+        "send_sequences": [],
+        "recv_sequences": [],
+        "ack_sequences": [],
+        "next_channel_sequence": "0",
+        "params": {
+          "upgrade_timeout": {
+            "height": {
+              "revision_number": "0",
+              "revision_height": "0"
+            },
+            "timestamp": "600000000000"
+          }
+        }
+      }
+    },
+    "inflation": {
+      "params": {
+        "mint_denom": "ulitho",
+        "exponential_calculation": {
+          "a": "300000000.000000000000000000",
+          "r": "0.500000000000000000",
+          "c": "9375000.000000000000000000",
+          "bonding_target": "0.660000000000000000",
+          "max_variance": "0.000000000000000000"
+        },
+        "inflation_distribution": {
+          "staking_rewards": "0.533333334000000000",
+          "usage_incentives": "0.000000000000000000",
+          "community_pool": "0.466666666000000000"
+        },
+        "enable_inflation": false
+      },
+      "period": "0",
+      "epoch_identifier": "day",
+      "epochs_per_period": "365",
+      "skipped_epochs": "0"
+    },
+    "interchainaccounts": {
+      "controller_genesis_state": {
+        "active_channels": [],
+        "interchain_accounts": [],
+        "ports": [],
+        "params": {
+          "controller_enabled": true
+        }
+      },
+      "host_genesis_state": {
+        "active_channels": [],
+        "interchain_accounts": [],
+        "port": "icahost",
+        "params": {
+          "host_enabled": true,
+          "allow_messages": [
+            "*"
+          ]
+        }
+      }
+    },
+    "params": null,
+    "ratelimit": {
+      "params": {},
+      "rate_limits": [],
+      "whitelisted_address_pairs": [],
+      "blacklisted_denoms": [],
+      "pending_send_packet_sequence_numbers": [],
+      "hour_epoch": {
+        "epoch_number": "0",
+        "duration": "3600s",
+        "epoch_start_time": "0001-01-01T00:00:00Z",
+        "epoch_start_height": "0"
+      }
+    },
+    "slashing": {
+      "params": {
+        "signed_blocks_window": "10000",
+        "min_signed_per_window": "0.500000000000000000",
+        "downtime_jail_duration": "600s",
+        "slash_fraction_double_sign": "0.050000000000000000",
+        "slash_fraction_downtime": "0.010000000000000000"
+      },
+      "signing_infos": [],
+      "missed_blocks": []
+    },
+    "staking": {
+      "params": {
+        "unbonding_time": "1814400s",
+        "max_validators": 100,
+        "max_entries": 7,
+        "historical_entries": 10000,
+        "bond_denom": "ulitho",
+        "min_commission_rate": "0.050000000000000000"
+      },
+      "last_total_power": "0",
+      "last_validator_powers": [],
+      "validators": [],
+      "delegations": [],
+      "unbonding_delegations": [],
+      "redelegations": [],
+      "exported": false
+    },
+    "transfer": {
+      "port_id": "transfer",
+      "denom_traces": [],
+      "params": {
+        "send_enabled": true,
+        "receive_enabled": true
+      },
+      "total_escrowed": []
+    },
+    "upgrade": {},
+    "vesting": {}
+  },
+  "consensus": {
+    "params": {
+      "block": {
+        "max_bytes": "21000000",
+        "max_gas": "100000000"
+      },
+      "evidence": {
+        "max_age_num_blocks": "100000",
+        "max_age_duration": "172800000000000",
+        "max_bytes": "1048576"
+      },
+      "validator": {
+        "pub_key_types": [
+          "ed25519"
+        ]
+      },
+      "version": {
+        "app": "0"
+      },
+      "abci": {
+        "vote_extensions_enable_height": "0"
+      }
+    }
+  }
+}

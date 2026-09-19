@@ -25,6 +25,7 @@
   - [Troubleshooting](docs/developers/troubleshooting.md)
 
 - **Validators**
+  - [Makalu Testnet Onboarding](docs/testnet/validators.md)
   - [Mainnet Onboarding](docs/validators/onboarding.md)
   - [Node Deployment](docs/validators/node-deployment.md)
   - [Ledger Sync Service](docs/validators/ledger-sync-service.md)

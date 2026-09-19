@@ -24,11 +24,6 @@ material to mainnet.
 | CometBFT and EVM RPC | `https://rpc.litho.ai` |
 | REST/LCD | `https://api.litho.ai` |
 | Explorer | `https://makalu.litho.ai` |
-| Node source and release record | `https://github.com/KaJLabs/Lithosphere` |
-| Genesis | `https://raw.githubusercontent.com/KaJLabs/Lithosphere/main/content/docs/testnet/assets/makalu-genesis.json` |
-| Genesis SHA-256 | `a1196fa567400adea3962ea2c0cf24c5d65d07bfca2be7cf6b4dea7cc733935a` |
-| Public persistent peer | `f7e1a0eebc723bac5fdc166b626b152b850294fd@31.97.39.138:26656` |
-| Seeds | None; use the persistent peer above |
 | Maximum active validators | 100 |
 | Unbonding period | 21 days |
 | Minimum validator commission | 5% |
@@ -66,13 +61,10 @@ Send the following public information to the KaJ Labs validator coordinator:
 Never send a mnemonic, wallet private key, consensus private key, SSH
 credential, recovery share, or backup decryption secret.
 
-The coordinator returns the approved Makalu binary, test-token funding process,
-and activation window. The current binary is `lithod` 20.0.0 with SHA-256
-`358feb6fc95fbdc4c6f992510e8d0329d3511a17b623e55c61e67b8c6dfff26f`.
-Its source-remediation merge commit is
-`272ea76c5fa0be2b2e66b55c9968678e0c431314` in the official Lithosphere
-repository. Do not substitute an old `700777-1` genesis, binary, snapshot, or
-peer list.
+The coordinator returns the approved Makalu binary and checksum, genesis file
+and checksum, persistent peers, test-token funding process, and an activation
+window. Do not substitute an old `700777-1` genesis, binary, snapshot, or peer
+list.
 
 ## Host requirements
 
@@ -91,12 +83,12 @@ monitoring networks.
 
 ## Install the approved binary
 
-Use only the binary supplied through the approved onboarding channel and verify
-its SHA-256 before installation.
+Use only the binary and SHA-256 supplied for the current Makalu release. The
+placeholder values below must be replaced from the signed onboarding bundle.
 
 ```bash
 export LITHOD=./lithod-makalu
-export EXPECTED_BINARY_SHA256='358feb6fc95fbdc4c6f992510e8d0329d3511a17b623e55c61e67b8c6dfff26f'
+export EXPECTED_BINARY_SHA256='<COORDINATOR_SUPPLIED_SHA256>'
 
 printf '%s  %s\n' "$EXPECTED_BINARY_SHA256" "$LITHOD" | sha256sum --check
 sudo install -o root -g root -m 0755 "$LITHOD" /usr/local/bin/lithod-makalu
@@ -117,12 +109,10 @@ sudo -u litho /usr/local/bin/lithod-makalu init '<MONIKER>' \
 
 ## Install genesis and peers
 
-Download and verify the official genesis file before installing it:
+Verify the coordinator-supplied genesis file before installing it:
 
 ```bash
-curl -fsSLo ./genesis.json \
-  https://raw.githubusercontent.com/KaJLabs/Lithosphere/main/content/docs/testnet/assets/makalu-genesis.json
-export EXPECTED_GENESIS_SHA256='a1196fa567400adea3962ea2c0cf24c5d65d07bfca2be7cf6b4dea7cc733935a'
+export EXPECTED_GENESIS_SHA256='<COORDINATOR_SUPPLIED_SHA256>'
 printf '%s  %s\n' "$EXPECTED_GENESIS_SHA256" ./genesis.json | sha256sum --check
 
 sudo install -o litho -g litho -m 0640 ./genesis.json \
@@ -140,8 +130,7 @@ unsafe = false
 [p2p]
 laddr = "tcp://0.0.0.0:26656"
 pex = false
-persistent_peers = "f7e1a0eebc723bac5fdc166b626b152b850294fd@31.97.39.138:26656"
-seeds = ""
+persistent_peers = "<COORDINATOR_SUPPLIED_SENTRIES>"
 
 [instrumentation]
 prometheus = true

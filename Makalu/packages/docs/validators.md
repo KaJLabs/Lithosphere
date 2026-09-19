@@ -1,4 +1,11 @@
-# Validators
+# Makalu validators
 
-In classical Byzantine fault-tolerant (BFT) algorithms, each node has the same weight. In Lithosphere, nodes have a non-negative amount of voting power, and nodes that have positive voting power are called validators. Validators participate in the consensus protocol by broadcasting cryptographic signatures, or votes, to agree upon the next block.\
-Validators’ voting powers are determined at genesis or are changed deterministically by the blockchain, depending on the application. For example, in a proof-of-stake application such as the LithoSwap, the voting power may be determined by the amount of staking tokens bonded as collateral.
+The canonical Makalu validator onboarding guide is published at
+[docs.litho.ai/docs/testnet/validators](https://docs.litho.ai/docs/testnet/validators).
+Its source is
+[`content/docs/testnet/validators.mdx`](../../../content/docs/testnet/validators.mdx).
+
+Makalu uses Cosmos chain ID `lithosphere_700777-2` and EVM chain ID `700777`.
+It is a testnet for rehearsing validator deployment and operations before a
+separate mainnet application. Never reuse Makalu wallet, consensus, P2P, or
+recovery keys on mainnet.

@@ -44,3 +44,6 @@ Dockerfile   text eol=lf
 # treat as binary in diffs to keep PR noise down on large pnpm-lock changes.
 pnpm-lock.yaml    text eol=lf -diff
 package-lock.json text eol=lf -diff
+
+# Published network genesis must retain the byte-exact active-chain checksum.
+content/docs/testnet/assets/makalu-genesis.json -text
