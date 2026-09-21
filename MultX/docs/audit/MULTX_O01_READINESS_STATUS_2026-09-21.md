@@ -78,3 +78,18 @@ placed in chat or this repository.
 
 Nothing in this receipt authorizes deployment, funding, unpausing, release signing, liquidity, canary, or
 activation.
+
+## Operator package update — 2026-09-22
+
+The public 3-of-5 signer mapping, confirmed governance assignments, initial
+ETH/BNB/Base scope and operator boundary are consolidated in
+[`O01_OPERATOR_RESPONSIBILITIES.md`](../O01_OPERATOR_RESPONSIBILITIES.md).
+The fail-closed rollback and re-entry sequence is recorded in
+[`O01_ROLLBACK_PROCEDURE.md`](../O01_ROLLBACK_PROCEDURE.md). Chain owners and
+custodians can complete the remaining opaque/private fields using
+[`MULTX_O01_OWNER_INPUT_2026-09-22.md`](MULTX_O01_OWNER_INPUT_2026-09-22.md).
+
+These documents close the missing operator-responsibility and rollback-document
+preparation only. Custody evidence, coordinator mTLS inputs, authenticated
+cap/finality acceptance, production inventory, operational drills, O-14/O-19,
+paused-deployment authorization and independent O-01 acceptance remain open.
