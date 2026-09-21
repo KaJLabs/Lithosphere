@@ -29,6 +29,9 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
+      # Keep false through paused deployment. Changing this requires separate
+      # activation approval after canary acceptance.
+      MULTX_ENABLED: "false"
       PORT: "4000"
       CORS_ORIGINS: REPLACE_WITH_APPROVED_HTTPS_ORIGINS
       DB_HOST: database

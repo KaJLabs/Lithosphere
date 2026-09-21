@@ -5,6 +5,17 @@ import { loadProductionNetworkConfig } from './networkConfig.js';
 // permit a production .env file to silently bypass those controls.
 if (process.env.NODE_ENV !== 'production') dotenv.config();
 
+export function resolveMultxEnabled(nodeEnv, value) {
+  if (nodeEnv !== 'production') return value !== 'false';
+  if (value === undefined || value === '') return false;
+  if (value !== 'true' && value !== 'false') {
+    throw new Error('MULTX_ENABLED must be exactly true or false in production');
+  }
+  return value === 'true';
+}
+
+const multxEnabled = resolveMultxEnabled(process.env.NODE_ENV, process.env.MULTX_ENABLED);
+
 // ── Multichain token registry (M4 v1) ──────────────────────────────────────
 // Pairs (sourceChain, sourceToken) ↔ (destChain, destToken) so the event
 // listener and validator service can correctly resolve which token gets
@@ -138,7 +149,7 @@ for (const [makaluToken, wrappedToken] of MAKALU_DEST_PAIRS) {
 // Production never inherits historical Kamet/Makalu/testnet addresses. It
 // starts only with an explicit, audited mainnet manifest mounted read-only by
 // the VPS deployment. A missing or malformed manifest fails startup.
-const productionNetwork = process.env.NODE_ENV === 'production'
+const productionNetwork = process.env.NODE_ENV === 'production' && multxEnabled
   ? loadProductionNetworkConfig(process.env.MULTX_NETWORK_CONFIG_FILE)
   : null;
 
@@ -166,6 +177,7 @@ export const resolveReleaseToken = (sourceChain, sourceToken, releaseChain) => {
 };
 
 export const config = {
+  multxEnabled,
   port: parseInt(process.env.PORT || '4000', 10),
   corsOrigins: process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3002'],
   lithoRpcWs: productionNetwork ? productionSource.ws : (process.env.LITHO_RPC_WS || 'wss://rpc-3.litho.ai:8546'),

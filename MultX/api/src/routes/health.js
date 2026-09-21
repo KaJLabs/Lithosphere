@@ -21,6 +21,16 @@ const isDeployed = (code) =>
   typeof code === 'string' && code !== '0x' && code !== '0x0';
 
 async function getDeploymentStatus() {
+  if (!config.multxEnabled) {
+    return {
+      bridgeAddress: '',
+      lithoTokenAddress: '',
+      kametTokenAddress: '',
+      bridgeContractDeployed: false,
+      kametTokenContractDeployed: false,
+      error: '',
+    };
+  }
   const now = Date.now();
   const confirmed =
     _cache.data &&
@@ -68,6 +78,7 @@ router.get('/', async (req, res) => {
     res.json({
       status: 'ok',
       db: 'ok',
+      multx: config.multxEnabled ? 'enabled' : 'disabled',
       deployment,
     });
   } catch (err) {

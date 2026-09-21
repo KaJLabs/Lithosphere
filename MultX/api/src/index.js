@@ -59,9 +59,19 @@ app.use('/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec, {
 }));
 
 // Routes
-app.use('/bridge',   bridgeRoutes);
-app.use('/tokens',   tokensRoutes);
-app.use('/chains',   chainsRoutes);
+if (config.multxEnabled) {
+  app.use('/bridge', bridgeRoutes);
+  app.use('/tokens', tokensRoutes);
+  app.use('/chains', chainsRoutes);
+} else {
+  const disabled = (_req, res) => res.status(503).json({
+    error: 'MultX is disabled',
+    code: 'MULTX_DISABLED',
+  });
+  app.use('/bridge', disabled);
+  app.use('/tokens', disabled);
+  app.use('/chains', disabled);
+}
 app.use('/health',   healthRoutes);
 app.use('/metrics',  metricsRouter);
 
@@ -77,22 +87,26 @@ async function startup() {
     const migrations = await runMigrations(pool, migrationDir);
     console.log(`[Startup] Applied ${migrations.applied.length} migrations; ${migrations.alreadyApplied} already recorded.`);
 
-    // 2. Start event listener
-    console.log('[Startup] Starting event listener...');
-    await startEventListener();
+    if (config.multxEnabled) {
+      // 2. Start event listener
+      console.log('[Startup] Starting event listener...');
+      await startEventListener();
 
-    // 3. Start validator service (mock for dev, real for production)
-    if (config.useMockValidator) {
-      console.log('[Startup] Starting mock validator (MOCK_VALIDATOR=true)...');
-      await startMockValidator();
+      // 3. Start validator service (mock for dev, real for production)
+      if (config.useMockValidator) {
+        console.log('[Startup] Starting mock validator (MOCK_VALIDATOR=true)...');
+        await startMockValidator();
+      } else {
+        console.log('[Startup] Starting production validator service...');
+        await startValidatorService();
+      }
+
+      // 4. Start release executor (no-op unless RELAYER_PRIVATE_KEY is set)
+      console.log('[Startup] Starting release executor...');
+      await startReleaseService();
     } else {
-      console.log('[Startup] Starting production validator service...');
-      await startValidatorService();
+      console.warn('[Startup] MULTX_ENABLED=false; listeners, validators, signing and release relaying are disabled.');
     }
-
-    // 4. Start release executor (no-op unless RELAYER_PRIVATE_KEY is set)
-    console.log('[Startup] Starting release executor...');
-    await startReleaseService();
 
     // 5. Start server
     app.listen(config.port, () => {

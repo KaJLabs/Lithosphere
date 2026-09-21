@@ -141,7 +141,9 @@ test('rejects a duplicate token release route', () => {
 test('production config refuses to load without a mounted mainnet manifest', async () => {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousFile = process.env.MULTX_NETWORK_CONFIG_FILE;
+  const previousEnabled = process.env.MULTX_ENABLED;
   process.env.NODE_ENV = 'production';
+  process.env.MULTX_ENABLED = 'true';
   delete process.env.MULTX_NETWORK_CONFIG_FILE;
   try {
     await assert.rejects(
@@ -153,5 +155,7 @@ test('production config refuses to load without a mounted mainnet manifest', asy
     else process.env.NODE_ENV = previousNodeEnv;
     if (previousFile === undefined) delete process.env.MULTX_NETWORK_CONFIG_FILE;
     else process.env.MULTX_NETWORK_CONFIG_FILE = previousFile;
+    if (previousEnabled === undefined) delete process.env.MULTX_ENABLED;
+    else process.env.MULTX_ENABLED = previousEnabled;
   }
 });

@@ -1,0 +1,76 @@
+name: multx-disabled-staging
+
+services:
+  database:
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: multx_mainnet_staging
+      POSTGRES_USER: multx_staging_app
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+    secrets:
+      - db-password
+    volumes:
+      - multx-disabled-staging-db:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U multx_staging_app -d multx_mainnet_staging"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  api:
+    build:
+      context: ../api
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      MULTX_ENABLED: "false"
+      PORT: "4000"
+      CORS_ORIGINS: https://disabled.invalid
+      TRUST_PROXY_HOPS: "1"
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_USER: multx_staging_app
+      DB_NAME: multx_mainnet_staging
+      DB_PASSWORD_FILE: /run/secrets/db-password
+      MOCK_VALIDATOR: "false"
+      SIGNATURES_REQUIRED: "3"
+    secrets:
+      - db-password
+    ports:
+      - "127.0.0.1:${MULTX_DISABLED_PORT:-4400}:4000"
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/health').then(r=>r.json()).then(v=>{if(v.multx!=='disabled')process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+networks:
+  backend:
+    internal: true
+
+volumes:
+  multx-disabled-staging-db:
+
+secrets:
+  db-password:
+    file: ${MULTX_DISABLED_DB_PASSWORD_FILE:?set MULTX_DISABLED_DB_PASSWORD_FILE}
