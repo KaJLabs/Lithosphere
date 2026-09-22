@@ -1,6 +1,6 @@
 # MultX O-01 operational-readiness status
 
-Date checked: 2026-09-21.
+Date checked: 2026-09-23.
 
 This receipt reconciles the newest independently reviewed MultX source identity with the latest sanitized operator
 evidence. It is a status record, not deployment or activation authority. The source reports and infrastructure
@@ -56,21 +56,21 @@ independence, key custody, mTLS, an approved signer image/policy, or a running d
 | Control | State | Evidence or exact next requirement |
 | --- | --- | --- |
 | Consolidated source and bytecode root | Accepted | Exact commit/package above; deployment must reproduce the accepted runtime hashes. |
-| Staging provenance and isolation | Closed | P-01, P-03, P-05, O-15, and O-18 are closed in the retained Autha reports. |
+| Staging provenance and isolation | Closed | P-01, P-03, P-05, O-14, O-15, O-18, O-19, O-21, R-02, and R-03 are closed in the retained Autha reports. |
 | Five signer host capacity | Prepared, fail-closed | Five-host archive above; no signer runtime, keys, or certificates installed. |
-| Signer custody and operator independence | Open | Confirm the five signer-to-host mappings; record independent custodians, management SSH public keys, and fixed management IP/CIDRs privately. |
+| Signer custody and operator independence | Open | The five signer-to-host mappings are confirmed; record independent custodians, management SSH public-key fingerprints, fixed management IP/CIDR references, backups and recovery results privately. |
 | Coordinator-to-signer mTLS | Open | Provide the approved coordinator source allowlist and client CA through the private repository or secret manager. |
 | Route approval provenance | Open | Preserve an authenticated durable reference for the 2026-09-15 decision and separately approve caps and finality. |
 | Governance decisions | Open | Resolve or accept G-02, G-03, and O-12; assign the Base governance Safe, deployer, fee payer, pause guardian, liquidity/recovery owners, and activation authority. |
 | Deployment-derived identities | Open | Generate reviewed paused-deployment plans, then record contracts, transactions, runtime hashes, routers, pools, token paths, and backing. |
-| Application execution evidence | Open | Directly attest the executing `/app` tree (O-19) and perform the application-behavior rehearsal (O-14). |
+| Application execution evidence | Closed | Autha closed O-14 and O-19 against accepted tag `multx-disabled-runtime-review-2026-09-22-rc1`; `/app` verified 86/86 with no deviations and the disabled endpoints behaved as reviewed. |
 | Operations | Open | Complete per-signer recovery, database/coordinator restore, monitoring, alert, rollback, and recovery drills. |
 | Paused deployment and canary | Not authorized | Requires a separate written window and approvals after every preceding control is complete. |
 | Activation | Disabled | Requires explicit final governance approval; MultX, Bridge signing, Swap, release relaying, and liquidity remain disabled. |
 
 ## Immediate owner input
 
-The shortest safe next step is to complete the private signer-custody worksheet for the proposed mapping (Host 1
+The shortest safe next step is to complete the private signer-custody worksheet for the confirmed mapping (Host 1
 Coltre, Host 2 LiLe, Host 3 Ole, Host 4 MulVAL, Host 5 M MULTX), including each custodian/entity, SSH public key,
 and fixed management IP/CIDR. The coordinator owner must also provide its source allowlist and mTLS client CA.
 Private keys, passwords, certificates containing private keys, private endpoints, and secret values must not be
@@ -91,5 +91,25 @@ custodians can complete the remaining opaque/private fields using
 
 These documents close the missing operator-responsibility and rollback-document
 preparation only. Custody evidence, coordinator mTLS inputs, authenticated
-cap/finality acceptance, production inventory, operational drills, O-14/O-19,
+cap/finality acceptance, production inventory, operational drills,
 paused-deployment authorization and independent O-01 acceptance remain open.
+
+## Disabled-staging closure update — 2026-09-23
+
+- Accepted disable-gate tag: `multx-disabled-runtime-review-2026-09-22-rc1`
+- Accepted commit: `f02a9fe3e970fc48e439c7cc118079cd0a5e17d2`
+- Merged tree-equivalent commit: `6aabaf171940acf25354911155a1982d40011596`
+- Closure artifact reference: `MX-O14-O19-20260922T200003Z`
+- Closure archive SHA-256: `cb59c9054d3b114715d3554ba6e15013b0548fc20f77ea5cbed8704f498b7f01`
+- Running image: `sha256:a2a8e83af16d6304c9e3d37cb5e4309ae09886fa731939acb640d4f034731378`
+- Autha disposition: **O-14, O-19, O-21, R-02, and R-03 closed**
+
+The accepted-tag rebuild demonstrated the reviewed disabled behavior, exact
+executing `/app` source identity, a read-only isolated database role, no testnet
+data, no published ports, an internal-only network, and refused external
+connectivity. No Autha finding remains open against the disabled-staging
+environment.
+
+This closure does not cover the native settlement subsystem, Lithoswap V2,
+SDK, web surface, or O-01 operational readiness. MultX, bridge signing, release
+relaying and Swap remain disabled.
