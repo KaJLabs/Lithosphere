@@ -81,11 +81,15 @@ app.use(errorHandler);
 // Startup sequence
 async function startup() {
   try {
-    // 1. Run migrations
-    console.log('[Startup] Running database migrations...');
-    const migrationDir = path.join(__dirname, 'db', 'migrations');
-    const migrations = await runMigrations(pool, migrationDir);
-    console.log(`[Startup] Applied ${migrations.applied.length} migrations; ${migrations.alreadyApplied} already recorded.`);
+    // 1. Run migrations only in the separately authorized migration role.
+    if (config.migrationsEnabled) {
+      console.log('[Startup] Running database migrations...');
+      const migrationDir = path.join(__dirname, 'db', 'migrations');
+      const migrations = await runMigrations(pool, migrationDir);
+      console.log(`[Startup] Applied ${migrations.applied.length} migrations; ${migrations.alreadyApplied} already recorded.`);
+    } else {
+      console.warn('[Startup] Database migrations disabled; runtime role remains read-only.');
+    }
 
     if (config.multxEnabled) {
       // 2. Start event listener
