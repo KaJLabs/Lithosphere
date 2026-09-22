@@ -48,6 +48,7 @@ services:
       - "127.0.0.1:${MULTX_DISABLED_PORT:-4400}:4000"
     networks:
       - backend
+      - loopback
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
@@ -67,6 +68,10 @@ services:
 networks:
   backend:
     internal: true
+  # Keep the database isolated while allowing the API's explicitly
+  # loopback-bound verification port to be reached from the host.
+  loopback:
+    driver: bridge
 
 volumes:
   multx-disabled-staging-db:

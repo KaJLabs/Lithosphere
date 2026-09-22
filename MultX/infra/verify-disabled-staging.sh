@@ -23,8 +23,13 @@ for route in bridge tokens chains; do
 done
 
 git -C "$root" ls-files MultX/api | while IFS= read -r file; do
-  digest="$(sha256sum "$root/$file" | awk '{print $1}')"
   relative="${file#MultX/api/}"
+  # Match MultX/api/.dockerignore so the manifest binds every tracked file
+  # that can actually enter the production image.
+  case "$relative" in
+    .env|.env.*|test/*|coverage/*|*.log|dependency-*.json) continue ;;
+  esac
+  digest="$(sha256sum "$root/$file" | awk '{print $1}')"
   actual="$(docker exec "$container" sha256sum "/app/$relative" | awk '{print $1}')"
   [[ "$digest" == "$actual" ]]
   printf '%s  %s\n' "$digest" "$file"
