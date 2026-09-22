@@ -1,0 +1,435 @@
+{
+  "schema": 1,
+  "files": [
+    {
+      "path": ".dockerignore",
+      "bytes": 63,
+      "sha256": "7ec4b24d7786a3371e49be026e366672fdb3adf7b725ac8e9c7b6b6357812364"
+    },
+    {
+      "path": "Dockerfile",
+      "bytes": 815,
+      "sha256": "d10aca9eb3a2aad9a32596ea77feb4a5790407f805141d007acf0ea84795197d"
+    },
+    {
+      "path": "faucet-assets.json",
+      "bytes": 6734,
+      "sha256": "aa5d403e482a331646eda4b4e717f7484ba6980c2baf9d6866c115cd508eb632"
+    },
+    {
+      "path": "openapi.json",
+      "bytes": 8741,
+      "sha256": "967705eda71468a2311f7b82bbce2a63e6cd338e9e6ac1358e89132b5955830a"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 47518,
+      "sha256": "5e52b2dff2884688961eddcdeeb7aa4206659c96b3e3d948f265ef9eb924af26"
+    },
+    {
+      "path": "package.json",
+      "bytes": 655,
+      "sha256": "cc1e067c9d2377261b8a21ceb4822ff732bdb50186c9722f515090254f8e1d29"
+    },
+    {
+      "path": "scripts/compile-review-solidity.cjs",
+      "bytes": 308,
+      "sha256": "3d2525c84a86600e2c950af90002fecc86d4f1113ade1b750cc90bc6a0b4f90e"
+    },
+    {
+      "path": "src/config.js",
+      "bytes": 16749,
+      "sha256": "79331fe90bd502c1b146befb046324908eba49f968f6f3568f22776ec34d8e9c"
+    },
+    {
+      "path": "src/db/migrate.js",
+      "bytes": 1959,
+      "sha256": "19ebc672b29693354a77523a89adeb51a0b73da653ebab4a8c931ab99b589b72"
+    },
+    {
+      "path": "src/db/migrations/001-bridge-schema.sql",
+      "bytes": 1382,
+      "sha256": "9cc29030d479cb4835b4adf94427c55a93d5377a269dddf09bce2bbece3c8887"
+    },
+    {
+      "path": "src/db/migrations/002-faucet-schema.sql",
+      "bytes": 944,
+      "sha256": "699ec437e0b97ca033e1adabf878df73c042c73a87fc8fcb0350d3ad7cafb005"
+    },
+    {
+      "path": "src/db/migrations/003-bridge-history-hardening.sql",
+      "bytes": 937,
+      "sha256": "b5c7e582e1a537f13e19c8d4a2c1be0e2607aa09f44db9b8d821c253f508073a"
+    },
+    {
+      "path": "src/db/migrations/004-faucet-asset-support.sql",
+      "bytes": 1812,
+      "sha256": "c79026c76ceac5e1a78b15ef6994c25dc8da53292ec7aa72b969ce483314fca0"
+    },
+    {
+      "path": "src/db/migrations/005-multichain-events.sql",
+      "bytes": 1986,
+      "sha256": "743a1b58a7be1c772aaf7a70d5f3c99ae33675e8b9964595bbf5418adf46b5f1"
+    },
+    {
+      "path": "src/db/migrations/006-durable-event-cursors.sql",
+      "bytes": 623,
+      "sha256": "f685cc9c6c0f90b8fd1b1d04b38362c9a8e25208913e79fbcc4c1c31ea68c626"
+    },
+    {
+      "path": "src/db/migrations/007-rejected-bridge-events.sql",
+      "bytes": 1104,
+      "sha256": "df0d9b487f0001077d1f8b0e39e7f90a50657d317d22d5562ab9760d8981287d"
+    },
+    {
+      "path": "src/db/migrations/008-source-bridge-provenance.sql",
+      "bytes": 1489,
+      "sha256": "0a3d45c3ea7112ef9e15114ac9c408c4721b6f76623bfd7df9aa49185a2a9c44"
+    },
+    {
+      "path": "src/db/migrations/009-native-payout-assignments.sql",
+      "bytes": 2023,
+      "sha256": "49a8e32747378bdb98b0d451cb317d893d059816be470d0baa2de67e038cc873"
+    },
+    {
+      "path": "src/db/migrations/010-native-swap-completion.sql",
+      "bytes": 2333,
+      "sha256": "d7a3b9ae5f0112a814c0e1b19aa65a662f70ee3070446b820414cdf9b5407e5f"
+    },
+    {
+      "path": "src/db/migrations/011-native-source-evidence.sql",
+      "bytes": 1676,
+      "sha256": "35b1a4379c9d958184a899a4878f537fd14a570f6af982cea0d50e4163165254"
+    },
+    {
+      "path": "src/db/migrations/012-native-destination-readiness.sql",
+      "bytes": 3168,
+      "sha256": "1062a8abbec97aab9295504677ec98f900db433c1be61e0cc1cf7c88be5b2f95"
+    },
+    {
+      "path": "src/db/migrations/013-native-payout-drafts.sql",
+      "bytes": 757,
+      "sha256": "ac4a680c5fda9c7a92c3406b637753edf3399034502bc38b7ac1e3b201c2b69f"
+    },
+    {
+      "path": "src/db/migrations/014-native-payout-submissions.sql",
+      "bytes": 358,
+      "sha256": "7c768cd1779a647d571a4086479aa2555761d1919b0a548ca1635083d398f46a"
+    },
+    {
+      "path": "src/db/migrations/015-native-source-intents.sql",
+      "bytes": 1103,
+      "sha256": "ddb4c5b5f2d067d7cc75f4e2b789fc8d53d35148190a8d9459595dd4f8e31812"
+    },
+    {
+      "path": "src/db/migrations/016-native-wallet-auth.sql",
+      "bytes": 289,
+      "sha256": "37563a53c843115a63a3fe9a18261761ce05c78f644eb2996b15ad6b528743b4"
+    },
+    {
+      "path": "src/db/migrations/017-native-dex-executions.sql",
+      "bytes": 1329,
+      "sha256": "f68e0e72d59e8b986effe6f853c1e74a49380d5ef0889dd07ccdcded9dd1c021"
+    },
+    {
+      "path": "src/db/migrations/018-native-wallet-attempts.sql",
+      "bytes": 408,
+      "sha256": "20c64d61a4e87f05115742ce138fcd3873029410fa0dbf10dc1dc073910cc8ac"
+    },
+    {
+      "path": "src/db/migrations/019-native-quotes.sql",
+      "bytes": 1270,
+      "sha256": "a972ec3740ab41b13eba53320c6eda8308f3f78025f044a5ccdd66647bc591dd"
+    },
+    {
+      "path": "src/db/migrations/020-native-wallet-modes.sql",
+      "bytes": 614,
+      "sha256": "23a1f21044234fb9e0e2f6598d3e26aa0fd469fdaa844f30d755d69f6459d906"
+    },
+    {
+      "path": "src/db/migrations/021-native-redemptions.sql",
+      "bytes": 1511,
+      "sha256": "b30d346b962aa5c458f15f7515ce80c8701eae755c5ed55f956db0731314f4b6"
+    },
+    {
+      "path": "src/db/migrations/022-native-destination-wallet.sql",
+      "bytes": 2141,
+      "sha256": "8696f0645dc7a9b6d3ae4c691ba5b613bafa1d7d3693d19e57afe3c3cba92661"
+    },
+    {
+      "path": "src/db/pool.js",
+      "bytes": 367,
+      "sha256": "a88df46903b682fe8f6af600b66ae9e78b36dd121b51d1702b5970bd814ade61"
+    },
+    {
+      "path": "src/entrypoint.mjs",
+      "bytes": 517,
+      "sha256": "7be5d27388dfb5222f074862fe63097494144abdcb180d717f46d6f2bb08300d"
+    },
+    {
+      "path": "src/index.js",
+      "bytes": 4908,
+      "sha256": "b5433d7bf3008501b3b72b52389619de8356c6bdd478c171ac53238ddca5281a"
+    },
+    {
+      "path": "src/middleware/errorHandler.js",
+      "bytes": 314,
+      "sha256": "e60db787672292dac10a83259025f0790edbc63b755f9bf6f54bda1efbd0566b"
+    },
+    {
+      "path": "src/middleware/httpMetrics.js",
+      "bytes": 1436,
+      "sha256": "53a0581e442630d8904fef7ab55026f812fd0517405f4b045f4e440147ddd927"
+    },
+    {
+      "path": "src/migrate-entrypoint.mjs",
+      "bytes": 552,
+      "sha256": "48ee79bf94e75c6624231f0d038a61b58344fa11840081d4c11c29a0f00c5a91"
+    },
+    {
+      "path": "src/nativeApplication.js",
+      "bytes": 1730,
+      "sha256": "98858ba59630b193358c315a09ff94fd33d667c46a89e15d4f909fd0ccc5960d"
+    },
+    {
+      "path": "src/nativePayoutMonitor.mjs",
+      "bytes": 2944,
+      "sha256": "e5bab3adc9cab8e7539cc7dcf72ba4824d6e388f1f0c83b4ae6ae10c995ee445"
+    },
+    {
+      "path": "src/nativeProductionConfig.js",
+      "bytes": 5431,
+      "sha256": "fa6b01e82c25b0552d29b9a6f33b1f234a0b25ebc8ae98d48577d84223da14eb"
+    },
+    {
+      "path": "src/networkConfig.js",
+      "bytes": 8124,
+      "sha256": "094d1ef6a55af6006a17ccf76add425a57ee57829bd34daf71776d229a8a42da"
+    },
+    {
+      "path": "src/preload.js",
+      "bytes": 1381,
+      "sha256": "b59398d645eb03f7ce956c568a6d53d118afe6b704e31f5c3ae928d7aebc7948"
+    },
+    {
+      "path": "src/routes/bridge.js",
+      "bytes": 4557,
+      "sha256": "ec230551a8722216608436782d93749819f6f0f01071ae58804f9b0245ae4b51"
+    },
+    {
+      "path": "src/routes/chains.js",
+      "bytes": 234,
+      "sha256": "87bb2f6ad1820408fd98e8a297f8c61e14a78b6e1d4d0a61be2e84773356f72f"
+    },
+    {
+      "path": "src/routes/health.js",
+      "bytes": 2913,
+      "sha256": "6c62c70b08e08b456e536eec507b361f785e01f4349699c7a3c8be10a2768719"
+    },
+    {
+      "path": "src/routes/metrics.js",
+      "bytes": 909,
+      "sha256": "03e968484ed5dc294c6944a07dc7e32ff44c5cc0098e2c8efcd3c74693291c8c"
+    },
+    {
+      "path": "src/routes/nativeDestination.js",
+      "bytes": 3945,
+      "sha256": "352b7e51c3b18f9e4e7ee06896ac8458801389a6acdbdee70d10392d84d13557"
+    },
+    {
+      "path": "src/routes/nativeQuote.js",
+      "bytes": 2730,
+      "sha256": "7fe5626a728abdf042dc93ea545a9ceb76011729dd8f07a4db3716a55694cda2"
+    },
+    {
+      "path": "src/routes/nativeSource.js",
+      "bytes": 4740,
+      "sha256": "68e59b507d902b2ab4572e5618d6b9214ec8423366abcaa9e6f202ff5900d275"
+    },
+    {
+      "path": "src/routes/tokens.js",
+      "bytes": 1121,
+      "sha256": "791a756b3b49f09c5527c0b99d29d397857bfb6695fd7d5d521c7073f5835f9e"
+    },
+    {
+      "path": "src/services/destinationSettlement.js",
+      "bytes": 3722,
+      "sha256": "b1d4ef99bd2318479c264e299c19eeef97ff31a13ff3d37c0a4810cf9ea0f306"
+    },
+    {
+      "path": "src/services/eventListener.js",
+      "bytes": 11160,
+      "sha256": "1789a49029bee64890761a7cc0f79a8de06ddfab86f0a42c85bcd1b1b796ebe2"
+    },
+    {
+      "path": "src/services/mockValidator.js",
+      "bytes": 3986,
+      "sha256": "1b544e996d22704f84b074a5cde08c1550e51aadb40e5042cc4f7bab0b87dcdc"
+    },
+    {
+      "path": "src/services/nativeBridgeBinding.js",
+      "bytes": 570,
+      "sha256": "3ba1758bc5c3b90851cdcd6a682e3e3d0632100629b54b86e86940db83035579"
+    },
+    {
+      "path": "src/services/nativeDestinationMode.js",
+      "bytes": 547,
+      "sha256": "d587cdcb5d11a055c1cf6502224eafa68aa3da4312d5f472fcfd6ae5b8f5ea7b"
+    },
+    {
+      "path": "src/services/nativeDestinationWallet.js",
+      "bytes": 14255,
+      "sha256": "9dea4225f0f8ebe7f8af7e5349e23c6d12d8ec884f9b7d3ff5910b0fe86e1e42"
+    },
+    {
+      "path": "src/services/nativeDexExecution.js",
+      "bytes": 12921,
+      "sha256": "7fdbd536148b9182c11f7f3bebe7b4928634adcaa7c889983f4974da804b9a63"
+    },
+    {
+      "path": "src/services/nativeDexMonitor.js",
+      "bytes": 1142,
+      "sha256": "d8566d8668388fe0378b03ae456e91aba68dc61b5c4cfaac775e713bc6617a5a"
+    },
+    {
+      "path": "src/services/nativeFileCustody.js",
+      "bytes": 1339,
+      "sha256": "79bc2fdf911f95e37c9ae84286dfe9d6644943ab2497eb5c39f3039d780863ed"
+    },
+    {
+      "path": "src/services/nativeFunding.js",
+      "bytes": 2435,
+      "sha256": "48f7c3435dd1299d46fbd511be0e55cfebdc9ec9f31ba187fa98ea4385ccb18b"
+    },
+    {
+      "path": "src/services/nativePayoutCoordinator.js",
+      "bytes": 2080,
+      "sha256": "d7f81495989b0fb49531ccec8f0c4e25e2e06260a80a91a440e64af40457dc42"
+    },
+    {
+      "path": "src/services/nativePayoutDraft.js",
+      "bytes": 4300,
+      "sha256": "a6a228c4d892cb1aacc2ade90fe70e24ef12583d685ae0b39704a6cc1c4680dd"
+    },
+    {
+      "path": "src/services/nativePayoutEvidence.js",
+      "bytes": 3548,
+      "sha256": "21f98af9643b0d83ec91dad95978801d76b894c91c29d679a787906ee9ebc3eb"
+    },
+    {
+      "path": "src/services/nativePayoutMonitor.js",
+      "bytes": 1568,
+      "sha256": "51e478483f8a985f59863f779614d7288a29056e5cea170c3fcc1a6b086b7d5b"
+    },
+    {
+      "path": "src/services/nativePayoutStore.js",
+      "bytes": 5167,
+      "sha256": "64338875aaf71fff26ffba06fbd6e4c0f4958e5140134b5f8ebae6162d9388cf"
+    },
+    {
+      "path": "src/services/nativePayoutSubmission.js",
+      "bytes": 4806,
+      "sha256": "83f68c2262a153f87346318cf32a206fa53c73a4be81f32bc58fbcf71da91713"
+    },
+    {
+      "path": "src/services/nativeQuote.js",
+      "bytes": 10648,
+      "sha256": "abf3070bb1946441e954fcb681a2f79e93561573e32737642c5693a13f6ab15d"
+    },
+    {
+      "path": "src/services/nativeRedemption.js",
+      "bytes": 12886,
+      "sha256": "71ca4160ce2ab3220bec5d729f258d439cee83e9ccc0a89ed698af5740682204"
+    },
+    {
+      "path": "src/services/nativeRedemptionMonitor.js",
+      "bytes": 1011,
+      "sha256": "b4c1700328ff3335dc555b874833e86bef0d9d3dde2bcd394c460eef7ad9acfb"
+    },
+    {
+      "path": "src/services/nativeRegistry.js",
+      "bytes": 4582,
+      "sha256": "2ed066e8e79db0aac71a87b18b04f9e29531da535f58bb5dd2d0a580f697be0a"
+    },
+    {
+      "path": "src/services/nativeRoutePolicy.js",
+      "bytes": 8237,
+      "sha256": "c4e3a7fd5b31a1f65895fac6615c0340840862e3bde3a71660aece490953ba4b"
+    },
+    {
+      "path": "src/services/nativeSignedPayout.js",
+      "bytes": 3233,
+      "sha256": "309ab60e7dbcf836b13be8f59251d5e4bb02820a698198da677a632e97dd78b0"
+    },
+    {
+      "path": "src/services/nativeSourceIntent.js",
+      "bytes": 5222,
+      "sha256": "ffdba611b0f80d0c4bccf118a2347fd33b6ae7937a337225fce5d57ccee0f030"
+    },
+    {
+      "path": "src/services/nativeSourcePlan.js",
+      "bytes": 2644,
+      "sha256": "47cc0ef073ef23a4e384d30feea40d64f5499f527fb5ed11765ebbee3c38f62b"
+    },
+    {
+      "path": "src/services/nativeSourceRecovery.js",
+      "bytes": 2955,
+      "sha256": "a70f52ba5e822fbb5b1273698e0da658b967b96f2ccdf12d06a3e90973aadb61"
+    },
+    {
+      "path": "src/services/nativeSourceSettlement.js",
+      "bytes": 1932,
+      "sha256": "bc6217b9f2e6b8e6a59381acce423a86ed8b3e225e28926dc77bf54801522199"
+    },
+    {
+      "path": "src/services/nativeSwapReadiness.js",
+      "bytes": 4377,
+      "sha256": "7c5eacda94f0edeba9b28d9ce577813f4f2868d1ac1460ac57291d8594f84c3b"
+    },
+    {
+      "path": "src/services/nativeWalletAuth.js",
+      "bytes": 1735,
+      "sha256": "311d04d5b65a309870d6b59ae2a96591f82cf78731a2b850391c8cefdd35e7b9"
+    },
+    {
+      "path": "src/services/nativeWalletMode.js",
+      "bytes": 1236,
+      "sha256": "ece5bb8bdc5bdb43195db7eea9f04da5b64939f24573f846d79f9be25de2c72c"
+    },
+    {
+      "path": "src/services/releaseService.js",
+      "bytes": 10262,
+      "sha256": "2721666df6a91aac2b822fab5f9d7cc214bf4373f64aab170d275dd94b311396"
+    },
+    {
+      "path": "src/services/remoteSigner.js",
+      "bytes": 5858,
+      "sha256": "86f1b06558f0aa7185df4a4a851df1701754a6d6f8aa2b4810f565b5f4a62e8b"
+    },
+    {
+      "path": "src/services/sourceEvidence.js",
+      "bytes": 3010,
+      "sha256": "f6035a63ae87f04e16a51dfa7c40fed6132dc3dacc3227f8addcd7eec9f76b27"
+    },
+    {
+      "path": "src/services/v2RouteQuote.js",
+      "bytes": 5338,
+      "sha256": "00ac47c78b76cdd3158eea9ab9ac1d5731444dd2d36e2af7f45f0f0174e2a1d7"
+    },
+    {
+      "path": "src/services/v2SwapPlan.js",
+      "bytes": 1966,
+      "sha256": "60a692aa3546957f608bd0d058bf9a6af929e524611cafe2f0acc3573b46d0aa"
+    },
+    {
+      "path": "src/services/validatorPolicy.js",
+      "bytes": 4825,
+      "sha256": "3b1194c8a1440bce5f3f4c81754092e60ea9ec4390acc6f902dc99b4866b695f"
+    },
+    {
+      "path": "src/services/validatorService.js",
+      "bytes": 8709,
+      "sha256": "cf8ed04ea3931dad9eb8efac73b90561889d23efc5d0a7c92aa01484777d911c"
+    }
+  ]
+}

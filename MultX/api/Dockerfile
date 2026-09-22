@@ -6,7 +6,11 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY . .
-RUN chown -R node:node /app
+RUN install -d -o node -g node /usr/local/lib /usr/local/share \
+    && cp review/verify-runtime-source.mjs /usr/local/lib/verify-runtime-source.mjs \
+    && cp review/runtime-source-manifest.json /usr/local/share/multx-runtime-source-manifest.json \
+    && rm -rf review \
+    && chown -R node:node /app /usr/local/lib/verify-runtime-source.mjs /usr/local/share/multx-runtime-source-manifest.json
 USER node
 
 EXPOSE 4000

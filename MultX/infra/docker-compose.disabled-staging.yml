@@ -6,19 +6,49 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: multx_mainnet_staging
-      POSTGRES_USER: multx_staging_app
-      POSTGRES_PASSWORD_FILE: /run/secrets/db-password
+      POSTGRES_USER: multx_staging_owner
+      POSTGRES_PASSWORD_FILE: /run/secrets/db-owner-password
     secrets:
-      - db-password
+      - db-owner-password
+      - db-app-password
     volumes:
       - multx-disabled-staging-db:/var/lib/postgresql/data
+      - ./init-disabled-staging-role.sh:/docker-entrypoint-initdb.d/10-runtime-role.sh:ro
+      - ./verify-disabled-staging-db.sql:/run/ops/verify-disabled-staging-db.sql:ro
     networks:
       - backend
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U multx_staging_app -d multx_mainnet_staging"]
+      test: ["CMD-SHELL", "pg_isready -U multx_staging_owner -d multx_mainnet_staging"]
       interval: 5s
       timeout: 5s
       retries: 20
+    security_opt:
+      - no-new-privileges:true
+
+  migrator:
+    build:
+      context: ../api
+    restart: "no"
+    depends_on:
+      database:
+        condition: service_healthy
+    command: ["node", "src/migrate-entrypoint.mjs"]
+    environment:
+      NODE_ENV: production
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_USER: multx_staging_owner
+      DB_NAME: multx_mainnet_staging
+      DB_PASSWORD_FILE: /run/secrets/db-owner-password
+    secrets:
+      - db-owner-password
+    networks:
+      - backend
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    cap_drop:
+      - ALL
     security_opt:
       - no-new-privileges:true
 
@@ -27,11 +57,12 @@ services:
       context: ../api
     restart: unless-stopped
     depends_on:
-      database:
-        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
     environment:
       NODE_ENV: production
       MULTX_ENABLED: "false"
+      DB_MIGRATIONS_ENABLED: "false"
       PORT: "4000"
       CORS_ORIGINS: https://disabled.invalid
       TRUST_PROXY_HOPS: "1"
@@ -39,16 +70,13 @@ services:
       DB_PORT: "5432"
       DB_USER: multx_staging_app
       DB_NAME: multx_mainnet_staging
-      DB_PASSWORD_FILE: /run/secrets/db-password
+      DB_PASSWORD_FILE: /run/secrets/db-app-password
       MOCK_VALIDATOR: "false"
       SIGNATURES_REQUIRED: "3"
     secrets:
-      - db-password
-    ports:
-      - "127.0.0.1:${MULTX_DISABLED_PORT:-4400}:4000"
+      - db-app-password
     networks:
       - backend
-      - loopback
     read_only: true
     tmpfs:
       - /tmp:size=32m,mode=1777
@@ -68,14 +96,12 @@ services:
 networks:
   backend:
     internal: true
-  # Keep the database isolated while allowing the API's explicitly
-  # loopback-bound verification port to be reached from the host.
-  loopback:
-    driver: bridge
 
 volumes:
   multx-disabled-staging-db:
 
 secrets:
-  db-password:
-    file: ${MULTX_DISABLED_DB_PASSWORD_FILE:?set MULTX_DISABLED_DB_PASSWORD_FILE}
+  db-owner-password:
+    file: ${MULTX_DISABLED_DB_OWNER_PASSWORD_FILE:?set MULTX_DISABLED_DB_OWNER_PASSWORD_FILE}
+  db-app-password:
+    file: ${MULTX_DISABLED_DB_APP_PASSWORD_FILE:?set MULTX_DISABLED_DB_APP_PASSWORD_FILE}

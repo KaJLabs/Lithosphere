@@ -16,6 +16,24 @@ export function resolveMultxEnabled(nodeEnv, value) {
 
 const multxEnabled = resolveMultxEnabled(process.env.NODE_ENV, process.env.MULTX_ENABLED);
 
+export function resolveMigrationsEnabled(nodeEnv, multxIsEnabled, value) {
+  if (nodeEnv === 'production' && !multxIsEnabled) {
+    if (value === undefined || value === '' || value === 'false') return false;
+    throw new Error('DB_MIGRATIONS_ENABLED must remain false while MultX is disabled');
+  }
+  if (value === undefined || value === '') return true;
+  if (value !== 'true' && value !== 'false') {
+    throw new Error('DB_MIGRATIONS_ENABLED must be exactly true or false');
+  }
+  return value === 'true';
+}
+
+const migrationsEnabled = resolveMigrationsEnabled(
+  process.env.NODE_ENV,
+  multxEnabled,
+  process.env.DB_MIGRATIONS_ENABLED,
+);
+
 // ── Multichain token registry (M4 v1) ──────────────────────────────────────
 // Pairs (sourceChain, sourceToken) ↔ (destChain, destToken) so the event
 // listener and validator service can correctly resolve which token gets
@@ -178,6 +196,7 @@ export const resolveReleaseToken = (sourceChain, sourceToken, releaseChain) => {
 
 export const config = {
   multxEnabled,
+  migrationsEnabled,
   port: parseInt(process.env.PORT || '4000', 10),
   corsOrigins: process.env.CORS_ORIGINS?.split(',').map(o => o.trim()) || ['http://localhost:3002'],
   lithoRpcWs: productionNetwork ? productionSource.ws : (process.env.LITHO_RPC_WS || 'wss://rpc-3.litho.ai:8546'),

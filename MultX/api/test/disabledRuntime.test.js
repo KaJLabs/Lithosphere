@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { resolveMultxEnabled } from '../src/config.js';
+import { resolveMigrationsEnabled, resolveMultxEnabled } from '../src/config.js';
 
 test('production runtime fails closed when MULTX_ENABLED is absent', () => {
   assert.equal(resolveMultxEnabled('production', undefined), false);
@@ -43,4 +43,23 @@ test('disabled production config starts without a deployment manifest', () => {
     },
   );
   assert.equal(output, 'false');
+});
+
+test('disabled production runtime cannot run database migrations', () => {
+  assert.equal(resolveMigrationsEnabled('production', false, undefined), false);
+  assert.equal(resolveMigrationsEnabled('production', false, 'false'), false);
+  assert.throws(
+    () => resolveMigrationsEnabled('production', false, 'true'),
+    /must remain false while MultX is disabled/,
+  );
+});
+
+test('enabled and non-production runtimes validate migration mode exactly', () => {
+  assert.equal(resolveMigrationsEnabled('production', true, undefined), true);
+  assert.equal(resolveMigrationsEnabled('production', true, 'false'), false);
+  assert.equal(resolveMigrationsEnabled('test', true, 'true'), true);
+  assert.throws(
+    () => resolveMigrationsEnabled('test', true, '1'),
+    /must be exactly true or false/,
+  );
 });
