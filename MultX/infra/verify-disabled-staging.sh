@@ -107,18 +107,18 @@ cat > "$artifact/RESULTS.md" <<EOF
 # MultX O-14/O-19 closure evidence
 
 - Result: **PASS**
-- Candidate tag: `$tag`
-- Candidate commit: `$commit`
-- Capture UTC: `$start_utc`
-- Runtime source manifest SHA-256: `$manifest_sha`
-- In-image verifier SHA-256: `$verifier_sha`
-- Declared/image/verified source files: `$declared/$image_files/$verified`
-- Missing/mismatched/unlisted source files: `0/0/0`
+- Candidate tag: \`$tag\`
+- Candidate commit: \`$commit\`
+- Capture UTC: \`$start_utc\`
+- Runtime source manifest SHA-256: \`$manifest_sha\`
+- In-image verifier SHA-256: \`$verifier_sha\`
+- Declared/image/verified source files: \`$declared/$image_files/$verified\`
+- Missing/mismatched/unlisted source files: \`0/0/0\`
 
-The genuine API ran with `MULTX_ENABLED=false` and a read-only runtime database
+The genuine API ran with \`MULTX_ENABLED=false\` and a read-only runtime database
 role. Health reported disabled and the mounted bridge, token and chain routes
-returned 503 `MULTX_DISABLED`. The native settlement route modules remain
-structurally unmounted in `index.js`; their source is present but unreachable
+returned 503 \`MULTX_DISABLED\`. The native settlement route modules remain
+structurally unmounted in \`index.js\`; their source is present but unreachable
 from this application entrypoint. Listeners, validators, signing and release
 relaying did not start.
 
