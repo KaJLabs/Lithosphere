@@ -622,6 +622,8 @@ Completed or evidenced:
       negative resolution cache (2026-09-24).
 - [x] Fresh transaction-free verification reconfirmed chain ID `900523`, registry bytecode, and all nine forward
       fixtures; 11/11 focused missing/malformed/provider/reverse-safety tests passed (2026-09-23 20:13:57 UTC).
+- [x] PR #217 recorded the owner confirmation and verified live gaps, passed all repository checks, and merged as
+      `bdf2f0a47c331845d830e7c41a18565323572d03` (2026-09-23).
 
 Remaining actions:
 
