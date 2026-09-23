@@ -143,7 +143,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-06 | Validator cleanup and safety | Tracked three-node mainnet gates are evidenced; no separate Makalu-node cleanup scope is recorded | COMPLETE | Continue routine mainnet monitoring; obtain a Makalu inventory and owners if the client intends a distinct testnet cleanup. |
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
-| MX-04 | DNNS | Verified explorer hardening merged and deployed; owner acceptance open | EXTERNAL BLOCKER | DNNS owner confirms the supported interface, fixes public docs, nominates a reverse record, and accepts cache policy. |
+| MX-04 | DNNS | Explorer hardening is deployed; owner confirmed the Kamet v0 interface, nominated `kamet.litho` as the reverse fixture, and accepted no persistent cache; live reverse, corrected public docs, and named acceptance remain open | EXTERNAL BLOCKER | DNNS owner configures the nominated reverse record, publishes corrected authoritative documentation, and supplies the named approver/date; Dev Infra then repeats the complete live smoke matrix. |
 | MX-05 | Quantt | Approved `quantts.ai` boundary merged and deployed; adapter remains disabled | EXTERNAL BLOCKER | Obtain the exact API contract, credential, and product acceptance. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; KaJ Labs / Litho Foundation assigned the `@jkasr` / `@lithoagent` rotation to all RFC 0002 authorities; four tools remain specification-only and there is no deployable compiler/public release | EXTERNAL BLOCKER | The assigned rotation must resolve RFC 0002 rows L-01 through R-01 and the conformance-corpus change process before compiler or public-release work. |
@@ -617,15 +617,21 @@ Completed or evidenced:
 - [x] Protected deployment run `31826844798` passed image, deploy, and public health gates (2026-08-14).
 - [x] Public release SHA, home, blocks, shipped validation text, and two live forward records were reverified after
       deployment.
+- [x] DNNS owner confirmed the Kamet v0 interface and normalization rules, nominated
+      `kamet.litho` <-> `0xE9267bDf7084815B0754545049AE45FE744Aefa8`, and approved no persistent positive or
+      negative resolution cache (2026-09-24).
+- [x] Fresh transaction-free verification reconfirmed chain ID `900523`, registry bytecode, and all nine forward
+      fixtures; 11/11 focused missing/malformed/provider/reverse-safety tests passed (2026-09-23 20:13:57 UTC).
 
 Remaining actions:
 
-- [ ] DNNS owner confirms the verified Kamet v0 deployment remains the supported explorer interface or provides a
+- [x] DNNS owner confirms the verified Kamet v0 deployment remains the supported explorer interface or provides a
       reviewed replacement deployment and migration date.
 - [ ] DNNS owner updates public documentation with authoritative network IDs, contract addresses, normalization,
       and reverse-record rules; current public reference material conflicts with deployed v0.
-- [ ] DNNS owner configures or nominates one stable reverse record and supplies its expected address/name pair.
-- [ ] Agree on the no-persistent-cache policy or provide bounded positive/negative TTL requirements.
+- [x] DNNS owner nominates one stable reverse record and supplies its expected address/name pair.
+- [ ] DNNS owner configures the nominated reverse record; its live reverse node still returns the zero resolver.
+- [x] Agree on the no-persistent-cache policy or provide bounded positive/negative TTL requirements.
 - [ ] Smoke-test forward, reverse, missing/malformed names, and RPC failure from the newly deployed explorer release.
 - [ ] Obtain DNNS-team acceptance.
 
@@ -633,7 +639,7 @@ Acceptance criteria:
 
 - [ ] Two known names resolve forward to their expected checksum addresses in the live explorer.
 - [ ] At least one expected reverse record renders on a live address page.
-- [ ] Missing names, resolver failures, normalization, and cache refresh behavior are documented and tested.
+- [x] Missing names, resolver failures, normalization, and cache refresh behavior are documented and tested.
 - [ ] DNNS approver, date, and evidence are recorded.
 
 Evidence:

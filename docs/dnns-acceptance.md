@@ -2,8 +2,8 @@
 
 - **Workstream:** MX-04
 - **Environment:** Makalu explorer reading the Kamet DNNS registry
-- **Status:** Explorer changes merged and deployed; DNNS-team acceptance pending
-- **Last verified:** 2026-09-20
+- **Status:** Interface and cache policy confirmed; reverse record, public documentation, and named acceptance pending
+- **Last verified:** 2026-09-23 20:13:57 UTC
 
 This record separates facts verified from deployed contracts and source-controlled deployment metadata from items
 that still require the DNNS owner's confirmation. It must not be marked accepted until every open item below has a
@@ -38,6 +38,18 @@ used across Lithosphere chains.
 The deployed portal rules normalize labels to lowercase and require at least three characters, using only
 `a-z`, `0-9`, and internal hyphens. Leading/trailing hyphens and subdomains are rejected. The explorer now applies
 the same rules before making an RPC request.
+
+## DNNS owner confirmation — 2026-09-24
+
+The DNNS owner confirmed that the Kamet v0 deployment in the table above remains the supported explorer interface,
+including RPC, TLD, registry, original resolver, wrapper-aware resolver, reverse registrar, and normalization rules.
+The owner nominated `kamet.litho` <-> `0xE9267bDf7084815B0754545049AE45FE744Aefa8` as the stable reverse-resolution
+fixture and approved the explorer policy of retaining no persistent positive or negative resolution cache. Reverse
+names remain displayable only after successful forward verification.
+
+This confirmation is not final acceptance. Its acceptance line still contains placeholders for the approver's full
+name/role and date, and is explicitly subject to successful smoke tests. The owner also committed to correcting the
+public documentation, but that correction is not yet live.
 
 ## Live forward-resolution evidence
 
@@ -76,6 +88,18 @@ The same transaction-free command was repeated on 2026-09-20 from current `main`
 forward fixtures passed, the reverse resolver remained unset, and the public documentation still omitted Kamet
 `900523` and the verified registry address. No transaction was submitted.
 
+The command was repeated again from current `main` on 2026-09-23 at 20:13:57 UTC. Chain ID `900523`, registry
+bytecode, and all nine forward fixtures passed; `kamet.litho` resolved to the owner-nominated checksum address. The
+reverse node for that address still returned the zero resolver, so no reverse name could be read or forward-verified.
+The public `KaJLabs/DNNS` README still described Makalu chain ID `700777` and omitted both Kamet `900523` and the
+verified registry address. No transaction was submitted. One immediately preceding probe received HTTP 502; three
+subsequent chain-ID probes and the complete baseline succeeded, so this is retained as transient RPC evidence rather
+than ignored.
+
+The focused explorer suites also passed 11/11 tests (`dnns-resolver.test.ts` and `dnns.test.tsx`) on 2026-09-23,
+covering forward and reverse behavior, absent records, malformed names, provider/RPC failures, forward verification,
+and the no-persistent-result-cache boundary.
+
 ## Explorer behavior and automated gates
 
 - [x] Forward results are checksummed before navigation.
@@ -105,12 +129,13 @@ No network or contract migration should be inferred from documentation alone.
 
 ## Remaining owner acceptance
 
-- [ ] DNNS owner confirms which deployed interface is supported for the Makalu explorer.
+- [x] DNNS owner confirms which deployed interface is supported for the Makalu explorer.
 - [ ] DNNS owner corrects/publishes authoritative network IDs, contract addresses, normalization, and reverse rules.
-- [ ] DNNS owner configures or nominates one stable reverse record and supplies its expected name/address pair.
+- [x] DNNS owner nominates one stable reverse record and supplies its expected name/address pair.
+- [ ] DNNS owner configures the nominated reverse record on-chain; the live reverse node still has no resolver.
 - [ ] Dev Infra repeats live forward, missing-name, malformed-name, RPC-failure, and forward-verified reverse tests
       against the deployed explorer release.
-- [ ] DNNS owner approves the no-persistent-cache policy or supplies bounded positive/negative TTL requirements.
+- [x] DNNS owner approves the no-persistent-cache policy or supplies bounded positive/negative TTL requirements.
 - [ ] DNNS owner signs the acceptance fields below.
 
 ## Evidence and approval
