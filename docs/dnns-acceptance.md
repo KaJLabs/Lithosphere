@@ -147,6 +147,7 @@ No network or contract migration should be inferred from documentation alone.
 | Deployment workflow/run  | [31826844798](https://github.com/KaJLabs/Lithosphere/actions/runs/31826844798) — PASS                                         |
 | Deployed release         | `c5448da8c617cf06083f9c08be7e08bd1b5cb6b2`                                                                                    |
 | Live smoke-test artifact | Public version, home, blocks, shipped-bundle, and two forward-record probes recorded in the MX-04 handoff ledger (2026-08-14) |
+| Owner-input record       | [PR #217](https://github.com/KaJLabs/Lithosphere/pull/217), merged as `bdf2f0a47c331845d830e7c41a18565323572d03`                    |
 | DNNS approver            | Pending                                                                                                                       |
 | Approval date            | Pending                                                                                                                       |
 | Approval evidence        | Pending                                                                                                                       |
