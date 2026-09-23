@@ -9,15 +9,15 @@ until every manual result and the approval record are filled with durable eviden
 | --- | --- | --- |
 | Target | `https://makalu.litho.ai/signin` | Live route |
 | Network | Makalu, EVM chain ID `700777` (`0xab169`) | Explorer network configuration |
-| Published Chrome extension | `0.9.35`, updated 2026-08-17 | Chrome Web Store item `jajfgpnlaoakklhnnchdpiglmkkpcehj`, checked 2026-08-19 |
-| Published-version source | `imasssad/Thanos-Wallet` commit `4822f42abc49877d0066bfde87f22f10f460f034` | Declares `0.9.35`, EIP-6963, RDNS `fi.thanos.wallet`, `window.thanos`, and EIP-1193 signing |
+| Published Chrome extension | `0.9.40`, updated 2026-09-11 | Chrome Web Store item `jajfgpnlaoakklhnnchdpiglmkkpcehj`, checked 2026-09-24 |
+| Published-version source | `imasssad/Thanos-Wallet` commit `13f7a25be34aeef1a7a3fc668d8e33b4b531ff8a` | Declares `0.9.40`, EIP-6963, RDNS `fi.thanos.wallet`, `window.thanos`, and EIP-1193 signing |
 | Explorer integration | EIP-6963 discovery plus verified `window.thanos` fallback | `Makalu/explorer/components/ThanosSignIn.tsx` |
 | Server authentication | Nonce-bound SIWE, one-time replay protection, HMAC bearer session | `Makalu/api/src/routes.ts` and focused tests |
 | Makalu session secret | Present, non-placeholder, and at least 32 characters | Value-free production-container check on 2026-08-14 |
 
-The repository source currently declares Thanos `0.9.38`, but the Chrome Web Store publishes `0.9.35`. Run
-acceptance only with published version `0.9.35`. If the store version changes, re-pin the matching source commit and
-repeat the automated preflight before starting the manual matrix.
+The upstream default branch may move beyond the Chrome Web Store release. Run acceptance only with published version
+`0.9.40` and the exact source commit pinned above. If the store version changes, re-pin the matching source commit
+and repeat the automated preflight before starting the manual matrix.
 
 Run the transaction-free baseline immediately before manual acceptance:
 
@@ -27,7 +27,7 @@ node Makalu/scripts/verify-thanos-acceptance-baseline.mjs
 
 The preflight checks the published version, pinned public source, provider markers, live sign-in route,
 unauthenticated session rejection, and Makalu chain identity. It does not connect a wallet, request a nonce, sign a
-message, or submit a transaction. The 2026-08-19 preflight passed at `2026-08-19T13:27:31Z`.
+message, or submit a transaction. The latest passing preflight timestamp is recorded in the MX-03 tracker evidence.
 
 ## Wallet-team test record
 
