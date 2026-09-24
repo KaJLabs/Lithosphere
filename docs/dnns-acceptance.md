@@ -2,8 +2,8 @@
 
 - **Workstream:** MX-04
 - **Environment:** Makalu explorer reading the Kamet DNNS registry
-- **Status:** Interface and cache policy confirmed; reverse record, public documentation, and named acceptance pending
-- **Last verified:** 2026-09-23 20:13:57 UTC
+- **Status:** Replacement DNNS fixture live and verified; final smoke rerun pending
+- **Last verified:** 2026-09-25 UTC
 
 This record separates facts verified from deployed contracts and source-controlled deployment metadata from items
 that still require the DNNS owner's confirmation. It must not be marked accepted until every open item below has a
@@ -43,13 +43,23 @@ the same rules before making an RPC request.
 
 The DNNS owner confirmed that the Kamet v0 deployment in the table above remains the supported explorer interface,
 including RPC, TLD, registry, original resolver, wrapper-aware resolver, reverse registrar, and normalization rules.
-The owner nominated `kamet.litho` <-> `0xE9267bDf7084815B0754545049AE45FE744Aefa8` as the stable reverse-resolution
-fixture and approved the explorer policy of retaining no persistent positive or negative resolution cache. Reverse
-names remain displayable only after successful forward verification.
 
-This confirmation is not final acceptance. Its acceptance line still contains placeholders for the approver's full
-name/role and date, and is explicitly subject to successful smoke tests. The owner also committed to correcting the
-public documentation, but that correction is not yet live.
+The authoritative replacement acceptance fixture is:
+
+- Name: `kamet-validator.litho`
+- Address: `0xfF74E44E161B1d6e8ffCC4259749768F67dE2cB8`
+- Network: Kamet
+- Chain ID: `900523`
+
+The owner approved the explorer policy of retaining no persistent positive or negative resolution cache.
+Reverse names remain displayable only after successful forward verification.
+
+The replacement fixture is now configured on-chain and independently verified. Forward resolution succeeds,
+reverse resolution succeeds, and the reverse result forward-resolves to the same nominated address.
+
+The public DNNS documentation update was merged in
+[DNNS PR #2](https://github.com/KaJLabs/DNNS/pull/2) as
+`fea450bdf4886ad3d1a1b6afda41141ef0a766eb`.
 
 ## Live forward-resolution evidence
 
@@ -100,6 +110,29 @@ The focused explorer suites also passed 11/11 tests (`dnns-resolver.test.ts` and
 covering forward and reverse behavior, absent records, malformed names, provider/RPC failures, forward verification,
 and the no-persistent-result-cache boundary.
 
+## Replacement fixture verification — 2026-09-25
+
+The authoritative replacement fixture is:
+
+- `kamet-validator.litho`
+- `0xfF74E44E161B1d6e8ffCC4259749768F67dE2cB8`
+
+Independent live verification confirmed:
+
+- Registry owner matches the nominated address.
+- Base-registrar token owner matches the nominated address.
+- Forward resolution returns the nominated address.
+- Reverse resolution returns `kamet-validator.litho`.
+- The reverse result forward-resolves back to the same nominated address.
+
+Transaction evidence:
+
+- Commitment: `0x212413568e9d9e8e1fe66b8e197c0003c1319f607e376017d503083ff59bcb8d`
+- Registration: `0xc35b85b2d5254423d30956d826891330549ca61dec3a6481f2a0b7a9d493df0d`
+- Resolver: `0x85a08e3bd88905224242a0cef84545a2a121c1970b37d7e5aad52adfff2adb7a`
+- Forward address: `0x5556a0c008df708369a3db2c2ff0fb689fdbfe7429160ccb3c03ba53e554aebd`
+- Reverse record: `0xb32741c413c8567f4d18b13e2cd119b4f7fe382fca988ca0826390fa516f473b`
+
 ## Explorer behavior and automated gates
 
 - [x] Forward results are checksummed before navigation.
@@ -110,33 +143,25 @@ and the no-persistent-result-cache boundary.
 - [x] Components handle reverse-provider failures without an unhandled promise rejection.
 - [x] Record the merged PR, deployment run, and live explorer release below.
 
-## Documentation/interface discrepancy
+## Documentation/interface status
 
-The public [DNNS documentation](https://dnns.litho.ai/) links to
-[KaJLabs/DNNS](https://github.com/KaJLabs/DNNS). That repository was last updated at commit
-`3a0cd40df92b` and describes a newer Makalu-oriented reference architecture.
-Its Contracts link is broken, it does not link to the now-republished v0
-source or deployed addresses, and its network details do not match the Kamet
-v0 deployment used by the explorer. The DNNS owner must choose one of these
-outcomes:
+The public DNNS documentation has been updated to reflect the supported Kamet v0 explorer-resolution interface.
 
-1. Confirm the Kamet v0 deployment above remains the supported explorer resolution interface and update the public
-   documentation accordingly; or
-2. Provide the reviewed Makalu registry/resolver deployment metadata and migration date, after which the explorer
-   configuration and tests must be updated before acceptance.
+- Public documentation PR: [KaJLabs/DNNS #2](https://github.com/KaJLabs/DNNS/pull/2)
+- Merge commit: `fea450bdf4886ad3d1a1b6afda41141ef0a766eb`
 
-No network or contract migration should be inferred from documentation alone.
+The previously recorded network/interface documentation discrepancy is therefore resolved.
 
 ## Remaining owner acceptance
 
 - [x] DNNS owner confirms which deployed interface is supported for the Makalu explorer.
-- [ ] DNNS owner corrects/publishes authoritative network IDs, contract addresses, normalization, and reverse rules.
+- [x] DNNS owner corrects/publishes authoritative network IDs, contract addresses, normalization, and reverse rules.
 - [x] DNNS owner nominates one stable reverse record and supplies its expected name/address pair.
-- [ ] DNNS owner configures the nominated reverse record on-chain; the live reverse node still has no resolver.
+- [x] DNNS owner configures the nominated reverse record on-chain.
 - [ ] Dev Infra repeats live forward, missing-name, malformed-name, RPC-failure, and forward-verified reverse tests
       against the deployed explorer release.
-- [x] DNNS owner approves the no-persistent-cache policy or supplies bounded positive/negative TTL requirements.
-- [ ] DNNS owner signs the acceptance fields below.
+- [x] DNNS owner approves the no-persistent-cache policy.
+- [x] DNNS owner signs the acceptance fields below.
 
 ## Evidence and approval
 
@@ -147,7 +172,7 @@ No network or contract migration should be inferred from documentation alone.
 | Deployment workflow/run  | [31826844798](https://github.com/KaJLabs/Lithosphere/actions/runs/31826844798) — PASS                                         |
 | Deployed release         | `c5448da8c617cf06083f9c08be7e08bd1b5cb6b2`                                                                                    |
 | Live smoke-test artifact | Public version, home, blocks, shipped-bundle, and two forward-record probes recorded in the MX-04 handoff ledger (2026-08-14) |
-| Owner-input record       | [PR #217](https://github.com/KaJLabs/Lithosphere/pull/217), merged as `bdf2f0a47c331845d830e7c41a18565323572d03`                    |
-| DNNS approver            | Pending                                                                                                                       |
-| Approval date            | Pending                                                                                                                       |
-| Approval evidence        | Pending                                                                                                                       |
+| Owner-input record       | [PR #217](https://github.com/KaJLabs/Lithosphere/pull/217), merged as `bdf2f0a47c331845d830e7c41a18565323572d03`              |
+| DNNS approver            | Alex Kobzev                                                                                                                   |
+| Approval date            | Sr Engineer                                                                                                                   |
+| Approval evidence        | Named acceptance plus DNNS PR #2 and the on-chain transaction evidence recorded above                                         |
