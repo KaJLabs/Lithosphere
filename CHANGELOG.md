@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.30.0](https://github.com/KaJLabs/Lithosphere/compare/v1.29.0...v1.30.0) (2026-09-25)
+
+
+### Features
+
+* add validator explorer details ([b60df4a](https://github.com/KaJLabs/Lithosphere/commit/b60df4a0deae773cb45764d10313a5d4d26f3c04))
+* **explorer:** ship validator explorer and LithoScan branding ([acb3ff6](https://github.com/KaJLabs/Lithosphere/commit/acb3ff6a4ade6372e8959ce4bd2a3a5ec5fab9c6))
+* **multx:** add explicit EVM-first escrow rollout profile ([f82f660](https://github.com/KaJLabs/Lithosphere/commit/f82f660f324e1d835f43e85f0ef0ff70042f5929))
+* **multx:** enforce disabled production runtime ([649ae6c](https://github.com/KaJLabs/Lithosphere/commit/649ae6c3ffac98520e7f22b62ecd5f120ecb3e61))
+* **multx:** enforce disabled production runtime ([fac8905](https://github.com/KaJLabs/Lithosphere/commit/fac89057969b85d551d712dc4f1d93fbbc3f4bd7))
+* **multx:** publish native settlement review candidate ([d77bd42](https://github.com/KaJLabs/Lithosphere/commit/d77bd4214dbbbbcabe99df373a2d86ad572e7819))
+* **multx:** publish reviewed native settlement candidate ([35b731f](https://github.com/KaJLabs/Lithosphere/commit/35b731f67bdbed09bf9ecac5afbd260d085d5320))
+* **multx:** validate offline native swap route proposals ([611fe1f](https://github.com/KaJLabs/Lithosphere/commit/611fe1f7a37a43e1599428e7e32983f349686097))
+
+
+### Bug Fixes
+
+* **explorer:** harden validator metrics and branding ([7571e70](https://github.com/KaJLabs/Lithosphere/commit/7571e709c6c5d7743f7a3476a648bea0208ad6e1))
+* **explorer:** restore validator detail profiles ([25d93fe](https://github.com/KaJLabs/Lithosphere/commit/25d93febbffd8aaf6b54e01b24417cad567c0fd3))
+* **explorer:** restore validator detail profiles ([f9dc701](https://github.com/KaJLabs/Lithosphere/commit/f9dc701a555a8c0d9c5d98d745fb9f36b9ec49f5))
+* **explorer:** unblock validator deployment ([f80f8be](https://github.com/KaJLabs/Lithosphere/commit/f80f8be950c7128c75eec2c74149a14ac3451087))
+* **multx:** close disabled-runtime evidence gaps ([6aabaf1](https://github.com/KaJLabs/Lithosphere/commit/6aabaf171940acf25354911155a1982d40011596))
+* **multx:** close disabled-runtime evidence gaps ([108db8a](https://github.com/KaJLabs/Lithosphere/commit/108db8a7b80e294fc6c44daecf97683440983847))
+* **multx:** close native candidate review findings ([6e9ed15](https://github.com/KaJLabs/Lithosphere/commit/6e9ed15e483fd518adb448bf7909b1463aa65a14))
+* **multx:** close native candidate review findings ([9af7ccc](https://github.com/KaJLabs/Lithosphere/commit/9af7cccc7aac7392633ef974fecfdc59d48e100d))
+* **multx:** compile review artifacts before API rehearsal ([e0ce199](https://github.com/KaJLabs/Lithosphere/commit/e0ce199b20f9354d0123fd1b59256d8916867181))
+* **multx:** expose disabled API on loopback network ([369b15a](https://github.com/KaJLabs/Lithosphere/commit/369b15a972e41fb499ff47f1c098fe21b98853bc))
+* **multx:** harden contract toolchain dependencies ([8d7b403](https://github.com/KaJLabs/Lithosphere/commit/8d7b40355714dad3de29afecf0cdc600c2a31037))
+* **multx:** harden contract toolchain dependencies ([2fed638](https://github.com/KaJLabs/Lithosphere/commit/2fed638c9f3bff26d19c1c46c8f4b9a61011bf29))
+* **multx:** harden reviewed API runtime image ([d2e4b39](https://github.com/KaJLabs/Lithosphere/commit/d2e4b39ade7971f4c3d94dd971e5125d2eb3073e))
+* **multx:** harden reviewed API runtime image ([c9cd3d8](https://github.com/KaJLabs/Lithosphere/commit/c9cd3d8fcf6d029c7993d9e50c4e6cd21eac5937))
+* **multx:** make disabled staging loopback verification reachable ([7fdb6b9](https://github.com/KaJLabs/Lithosphere/commit/7fdb6b9224674c6bc9e1ad041f0759803ca1ec30))
+* **multx:** pin reviewed fallback identity and verify runtime ([465f686](https://github.com/KaJLabs/Lithosphere/commit/465f6868555ba528d1d9417885a791ae573bbd5a))
+* **multx:** prepare exact three-of-five bridge policy candidate ([1fe3499](https://github.com/KaJLabs/Lithosphere/commit/1fe3499a9c76b8d453f04ee4f44ce7d82f59031e))
+* **multx:** preserve evidence markdown values ([f02a9fe](https://github.com/KaJLabs/Lithosphere/commit/f02a9fe3e970fc48e439c7cc118079cd0a5e17d2))
+* **quantt:** use approved quantts.ai hostname ([bd21503](https://github.com/KaJLabs/Lithosphere/commit/bd21503968e85b949bfd26c7cb7023a1815c66e0))
+* use approved quantts.ai hostname ([222ac1f](https://github.com/KaJLabs/Lithosphere/commit/222ac1f9933081fcf75a5d2bd08519df01ca4cf5))
+
 ## [1.29.0](https://github.com/KaJLabs/Lithosphere/compare/v1.28.2...v1.29.0) (2026-09-09)
 
 
