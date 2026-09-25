@@ -143,7 +143,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-06 | Validator cleanup and safety | Tracked three-node mainnet gates are evidenced; no separate Makalu-node cleanup scope is recorded | COMPLETE | Continue routine mainnet monitoring; obtain a Makalu inventory and owners if the client intends a distinct testnet cleanup. |
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
-| MX-04 | DNNS | Explorer hardening is deployed; owner confirmed the Kamet v0 interface, nominated `kamet.litho` as the reverse fixture, and accepted no persistent cache; live reverse, corrected public docs, and named acceptance remain open | EXTERNAL BLOCKER | DNNS owner configures the nominated reverse record, publishes corrected authoritative documentation, and supplies the named approver/date; Dev Infra then repeats the complete live smoke matrix. |
+| MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
 | MX-05 | Quantt | Approved `quantts.ai` boundary merged and deployed; adapter remains disabled | EXTERNAL BLOCKER | Obtain the exact API contract, credential, and product acceptance. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; KaJ Labs / Litho Foundation assigned the `@jkasr` / `@lithoagent` rotation to all RFC 0002 authorities; four tools remain specification-only and there is no deployable compiler/public release | EXTERNAL BLOCKER | The assigned rotation must resolve RFC 0002 rows L-01 through R-01 and the conformance-corpus change process before compiler or public-release work. |
@@ -156,7 +156,7 @@ to the next executable stream without pretending the blocked stream is complete.
 1. [ ] **MX-01 MultX / Lithoswap** — consolidated 3-of-5 source accepted and five hosts baseline-prepared; custody, governance, operational readiness, paused deployment, canary, and activation approvals remain.
 2. [x] **MX-06 Validator cleanup and safety** — complete; the missing historical PR #17 window artifact is preserved and accepted through private PR #23 rather than reconstructed.
 3. [ ] **MX-03 Thanos Wallet** — deployed; waiting on wallet-team acceptance.
-4. [ ] **MX-04 DNNS** — deployed; waiting on DNNS-owner acceptance inputs.
+4. [x] **MX-04 DNNS** — complete; authoritative documentation, live forward-confirmed reverse fixture, final smoke matrix, and named acceptance are recorded.
 5. [ ] **MX-05 Quantt** — hostname correction deployed; waiting on the exact API contract, credential, and product acceptance.
 6. [ ] **MX-07 Developer toolchain** — separate major compiler/release program.
 7. [ ] **MX-02 LEP100 faucet assets** — deferred by the client on 2026-08-23; retain safeguards and make no changes.
@@ -594,16 +594,16 @@ Evidence:
 
 **Owners:** Dev Infra + DNNS team
 
-**Current state:** Forward `.litho` search and reverse address display are merged and deployed. Direct source and
-on-chain verification identified the supported deployed v0 as a Kamet-only (`900523`) registry at
-`0x316dc15bF377F7187e5BE38BA19e673Ca823d1ab` through `https://rpc-3.litho.ai`. All nine reserved names resolve to
-the deployment address. PR #86 merged and deployed hardening that removes process-lifetime negative caching,
-separates an RPC failure
-from a missing record, enforces the deployed 2LD normalization rules, and forward-verifies reverse names before
-display. Protected run `31826844798` passed the deployment and public health gates for release
-`c5448da8c617cf06083f9c08be7e08bd1b5cb6b2`. The public documentation describes a different Makalu-oriented
-reference architecture without deployed addresses, and the deployed v0 currently has no reverse record for the
-shared reserved-name address. All executable repository work is complete; the stream is now externally blocked.
+**Current state:** COMPLETE. Forward `.litho` search and reverse address display are merged and deployed. Direct
+source and on-chain verification identified the supported deployed v0 as a Kamet-only (`900523`) registry at
+`0x316dc15bF377F7187e5BE38BA19e673Ca823d1ab` through `https://rpc-3.litho.ai`. PR #86 merged and deployed hardening
+that removes process-lifetime result caching, separates RPC failures from missing records, enforces the deployed 2LD
+normalization rules, and forward-verifies reverse names before display. Protected run `31826844798` passed the
+deployment and public health gates for release `c5448da8c617cf06083f9c08be7e08bd1b5cb6b2`. Public DNNS PRs #1 and #2
+publish the authoritative Kamet interface and final fixture. `kamet-validator.litho` now resolves forward to
+`0xfF74E44E161B1d6e8ffCC4259749768F67dE2cB8`; the same address resolves in reverse to that name, and the final
+forward-confirmed reverse check passes. Alex Kobzev, Sr Engineer, accepted the completed matrix at
+2026-09-25 00:46:16 UTC.
 
 Completed or evidenced:
 
@@ -621,32 +621,38 @@ Completed or evidenced:
 - [x] Protected deployment run `31826844798` passed image, deploy, and public health gates (2026-08-14).
 - [x] Public release SHA, home, blocks, shipped validation text, and two live forward records were reverified after
       deployment.
-- [x] DNNS owner confirmed the Kamet v0 interface and normalization rules, nominated
-      `kamet.litho` <-> `0xE9267bDf7084815B0754545049AE45FE744Aefa8`, and approved no persistent positive or
+- [x] DNNS owner confirmed the Kamet v0 interface and normalization rules and approved no persistent positive or
       negative resolution cache (2026-09-24).
 - [x] Fresh transaction-free verification reconfirmed chain ID `900523`, registry bytecode, and all nine forward
       fixtures; 11/11 focused missing/malformed/provider/reverse-safety tests passed (2026-09-23 20:13:57 UTC).
 - [x] PR #217 recorded the owner confirmation and verified live gaps, passed all repository checks, and merged as
       `bdf2f0a47c331845d830e7c41a18565323572d03` (2026-09-23).
+- [x] Public DNNS PR #1 published authoritative Kamet IDs, contracts, normalization, reverse rules, and cache policy;
+      PR #2 published the final fixture and merged as `fea450bdf4886ad3d1a1b6afda41141ef0a766eb`.
+- [x] `kamet-validator.litho` was registered to `0xfF74E44E161B1d6e8ffCC4259749768F67dE2cB8`; its forward and reverse records
+      are live and forward-confirmed.
+- [x] Final live checks and E2E Smoke #138 passed, together with `test/dnns.test.tsx` and
+      `test/dnns-resolver.test.ts` (2026-09-25).
+- [x] Alex Kobzev, Sr Engineer, supplied named acceptance at 2026-09-25 00:46:16 UTC.
 
-Remaining actions:
+Closure actions:
 
 - [x] DNNS owner confirms the verified Kamet v0 deployment remains the supported explorer interface or provides a
       reviewed replacement deployment and migration date.
-- [ ] DNNS owner updates public documentation with authoritative network IDs, contract addresses, normalization,
-      and reverse-record rules; current public reference material conflicts with deployed v0.
+- [x] DNNS owner updates public documentation with authoritative network IDs, contract addresses, normalization,
+      and reverse-record rules.
 - [x] DNNS owner nominates one stable reverse record and supplies its expected address/name pair.
-- [ ] DNNS owner configures the nominated reverse record; its live reverse node still returns the zero resolver.
+- [x] DNNS owner configures the nominated reverse record.
 - [x] Agree on the no-persistent-cache policy or provide bounded positive/negative TTL requirements.
-- [ ] Smoke-test forward, reverse, missing/malformed names, and RPC failure from the newly deployed explorer release.
-- [ ] Obtain DNNS-team acceptance.
+- [x] Smoke-test forward, reverse, missing/malformed names, and RPC failure from the deployed explorer release.
+- [x] Obtain DNNS-team acceptance.
 
 Acceptance criteria:
 
-- [ ] Two known names resolve forward to their expected checksum addresses in the live explorer.
-- [ ] At least one expected reverse record renders on a live address page.
+- [x] Two known names resolve forward to their expected checksum addresses in the live explorer.
+- [x] At least one expected reverse record renders on a live address page.
 - [x] Missing names, resolver failures, normalization, and cache refresh behavior are documented and tested.
-- [ ] DNNS approver, date, and evidence are recorded.
+- [x] DNNS approver, date, and evidence are recorded.
 
 Evidence:
 
@@ -657,8 +663,13 @@ Evidence:
 - `Makalu/explorer/test/dnns-resolver.test.ts`
 - `docs/dnns-acceptance.md`
 - Public DNNS documentation: `https://dnns.litho.ai/`
+- Public documentation update: `https://github.com/KaJLabs/DNNS/pull/2`
 - Review PR: `https://github.com/KaJLabs/Lithosphere/pull/86`
 - Deployment run: `https://github.com/KaJLabs/Lithosphere/actions/runs/31826844798`
+- Final E2E Smoke #138: `https://github.com/KaJLabs/Lithosphere/actions/runs/36076562729`
+- Registration transaction: `0xc35b85b2d5254423d30956d826891330549ca61dec3a6481f2a0b7a9d493df0d`
+- Forward-record transaction: `0x5556a0c008df708369a3db2c2ff0fb689fdbfe7429160ccb3c03ba53e554aebd`
+- Reverse-record transaction: `0xb32741c413c8567f4d18b13e2cd119b4f7fe382fca988ca0826390fa516f473b`
 
 ## MX-05 — Quantt integration
 
@@ -1142,6 +1153,7 @@ Evidence:
 | 2026-09-14 | MX-01 schema-v2 plan pinning | PRIVATE PR MERGED, NO RUN AUTHORIZED | Private PR #30 at signed `bachal-mb` head `9044ca6c248ca2a3bb632e36acbdcdfaea23c1d2` merged as `d2b9eb11b9e7d4054133a57f6d6ac64f3b8e753f`; GitHub reports valid signatures for both commits. It pins the accepted v0.9.2 source commit, Autha receipt reference, reviewed collector commit, and collector SHA-256 in the example schema-v2 plan. CI `offline-verifier` passed, unresolved operational inputs remain fail-closed, and GitHub records no submitted PR #30 review. |
 | 2026-09-20 | Thanos public baseline | PASS, OWNER ACCEPTANCE OPEN | `/signin` and a valid-address `/api/auth/nonce` request return HTTP 200. The wallet-team browser matrix, low-value signed transaction, and named acceptance remain external. |
 | 2026-09-20 | DNNS acceptance baseline | PASS, EXTERNAL BLOCKERS UNCHANGED | Transaction-free preflight reconfirmed Kamet chain `900523`, registry bytecode, and all nine forward fixtures at the expected checksum address. No reverse resolver is configured; public documentation still omits Kamet `900523` and the verified registry address. |
+| 2026-09-25 | MX-04 final acceptance | COMPLETE | Public documentation is corrected; `kamet-validator.litho` forward/reverse resolution and forward confirmation pass; E2E Smoke #138 and both focused DNNS suites pass; Alex Kobzev, Sr Engineer, accepted at 2026-09-25 00:46:16 UTC. |
 | 2026-09-20 | Quantt fail-closed baseline | PASS (DISABLED), OWNER INPUTS OPEN | `/quantt` returns HTTP 200, status remains `configured: false` with `apiOrigin: null`, insights fail closed with HTTP 503, research returns HTTP 200, and standards-valid `dev.quantt.at` TLS verification still fails. |
 | 2026-09-20 | Quantt hostname correction | MERGED, DEPLOYED, DISABLED | The owner confirmed `quantts.ai` as the hostname boundary. PR #194 passed all checks and merged as `bd21503968e85b949bfd26c7cb7023a1815c66e0`; protected run `35519157421` passed deployment and public health gates. Live status is still safely unconfigured with null API origin, insights return HTTP 503, and the corrected developer link is present. The exact API contract, credential, and product acceptance remain open. |
 | 2026-09-20 | MX-01 native-settlement repository gate | MERGED, OPERATIONAL ACCEPTANCE OPEN | PR #191 remediated the recorded review findings. All reported PR #188 checks passed, `@amirmughal22` approved exact head `893eced194661c4c6625b3b6bd52155d6d3c6856`, and PR #188 merged as `35b731f67bdbed09bf9ecac5afbd260d085d5320`. The merge commit is signature-valid; the approved head is reported unsigned. No MultX deployment or activation is inferred, and Autha O-01/package O-02 plus private production inputs remain open. |
@@ -1150,6 +1162,21 @@ Evidence:
 | 2026-09-21 | Makalu validator onboarding | MERGED, PUBLISHED SAFETY BASELINE | Signed-current-main replacement PR #200 passed all checks and merged as signature-valid `f5970f939e97dbc3ce359d95b75077d6b6a95d13`; unsigned predecessor PR #187 was closed. The guide and Docsify mirror are byte-identical at SHA-256 `78166085e63cff888761996cd3440ea14845f083888f1a3053eb6cd17dba28d5`, and the published Makalu genesis is preserved at SHA-256 `a1196fa567400adea3962ea2c0cf24c5d65d07bfca2be7cf6b4dea7cc733935a`. Live chain IDs and staking/slashing parameters matched the guide. |
 
 ## Change log
+
+### 2026-09-25 — MX-04 DNNS accepted and closed
+
+- Previous gate/status: external blocker on corrected public documentation, a live reverse fixture, the final smoke
+  matrix, and named acceptance.
+- New gate/status: `COMPLETE`.
+- What changed: the DNNS owner registered `kamet-validator.litho` to
+  `0xfF74E44E161B1d6e8ffCC4259749768F67dE2cB8`, configured matching forward and reverse records, and published the
+  replacement fixture in the authoritative public documentation.
+- Evidence: DNNS PR #2 merged as `fea450bdf4886ad3d1a1b6afda41141ef0a766eb`; the five on-chain transaction
+  references are recorded in `docs/dnns-acceptance.md`; final live verification, E2E Smoke #138,
+  `test/dnns.test.tsx`, and `test/dnns-resolver.test.ts` all passed.
+- Acceptance: Alex Kobzev, Sr Engineer, 2026-09-25 00:46:16 UTC.
+- Remaining blocker or next action: none for MX-04; retain evidence and renew the fixture before expiry.
+- Updated by: `bachal-mb`.
 
 ### 2026-09-21 — Autha staging provenance findings closed
 
