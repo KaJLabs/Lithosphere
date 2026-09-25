@@ -256,8 +256,8 @@ jobs:
         working-directory: ./Makalu/explorer
         run: |
           if [ -f package.json ] && grep -q '"test"' package.json; then
-            pnpm install --frozen-lockfile
-            pnpm test:coverage
+            pnpm --ignore-workspace install --frozen-lockfile
+            pnpm --ignore-workspace test:coverage
           else
             echo "explorer has no test script, skipping"
           fi
