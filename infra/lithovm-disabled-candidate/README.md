@@ -5,6 +5,9 @@ source. It does **not** modify that release's immutable manifest, build script,
 or artifacts. It is not a deployable release. No Makalu or mainnet activation,
 LAX deployment, or MultX change is included.
 
+The cross-repository [security-review handoff](https://github.com/bachal-mb/Lithic/blob/feat/deployment-interface/docs/SECURITY_REVIEW_HANDOFF_2026_09_27.md)
+lists scope, trust assumptions, evidence and remaining approval gates.
+
 The overlay contains only the keeper call hook, the disabled ordinary-build
 implementation, the tagged lab implementation and tests, and a correction to
 an existing keeper test fixture that attempted deployment from a module
@@ -27,6 +30,10 @@ for a network binary without separate consensus/security/deployment approval.
    release build process. Do not carry a local filesystem replacement into
    a release manifest. The tagged signed-message test embeds pinned Counter
    bytecode and no longer invokes a sibling compiler executable.
+   Build the native FFI library with `cargo +1.96.0 build --locked -p
+   lithovm-ffi`. From the disposable Evmos checkout, add
+   `go mod edit -require=lithic.local/native-chain-lab@v0.0.0` and
+   `go mod edit -replace=lithic.local/native-chain-lab=/absolute/path/to/Lithic/integration/native-chain`.
 4. Run `go test -mod=mod -count=1 ./x/evm/keeper` and
    `go test -mod=mod -tags lithovm_chain_lab -count=1 ./x/evm/keeper`.
    The tagged test still needs the native-chain Go module, but does not depend

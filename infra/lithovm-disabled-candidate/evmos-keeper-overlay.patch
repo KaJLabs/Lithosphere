@@ -1,41 +1,89 @@
 diff --git a/x/evm/keeper/call_evm_test.go b/x/evm/keeper/call_evm_test.go
-index 372e5c2..21782b7 100644
+index 372e5c2..f889807 100644
 --- a/x/evm/keeper/call_evm_test.go
 +++ b/x/evm/keeper/call_evm_test.go
-@@ -96,7 +96,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+@@ -46,16 +46,19 @@ func (suite *KeeperTestSuite) TestCallEVM() {
+ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
+ 	wevmosContract := common.HexToAddress(types.WEVMOSContractMainnet)
++	moduleSender := func() common.Address { return types.ModuleAddress }
++	emptySender := func() common.Address { return common.Address{} }
++	walletSender := func() common.Address { return suite.keyring.GetAddr(0) }
+ 	testCases := []struct {
+ 		name     string
+-		from     common.Address
++		from     func() common.Address
+ 		malleate func() []byte
+ 		deploy   bool
+ 		expPass  bool
+ 	}{
+ 		{
+ 			"unknown method",
+-			types.ModuleAddress,
++			moduleSender,
+ 			func() []byte {
+ 				account := utiltx.GenerateAddress()
+ 				data, _ := erc20.Pack("", account)
+@@ -66,7 +69,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 		},
+ 		{
+ 			"pass",
+-			types.ModuleAddress,
++			moduleSender,
+ 			func() []byte {
+ 				account := utiltx.GenerateAddress()
+ 				data, _ := erc20.Pack("balanceOf", account)
+@@ -77,7 +80,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 		},
+ 		{
+ 			"fail empty data",
+-			types.ModuleAddress,
++			moduleSender,
+ 			func() []byte {
+ 				return []byte{}
+ 			},
+@@ -87,7 +90,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 
+ 		{
+ 			"fail empty sender",
+-			common.Address{},
++			emptySender,
+ 			func() []byte {
+ 				return []byte{}
+ 			},
+@@ -96,7 +99,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
  		},
  		{
  			"deploy",
 -			types.ModuleAddress,
-+			common.Address{}, // resolved to a funded EOA below
++			walletSender,
  			func() []byte {
  				ctorArgs, _ := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack("", "test", "test", uint8(18))
  				data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
-@@ -107,7 +107,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+@@ -107,7 +110,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
  		},
  		{
  			"fail deploy",
 -			types.ModuleAddress,
-+			common.Address{}, // resolved to a funded EOA below
++			walletSender,
  			func() []byte {
  				params := suite.network.App.EvmKeeper.GetParams(suite.network.GetContext())
  				params.AccessControl.Create = evmtypes.AccessControlType{
-@@ -132,7 +132,11 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+@@ -132,9 +135,9 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
  			var err error
  
  			if tc.deploy {
 -				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from, nil, data, true)
-+				from := tc.from
-+				if from == (common.Address{}) {
-+					from = suite.keyring.GetAddr(0)
-+				}
-+				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), from, nil, data, true)
++				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from(), nil, data, true)
  			} else {
- 				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from, &wevmosContract, data, false)
+-				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from, &wevmosContract, data, false)
++				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from(), &wevmosContract, data, false)
  			}
+ 
+ 			if tc.expPass {
 diff --git a/x/evm/keeper/lithovm_candidate_apply_test.go b/x/evm/keeper/lithovm_candidate_apply_test.go
 new file mode 100644
-index 0000000..c11318e
+index 0000000..d398b1c
 --- /dev/null
 +++ b/x/evm/keeper/lithovm_candidate_apply_test.go
 @@ -0,0 +1,107 @@
@@ -58,7 +106,7 @@ index 0000000..c11318e
 +// Compiled from integration/native-chain/testdata/counter.lithic at Lithic
 +// 4de97ab806ebec5b05c4eeab238281320b973f65. Keeping the artifact in this
 +// test makes the signed-message fixture independent of a sibling checkout.
-+// Source SHA-256: ac549823aa139c6df36515d31a9e35a2959187998997f060d9a57e18f57c5c28.
++// Compiler sourceHash (Keccak-256): ac549823aa139c6df36515d31a9e35a2959187998997f060d9a57e18f57c5c28.
 +const candidateCounterBytecode = "4c4954484f564d0c000200066e756d6265720100046e616d65060001000862616c616e63657300010402000100074368616e676564000100066e756d626572010003000a696e697469616c697a6500010103040002040000000102000002000101030000000000000000000000000000000000000000000000000000000000000001000373657400020103010400040400000001020000050000000100010200000b00010200010200010a000000036765740000010300010a0000"
 +
 +// The regular Evmos transition reaches the tagged gateway call hook. A call

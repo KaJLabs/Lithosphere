@@ -3,9 +3,9 @@ Status: lab-only, not a production release or deployment approval
 Base Evmos commit: eca13ef2521a9ef13c32e80b1b147230bdb155b5
 Base Lithosphere release manifest: ../litho-mainnet-9005/bin/lithod-release-manifest.sh (litho-l1-v20.0.0-r1)
 Lithic toolchain commit: 4de97ab806ebec5b05c4eeab238281320b973f65
-Chain lab commit: ab7d632c8e7ff362e7b240f8ab4be6c830008ade
+Chain lab commit: 0e2522d88fdb3d93a83ed0c833b840ca44ae12ac
 Overlay: evmos-keeper-overlay.patch
-Overlay SHA-256: 5566ec8d7bfbb4b5998cb176e72ad428e350ac5cfc7b4279edeca6586bdb4dcd
+Overlay SHA-256: cec13ee2fecb097a3cea11d9a74fb65bef96dc2892cc110908799c1b621cf694
 Lab-only Go build tag: lithovm_chain_lab
 Normal build: no LithoVM gateway hook installed
 Tagged build: activates a laboratory gateway; never deploy this binary
