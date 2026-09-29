@@ -51,7 +51,7 @@ export default function BlocksPage() {
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${isSyncing ? 'bg-amber-400' : 'bg-emerald-400'}`} />
               <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isSyncing ? 'bg-amber-500' : 'bg-emerald-500'}`} />
             </span>
-            <span className={`text-xs font-medium uppercase tracking-wide ${isSyncing ? 'text-amber-300' : 'text-emerald-400'}`}>
+            <span className={`text-xs font-medium uppercase tracking-wide ${isSyncing ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-400'}`}>
               {isSyncing ? 'Syncing' : 'Live'}
             </span>
           </div>
@@ -114,7 +114,7 @@ export default function BlocksPage() {
           >
             {/* Desktop row */}
             <div className="hidden md:grid grid-cols-[1fr_2fr_0.6fr_0.8fr_0.8fr] px-6 py-4 items-center">
-              <span className="font-mono font-medium text-emerald-300 hover:text-emerald-200">
+              <span className="font-mono font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200">
                 {formatNumber(block.height)}
               </span>
               <span className="font-mono text-sm text-white/60 truncate">
@@ -136,7 +136,7 @@ export default function BlocksPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-white/40">Block</span>
-                  <span className="font-mono font-medium text-emerald-300">
+                  <span className="font-mono font-medium text-emerald-700 dark:text-emerald-300">
                     {formatNumber(block.height)}
                   </span>
                 </div>
