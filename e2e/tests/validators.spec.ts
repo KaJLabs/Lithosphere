@@ -64,6 +64,8 @@ test.describe('Validator explorer', () => {
     await expect(page.getByText('Delegator Shares').locator('..').getByText('125,000', { exact: true })).toBeVisible();
     await expect(page.getByText('Tokens per Share')).toBeVisible();
     await expect(page.getByText('Minimum Self Delegation').last()).toBeVisible();
+    await expect(page.getByText('Operator Address', { exact: true }).locator('..').getByRole('button', { name: 'Copy to clipboard' })).toBeVisible();
+    await expect(page.getByText('Consensus Address', { exact: true }).locator('..').getByRole('button', { name: 'Copy to clipboard' })).toBeVisible();
     expect(pageErrors).toEqual([]);
   });
 });

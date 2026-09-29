@@ -130,8 +130,8 @@ export default function ValidatorDetailPage() {
       <section className="card p-6">
         <h2 className="text-lg font-semibold mb-4">Validator Information</h2>
         <div className="grid gap-x-8 md:grid-cols-2">
-          <Detail label="Operator Address" value={data.address} mono />
-          <Detail label="Consensus Address" value={data.consensusAddress} mono />
+          <Detail label="Operator Address" value={data.address} mono copy />
+          <Detail label="Consensus Address" value={data.consensusAddress} mono copy />
           <Detail label="Max Commission Change" value={data.commissionMaxChange} />
           <Detail label="Missed Blocks" value={data.missedBlocks ?? '—'} />
           {data.website && (
@@ -160,12 +160,15 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Detail({ label, value, mono, link }: { label: string; value: string | null; mono?: boolean; link?: boolean }) {
+function Detail({ label, value, mono, link, copy }: { label: string; value: string | null; mono?: boolean; link?: boolean; copy?: boolean }) {
   return (
     <div className="detail-row">
       <div className="detail-label">{label}</div>
-      <div className={`detail-value ${mono ? 'font-mono' : ''}`}>
-        {link && value ? <a href={value} target="_blank" rel="noreferrer">{value}</a> : value || '—'}
+      <div className="flex min-w-0 items-start gap-1">
+        <div className={`detail-value min-w-0 ${mono ? 'font-mono' : ''}`}>
+          {link && value ? <a href={value} target="_blank" rel="noreferrer">{value}</a> : value || '—'}
+        </div>
+        {copy && value && <CopyButton text={value} />}
       </div>
     </div>
   );
