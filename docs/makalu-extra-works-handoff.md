@@ -539,9 +539,9 @@ implemented. PR #83 merged the discovery hardening and acceptance record as
 Its first deployment was rolled back safely because the core explorer health gate incorrectly required the paused
 MX-02 faucet schema. PR #84 isolated the core deployment, and run `31822244365` attempt 2 deployed release
 `4fdb3ca5a4bcb0d24978189ce158028ae6247984` successfully without touching the faucet. Only wallet-team browser
-acceptance and a low-value signed transaction remain open. On 2026-09-24, the currently published Chrome extension
-`0.9.40` was matched to exact upstream source commit `13f7a25be34aeef1a7a3fc668d8e33b4b531ff8a`; the fail-closed
-transaction-free preflight was re-pinned to that release.
+acceptance and a low-value signed transaction remain open. On 2026-09-30, the currently published Chrome extension
+`1.0.2` was matched to upstream extension-release commit `38c88287af19433d34274604d9070d228d97bc0d`; the fail-closed
+transaction-free preflight was re-pinned to that release and passed against live Makalu.
 
 Completed or evidenced:
 
@@ -554,6 +554,9 @@ Completed or evidenced:
       EIP-6963 with RDNS `fi.thanos.wallet`, exposes `window.thanos`, and supports EIP-1193 signing.
 - [x] Published Chrome version `0.9.40` was verified on 2026-09-24 against exact source commit
       `13f7a25be34aeef1a7a3fc668d8e33b4b531ff8a`, including the required provider and signing markers.
+- [x] Published Chrome version `1.0.2` was verified on 2026-09-30 against upstream extension-release commit
+      `38c88287af19433d34274604d9070d228d97bc0d`; the provider markers, sign-in route, unauthenticated-session
+      rejection, and Makalu chain `700777` passed at `2026-09-30T15:46:16.935Z` without a transaction.
 - [x] The production Makalu API uses a present, non-placeholder `AUTH_SESSION_SECRET` of at least 32 characters;
       the value was not exposed (2026-08-14).
 - [x] Automated coverage includes late EIP-6963 announcement and the official `window.thanos` fallback.
@@ -563,7 +566,7 @@ Completed or evidenced:
 
 Remaining actions:
 
-- [ ] Wallet team tests published extension version `0.9.40` in Chrome/Chromium and records browser/version evidence.
+- [ ] Wallet team tests published extension version `1.0.2` in Chrome/Chromium and records browser/version evidence.
 - [ ] Test fresh install, late EIP-6963 announcement, user rejection, wrong chain, network switch, reconnect, sign-out,
       extension restart, and browser restart.
 - [ ] Submit an approved low-value signed transaction and verify it in Lithoscan.
@@ -589,6 +592,7 @@ Evidence:
 - `https://github.com/KaJLabs/Lithosphere/pull/84`
 - `https://github.com/KaJLabs/Lithosphere/actions/runs/31819790372`
 - `https://github.com/KaJLabs/Lithosphere/actions/runs/31822244365`
+- `https://github.com/imasssad/Thanos-Wallet/actions/runs/35909170765`
 
 ## MX-04 — DNNS integration
 
@@ -1916,6 +1920,20 @@ Evidence:
 - Remaining blocker or next action: Thanos wallet team runs and signs the manual browser/transaction matrix using
   version `0.9.40`. Proposed DNNS names `cash.litho` and `dev.litho` remain unconfigured and require explicit owner,
   target-address, and registration authorization before use.
+- Updated by: `bachal-mb`.
+
+### 2026-09-30 — MX-03 published Thanos baseline advanced to 1.0.2
+
+- Previous gate/status: transaction-free acceptance baseline pinned to obsolete Chrome extension `0.9.40`.
+- New gate/status: baseline passes for published extension `1.0.2`; the wallet-team manual matrix, low-value Makalu
+  transaction, and named acceptance remain open.
+- What changed: pinned the public extension-release commit and reran the live fail-closed preflight.
+- Evidence: upstream release run `35909170765` at commit
+  `38c88287af19433d34274604d9070d228d97bc0d`; preflight passed at `2026-09-30T15:46:16.935Z` with provider markers,
+  `/signin` HTTP 200, unauthenticated `/api/auth/me` HTTP 401, and Makalu EVM chain ID `700777`. No wallet was
+  connected and no transaction was submitted.
+- Remaining blocker or next action: Thanos Wallet team executes and signs the version `1.0.2` manual matrix in
+  `docs/thanos-wallet-acceptance.md`.
 - Updated by: `bachal-mb`.
 
 ## Update template

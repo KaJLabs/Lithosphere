@@ -9,14 +9,14 @@ until every manual result and the approval record are filled with durable eviden
 | --- | --- | --- |
 | Target | `https://makalu.litho.ai/signin` | Live route |
 | Network | Makalu, EVM chain ID `700777` (`0xab169`) | Explorer network configuration |
-| Published Chrome extension | `0.9.40`, updated 2026-09-11 | Chrome Web Store item `jajfgpnlaoakklhnnchdpiglmkkpcehj`, checked 2026-09-24 |
-| Published-version source | `imasssad/Thanos-Wallet` commit `13f7a25be34aeef1a7a3fc668d8e33b4b531ff8a` | Declares `0.9.40`, EIP-6963, RDNS `fi.thanos.wallet`, `window.thanos`, and EIP-1193 signing |
+| Published Chrome extension | `1.0.2`, updated 2026-09-24 | Chrome Web Store item `jajfgpnlaoakklhnnchdpiglmkkpcehj`, checked 2026-09-30 |
+| Published-version source | `imasssad/Thanos-Wallet` commit `38c88287af19433d34274604d9070d228d97bc0d` | Latest successful public [extension-release workflow](https://github.com/imasssad/Thanos-Wallet/actions/runs/35909170765) for `1.0.2`; declares `1.0.2`, EIP-6963, RDNS `fi.thanos.wallet`, `window.thanos`, and EIP-1193 signing |
 | Explorer integration | EIP-6963 discovery plus verified `window.thanos` fallback | `Makalu/explorer/components/ThanosSignIn.tsx` |
 | Server authentication | Nonce-bound SIWE, one-time replay protection, HMAC bearer session | `Makalu/api/src/routes.ts` and focused tests |
 | Makalu session secret | Present, non-placeholder, and at least 32 characters | Value-free production-container check on 2026-08-14 |
 
 The upstream default branch may move beyond the Chrome Web Store release. Run acceptance only with published version
-`0.9.40` and the exact source commit pinned above. If the store version changes, re-pin the matching source commit
+`1.0.2` and the exact source commit pinned above. If the store version changes, re-pin the matching source commit
 and repeat the automated preflight before starting the manual matrix.
 
 Run the transaction-free baseline immediately before manual acceptance:
