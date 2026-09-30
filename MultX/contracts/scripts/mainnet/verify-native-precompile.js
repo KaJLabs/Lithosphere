@@ -57,8 +57,8 @@ function validateNativeEvidence(asset, bytes) {
 }
 
 function validateNativeCheckpoint(evidence, latestBlock, header, now = Date.now() / 1000) {
-  requireThat(Number.isSafeInteger(latestBlock) && latestBlock >= evidence.verificationBlock &&
-    latestBlock - evidence.verificationBlock <= 32, 'checkpoint outside latest 32 blocks');
+  requireThat(Number.isSafeInteger(latestBlock) && latestBlock === evidence.verificationBlock,
+    'checkpoint is not the latest observed block');
   requireThat(header && same(header.hash, evidence.verificationBlockHash), 'checkpoint header mismatch');
   requireThat(Number.isSafeInteger(header.timestamp) && now - header.timestamp <= 300 &&
     header.timestamp <= now + 5, 'checkpoint timestamp stale or future');

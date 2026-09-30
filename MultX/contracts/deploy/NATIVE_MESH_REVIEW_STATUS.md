@@ -1,21 +1,18 @@
 # MultX native-mesh review status
 
-Status: **BLOCKED_PENDING_SIGNER_EVIDENCE**
+Status: **BLOCKED_PENDING_AUTHA_REMEDIATION**
 
-The native-liquidity contract implementation is available for source review and
-testing. A deployable plan must not be generated yet.
+The Safe rotations and approved assignment delta are recorded. The September 30
+native-mesh review did not approve deployment and opened NM-H01, NM-M01,
+NM-M02, NM-M03, retained LITHO H-01 and release-evidence gates.
 
-`0x4E7d740Af889EADcC902F9304315677E479aB3b6` is recorded as unavailable and has
-been removed from both Safes on Ethereum, BNB Chain and Base. The approved
-bridge-signer replacement is
-`0x3fe6eD17fda54607f06E347158317A0bEE1B1202`; the approved fee payer is
-`0x801E74047FDb7dE035e81f3Bc64E2C51661d5Ba0`; and the new Governance Safe owner
-is `0x8A21FeDfB1782F446C3b6D3062dd31E3b5392d4c`.
+This candidate implements the required settlement state machine, canonical
+operation IDs, authenticated single-block preflight, approved runtime bindings,
+post-deployment verifier, current-checkpoint LITHO verification and immutable
+native-vault evidence. Contract, signer and clean-room JSON-RPC tests must be
+retained with the resubmission.
 
-Both Safe rotations and their thresholds are verified. Before the deployment
-inputs can move to `READY_FOR_REVIEW`, the replacement bridge signer's custody,
-recovery and signing-policy evidence must be renewed and independently
-accepted.
-
-The plan builder enforces these gates. MultX, release signing, relaying and Swap
+The plan builder remains blocked until the updated candidate receives an
+independent disposition and the inputs are explicitly moved to
+`READY_FOR_REVIEW`. MultX, release signing, relaying, Swap, canary and activation
 remain disabled.

@@ -308,7 +308,7 @@ async function verifyDeploymentReadonly(manifest, approvedInputs, providerFactor
     const latestBlock = await provider.getBlockNumber();
     const nativeAsset = chain.chainId === 9005 ? plan.assets.find((asset) => asset.identityType === 'native-precompile') : undefined;
     const nativeEvidence = nativeAsset ? validateNativeEvidence(nativeAsset, approvedInputs.nativeEvidenceBytes) : undefined;
-    const verificationBlock = nativeEvidence ? nativeEvidence.verificationBlock : latestBlock;
+    const verificationBlock = latestBlock;
     const verificationHeader = await provider.getBlock(verificationBlock);
     if (!verificationHeader?.hash) throw new Error(`${chain.name} verification block hash is unavailable`);
     if (nativeEvidence) validateNativeCheckpoint(nativeEvidence, latestBlock, verificationHeader);

@@ -37,6 +37,10 @@ function checkInputs(input) {
   if (!Array.isArray(input.validators) || input.validators.length !== 5 || new Set(input.validators.map(x => x.toLowerCase())).size !== 5) throw Error('exact unique five-validator set required');
   if (!Array.isArray(input.chains) || input.chains.map(x => x.chainId).sort((a,b)=>a-b).join(',') !== '1,56,8453') throw Error('exact EVM initial chains required');
   for (const chain of input.chains) {
+    ethers.utils.getAddress(chain.safeImplementation);
+    for (const field of ['safeProxyRuntimeSha256','safeImplementationRuntimeSha256','fallbackHandlerRuntimeSha256','deterministicFactoryRuntimeSha256']) {
+      if (!/^[0-9a-f]{64}$/i.test(chain.runtimeIdentities?.[field] || '')) throw Error(`chain ${chain.chainId} invalid ${field}`);
+    }
     if (chain.confirmations !== 3) throw Error(`chain ${chain.chainId} confirmations must be 3`);
     for (const value of ['dailyDepositCapWei','dailyPayoutCapWei','reserveMinimumWei','reserveTargetWei']) if (!/^\d+$/.test(chain[value]) || BigInt(chain[value]) <= 0n) throw Error(`invalid ${value}`);
     if (BigInt(chain.reserveTargetWei) < BigInt(chain.reserveMinimumWei)) throw Error('reserve target below minimum');

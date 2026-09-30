@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "profile": "multx-native-evm-initial",
   "enabled": false,
-  "deploymentStatus": "BLOCKED_PENDING_SIGNER_EVIDENCE",
+  "deploymentStatus": "BLOCKED_PENDING_AUTHA_REMEDIATION",
   "knownUnavailableAddresses": [
     "0x4E7d740Af889EADcC902F9304315677E479aB3b6"
   ],
@@ -35,6 +35,13 @@
       "chainId": 1,
       "name": "Ethereum Mainnet",
       "nativeSymbol": "ETH",
+      "safeImplementation": "0x41675C099F32341bf84BFc5382aF534df5C7461a",
+      "runtimeIdentities": {
+        "safeProxyRuntimeSha256": "a8a0fbd3cdf49e751346664e01b529a58322a814cf8df8d85deb20e63bd6415e",
+        "safeImplementationRuntimeSha256": "79756c276443953adde61bbc2bfa134c03b35cf45181dab9d4f9503df22f45c8",
+        "fallbackHandlerRuntimeSha256": "8143b6ff3cf48028121244d88321907a1bddc24f1a6f12db01364511e816259a",
+        "deterministicFactoryRuntimeSha256": "687bc888d213f8eff1e6a982da794f24b835191feb99dd2cacfcd33a9e58fdea"
+      },
       "confirmations": 3,
       "dailyDepositCapWei": "10000000000000000000",
       "dailyPayoutCapWei": "10000000000000000000",
@@ -54,6 +61,13 @@
       "chainId": 56,
       "name": "BNB Smart Chain Mainnet",
       "nativeSymbol": "BNB",
+      "safeImplementation": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+      "runtimeIdentities": {
+        "safeProxyRuntimeSha256": "a8a0fbd3cdf49e751346664e01b529a58322a814cf8df8d85deb20e63bd6415e",
+        "safeImplementationRuntimeSha256": "c44b4d05d68c38405960653358247a004d6cf74c9ee508c250b7999f1aa8d524",
+        "fallbackHandlerRuntimeSha256": "8143b6ff3cf48028121244d88321907a1bddc24f1a6f12db01364511e816259a",
+        "deterministicFactoryRuntimeSha256": "687bc888d213f8eff1e6a982da794f24b835191feb99dd2cacfcd33a9e58fdea"
+      },
       "confirmations": 3,
       "dailyDepositCapWei": "100000000000000000000",
       "dailyPayoutCapWei": "100000000000000000000",
@@ -73,6 +87,13 @@
       "chainId": 8453,
       "name": "Base Mainnet",
       "nativeSymbol": "ETH",
+      "safeImplementation": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+      "runtimeIdentities": {
+        "safeProxyRuntimeSha256": "a8a0fbd3cdf49e751346664e01b529a58322a814cf8df8d85deb20e63bd6415e",
+        "safeImplementationRuntimeSha256": "c44b4d05d68c38405960653358247a004d6cf74c9ee508c250b7999f1aa8d524",
+        "fallbackHandlerRuntimeSha256": "8143b6ff3cf48028121244d88321907a1bddc24f1a6f12db01364511e816259a",
+        "deterministicFactoryRuntimeSha256": "687bc888d213f8eff1e6a982da794f24b835191feb99dd2cacfcd33a9e58fdea"
+      },
       "confirmations": 3,
       "dailyDepositCapWei": "10000000000000000000",
       "dailyPayoutCapWei": "10000000000000000000",

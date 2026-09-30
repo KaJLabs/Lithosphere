@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "planSha256": "<APPROVED_PLAN_SHA256>",
+  "chains": [
+    { "chainId": 1, "timelockTxHash": "<TX_HASH>", "vaultTxHash": "<TX_HASH>" },
+    { "chainId": 56, "timelockTxHash": "<TX_HASH>", "vaultTxHash": "<TX_HASH>" },
+    { "chainId": 8453, "timelockTxHash": "<TX_HASH>", "vaultTxHash": "<TX_HASH>" }
+  ]
+}

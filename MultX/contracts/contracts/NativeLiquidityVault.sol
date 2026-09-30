@@ -13,6 +13,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 ///      Timelock as its initial owner.
 contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
     enum DepositState { None, Pending, Finalized, Refunded }
+    enum ReleaseState { None, Released, Cancelled }
 
     struct Deposit {
         address depositor;
@@ -21,6 +22,8 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
         uint256 targetChain;
         uint256 quotedOutput;
         uint64 quoteExpiry;
+        address targetVault;
+        uint64 finalityDelaySeconds;
         DepositState state;
     }
 
@@ -28,16 +31,43 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
         bytes32 operationId;
         uint256 sourceChain;
         address sourceVault;
+        address sourceDepositor;
+        uint256 sourceNonce;
+        bytes32 clientReference;
         bytes32 sourceTxHash;
         uint256 sourceAmount;
         address payable recipient;
         uint256 outputAmount;
+        uint64 sourceQuoteExpiry;
+        uint64 releaseDeadline;
+        uint64 authorizationExpiry;
+    }
+
+    struct CancelRequest {
+        bytes32 operationId;
+        uint256 sourceChain;
+        address sourceVault;
+        address sourceDepositor;
+        uint256 sourceNonce;
+        bytes32 clientReference;
+        bytes32 sourceTxHash;
+        uint64 sourceQuoteExpiry;
+        uint64 releaseDeadline;
+        uint64 authorizationExpiry;
+    }
+
+    struct RefundRequest {
+        bytes32 operationId;
+        bytes32 cancellationTxHash;
+        bytes32 cancellationBlockHash;
+        uint256 cancellationBlockNumber;
         uint64 authorizationExpiry;
     }
 
     bytes32 private constant RELEASE_ACTION = keccak256("MULTX_NATIVE_RELEASE_V1");
     bytes32 private constant FINALIZE_ACTION = keccak256("MULTX_NATIVE_FINALIZE_V1");
     bytes32 private constant REFUND_ACTION = keccak256("MULTX_NATIVE_REFUND_V1");
+    bytes32 private constant CANCEL_ACTION = keccak256("MULTX_NATIVE_CANCEL_V1");
 
     mapping(address => bool) public isValidator;
     address[] public validators;
@@ -45,9 +75,11 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
 
     mapping(uint256 => bool) public supportedChains;
     mapping(uint256 => address) public sourceVaults;
+    mapping(uint256 => uint64) public routeFinalityDelaySeconds;
     uint256 public activeChainCount;
+    mapping(address => uint256) public depositNonces;
     mapping(bytes32 => Deposit) public deposits;
-    mapping(bytes32 => bool) public processedReleases;
+    mapping(bytes32 => ReleaseState) public releaseStates;
 
     uint256 public outstandingEscrow;
     uint256 public dailyDepositCap;
@@ -78,9 +110,10 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
     );
     event DepositFinalized(bytes32 indexed operationId, bytes32 indexed destinationTxHash);
     event DepositRefunded(bytes32 indexed operationId, address indexed depositor, uint256 amount);
+    event ReleaseCancelled(bytes32 indexed operationId, uint256 indexed sourceChain, bytes32 indexed sourceTxHash);
     event LiquidityFunded(address indexed funder, uint256 amount);
     event LiquidityWithdrawn(address indexed recipient, uint256 amount);
-    event RouteSet(uint256 indexed chainId, address indexed sourceVault, bool supported);
+    event RouteSet(uint256 indexed chainId, address indexed sourceVault, uint64 finalityDelaySeconds, bool supported);
     event DailyCapsSet(uint256 depositCap, uint256 payoutCap);
     event ValidatorSetUpdated(address[] validators);
     event PauseGuardianUpdated(address indexed previousGuardian, address indexed newGuardian);
@@ -101,19 +134,19 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
     }
 
     function depositNative(
-        bytes32 operationId,
+        bytes32 clientReference,
         uint256 targetChain,
         address recipient,
         uint256 quotedOutput,
         uint64 quoteExpiry
     ) external payable nonReentrant whenNotPaused {
-        require(operationId != bytes32(0), "Invalid operation");
-        require(deposits[operationId].state == DepositState.None, "Operation exists");
         require(supportedChains[targetChain], "Route not supported");
         require(recipient != address(0), "Invalid recipient");
         require(msg.value > 0 && quotedOutput > 0, "Invalid amount");
         require(quoteExpiry > block.timestamp, "Quote expired");
 
+        uint256 sourceNonce = depositNonces[msg.sender]++;
+        bytes32 operationId = deriveOperationId(msg.sender, sourceNonce, clientReference);
         _consumeDepositCap(msg.value);
         deposits[operationId] = Deposit({
             depositor: msg.sender,
@@ -122,6 +155,8 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
             targetChain: targetChain,
             quotedOutput: quotedOutput,
             quoteExpiry: quoteExpiry,
+            targetVault: sourceVaults[targetChain],
+            finalityDelaySeconds: routeFinalityDelaySeconds[targetChain],
             state: DepositState.Pending
         });
         outstandingEscrow += msg.value;
@@ -131,17 +166,23 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
     function releaseNative(ReleaseRequest calldata request, bytes[] calldata signatures)
         external nonReentrant whenNotPaused
     {
-        require(request.operationId != bytes32(0) && !processedReleases[request.operationId], "Operation processed");
+        require(request.operationId == deriveSourceOperationId(
+            request.sourceChain, request.sourceVault, request.sourceDepositor,
+            request.sourceNonce, request.clientReference
+        ), "Invalid operation identity");
+        require(releaseStates[request.operationId] == ReleaseState.None, "Operation terminal");
         require(supportedChains[request.sourceChain], "Route not supported");
         require(request.sourceVault == sourceVaults[request.sourceChain] && request.sourceTxHash != bytes32(0), "Invalid source");
         require(request.recipient != address(0), "Invalid recipient");
         require(request.sourceAmount > 0 && request.outputAmount > 0, "Invalid amount");
-        require(request.authorizationExpiry >= block.timestamp, "Authorization expired");
+        require(request.releaseDeadline <= request.sourceQuoteExpiry, "Release exceeds source quote");
+        require(request.releaseDeadline >= block.timestamp, "Release deadline passed");
+        require(request.authorizationExpiry >= block.timestamp && request.authorizationExpiry <= request.releaseDeadline, "Invalid authorization window");
         require(availableLiquidity() >= request.outputAmount, "Insufficient free liquidity");
 
         _verifyQuorum(releaseDigest(request), signatures);
         _consumePayoutCap(request.outputAmount);
-        processedReleases[request.operationId] = true;
+        releaseStates[request.operationId] = ReleaseState.Released;
 
         (bool sent,) = request.recipient.call{value: request.outputAmount}("");
         require(sent, "Native payout failed");
@@ -150,6 +191,25 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
             request.sourceAmount, request.outputAmount, request.sourceTxHash,
             request.sourceVault
         );
+    }
+
+    /// @notice Establishes a destination-side terminal state after every
+    ///         release certificate for the operation has expired. A source
+    ///         refund may only be signed after this cancellation is finalized.
+    function cancelRelease(CancelRequest calldata request, bytes[] calldata signatures) external nonReentrant {
+        require(request.operationId == deriveSourceOperationId(
+            request.sourceChain, request.sourceVault, request.sourceDepositor,
+            request.sourceNonce, request.clientReference
+        ), "Invalid operation identity");
+        require(releaseStates[request.operationId] == ReleaseState.None, "Operation terminal");
+        require(supportedChains[request.sourceChain] && request.sourceVault == sourceVaults[request.sourceChain], "Invalid source");
+        require(request.sourceTxHash != bytes32(0), "Invalid source");
+        require(request.releaseDeadline <= request.sourceQuoteExpiry, "Release exceeds source quote");
+        require(block.timestamp > request.releaseDeadline, "Release window active");
+        require(request.authorizationExpiry >= block.timestamp, "Authorization expired");
+        _verifyQuorum(cancelDigest(request), signatures);
+        releaseStates[request.operationId] = ReleaseState.Cancelled;
+        emit ReleaseCancelled(request.operationId, request.sourceChain, request.sourceTxHash);
     }
 
     function finalizeDeposit(
@@ -166,30 +226,30 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
         emit DepositFinalized(operationId, destinationTxHash);
     }
 
-    function refundDeposit(
-        bytes32 operationId,
-        uint64 authorizationExpiry,
-        bytes[] calldata signatures
-    ) external nonReentrant {
-        Deposit storage item = deposits[operationId];
+    function refundDeposit(RefundRequest calldata request, bytes[] calldata signatures) external nonReentrant {
+        Deposit storage item = deposits[request.operationId];
         require(item.state == DepositState.Pending, "Deposit not pending");
-        require(block.timestamp > item.quoteExpiry, "Quote still active");
-        require(authorizationExpiry >= block.timestamp, "Authorization expired");
-        _verifyQuorum(refundDigest(operationId, authorizationExpiry), signatures);
+        require(block.timestamp > uint256(item.quoteExpiry) + item.finalityDelaySeconds, "Cancellation not final");
+        require(request.cancellationTxHash != bytes32(0) && request.cancellationBlockHash != bytes32(0) && request.cancellationBlockNumber > 0, "Cancellation proof required");
+        require(request.authorizationExpiry >= block.timestamp, "Authorization expired");
+        _verifyQuorum(refundDigest(request), signatures);
 
         item.state = DepositState.Refunded;
         outstandingEscrow -= item.amount;
         (bool sent,) = payable(item.depositor).call{value: item.amount}("");
         require(sent, "Native refund failed");
-        emit DepositRefunded(operationId, item.depositor, item.amount);
+        emit DepositRefunded(request.operationId, item.depositor, item.amount);
     }
 
     function releaseDigest(ReleaseRequest calldata request) public view returns (bytes32) {
         return keccak256(abi.encode(
-            RELEASE_ACTION, request.operationId, request.sourceChain,
-            request.sourceVault, request.sourceTxHash, request.sourceAmount,
-            block.chainid, address(this), request.recipient,
-            request.outputAmount, request.authorizationExpiry
+            RELEASE_ACTION, keccak256(abi.encode(request)), block.chainid, address(this)
+        ));
+    }
+
+    function cancelDigest(CancelRequest calldata request) public view returns (bytes32) {
+        return keccak256(abi.encode(
+            CANCEL_ACTION, keccak256(abi.encode(request)), block.chainid, address(this)
         ));
     }
 
@@ -199,28 +259,46 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
         ));
     }
 
-    function refundDigest(bytes32 operationId, uint64 authorizationExpiry) public view returns (bytes32) {
-        Deposit storage item = deposits[operationId];
-        return keccak256(abi.encode(
-            REFUND_ACTION, operationId, item.depositor, item.amount,
-            item.targetChain, item.recipient, item.quotedOutput, item.quoteExpiry,
-            authorizationExpiry, block.chainid, address(this)
+    function refundDigest(RefundRequest calldata request) public view returns (bytes32) {
+        Deposit storage item = deposits[request.operationId];
+        bytes32 depositHash = keccak256(abi.encode(
+            item.depositor, item.recipient, item.amount, item.targetChain,
+            item.quotedOutput, item.quoteExpiry, item.targetVault,
+            item.finalityDelaySeconds
         ));
+        return keccak256(abi.encode(
+            REFUND_ACTION, request.operationId, depositHash,
+            keccak256(abi.encode(request)), block.chainid, address(this)
+        ));
+    }
+
+    function deriveOperationId(address depositor, uint256 sourceNonce, bytes32 clientReference) public view returns (bytes32) {
+        return deriveSourceOperationId(block.chainid, address(this), depositor, sourceNonce, clientReference);
+    }
+
+    function deriveSourceOperationId(
+        uint256 sourceChain, address sourceVault, address depositor,
+        uint256 sourceNonce, bytes32 clientReference
+    ) public pure returns (bytes32) {
+        require(sourceChain > 0 && sourceVault != address(0) && depositor != address(0), "Invalid source identity");
+        return keccak256(abi.encode(sourceChain, sourceVault, depositor, sourceNonce, clientReference));
     }
 
     function availableLiquidity() public view returns (uint256) {
         return address(this).balance - outstandingEscrow;
     }
 
-    function setRoute(uint256 chainId, address sourceVault) external onlyOwner whenPaused {
+    function setRoute(uint256 chainId, address sourceVault, uint64 finalityDelaySeconds) external onlyOwner whenPaused {
         require(chainId > 0 && chainId != block.chainid, "Invalid chain");
         bool supported = sourceVault != address(0);
+        require(!supported || finalityDelaySeconds > 0, "Finality delay required");
         if (supported != supportedChains[chainId]) {
             supportedChains[chainId] = supported;
             activeChainCount = supported ? activeChainCount + 1 : activeChainCount - 1;
         }
         sourceVaults[chainId] = sourceVault;
-        emit RouteSet(chainId, sourceVault, supported);
+        routeFinalityDelaySeconds[chainId] = supported ? finalityDelaySeconds : 0;
+        emit RouteSet(chainId, sourceVault, routeFinalityDelaySeconds[chainId], supported);
     }
 
     function setDailyCaps(uint256 depositCap, uint256 payoutCap) external onlyOwner whenPaused {

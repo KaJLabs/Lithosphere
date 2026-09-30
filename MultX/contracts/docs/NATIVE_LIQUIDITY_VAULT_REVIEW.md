@@ -1,64 +1,69 @@
-# MultX native-liquidity vault review candidate
+# MultX native-liquidity vault remediation candidate
 
 ## Scope
 
-`NativeLiquidityVault` implements the initial native-asset settlement primitive
-for Ethereum, BNB Chain and Base. Each chain receives the same deterministic
-contract address. Source deposits remain native currency in escrow; destination
-payouts use separately funded native liquidity.
+`NativeLiquidityVault` implements native-asset settlement for Ethereum, BNB
+Chain and Base. Source deposits remain native currency in escrow. Destination
+payouts use separately funded native liquidity. DEX quoting and execution are
+outside this vault.
 
-DEX quote discovery and execution are outside this contract. The signed payout
-amount is the settlement result supplied to the vault.
+## Settlement controls
 
-## Security model
+- The source operation ID is derived on-chain from source chain, source vault,
+  depositor, depositor nonce and client reference. Another depositor cannot
+  reserve that operation ID by copying a client reference.
+- Release authorization binds the complete source identity, transaction,
+  amounts, recipient, release deadline and authorization expiry. Authorization
+  cannot outlive the release deadline.
+- After the release deadline, the destination can enter one terminal state:
+  `Released` or `Cancelled`. A late release cannot follow cancellation.
+- A source refund requires validator-attested cancellation transaction, block
+  and finality evidence after the route-specific finality delay.
+- The signer journal stores one terminal path commitment per canonical
+  operation. `release` conflicts with `cancel/refund`; cancellation and its
+  matching refund share the same durable commitment.
+- Release, cancellation and refund evidence is checked before and after the
+  journal write. A reorg after the first check withholds the signature while
+  retaining the safe terminal decision.
 
-- Exactly five bridge validators are configured and exactly three ordered,
-  distinct validator signatures authorize a release, finalization or refund.
-- Every signature is bound to the action, chain ID and vault address.
-- Release signatures also bind the configured source chain, source vault,
-  source transaction, input amount, recipient, output amount and expiry.
-- Operation identifiers and source deposits cannot be processed twice.
-- Source escrow is excluded from destination payout liquidity and governance
-  withdrawals.
-- Deposit and payout volumes have separate finite 24-hour caps.
-- The vault starts paused with no routes, zero caps and no funded reserve.
-- Configuration and unpausing require the 48-hour Timelock owner. The pause
-  guardian may halt operations immediately but cannot resume them.
+Exactly five validators are configured and exactly three ordered signatures
+are required. Source escrow is excluded from payout liquidity and governance
+withdrawals. Deposit and payout volumes have separate finite daily caps. The
+vault starts paused with no routes, zero caps, no guardian and no reserve.
 
-## Recovery behavior
+The full transition rules and required evidence are specified in
+`NATIVE_SETTLEMENT_PROTOCOL.md`.
 
-Finalization converts a paid source deposit from escrow to free liquidity.
-Refund requires an expired quote and a fresh 3-of-5 authorization. Finalization
-and refund are mutually exclusive. Both remain available while the vault is
-paused so an incident halt does not trap pending source escrow.
+## Verification controls
 
-## Deployment controls
+The preflight authenticates each RPC with an explicit `eth_chainId`, requires
+the exact approved plan digest and chains 1/56/8453, and pins all reads to one
+block whose hash is rechecked. It verifies approved runtime hashes for the
+deterministic factory, Safe proxy, singleton and fallback handler, plus complete
+module pagination. Local JSON-RPC integration tests cover the wrong chain,
+reorganization, plan alteration and incomplete chain set.
 
-The deterministic plan builder refuses to produce a plan unless the production
-inputs are marked `READY_FOR_REVIEW` and contain no known unavailable address.
-The generated plan is review-only, sends zero value, deploys only the Timelock
-and vault, and leaves every route and cap disabled.
+The post-deployment verifier authenticates the two exact factory transactions,
+Timelock and vault runtimes, Safe-to-Timelock roles, 48-hour delay, Timelock
+ownership, 3-of-5 validator set, paused state, zero routes/caps/activity/reserve
+and one stable block snapshot. It consumes a sanitized deployment record and
+never broadcasts.
 
-The independent plan validator reproduces the reviewed bytes and enforces the
-disabled state. The RPC preflight verifies chain identity, Safe policy,
-deterministic factory, DEX dependencies and vacant expected contract addresses.
-Neither script accepts a private key or broadcasts a transaction.
+`NativeLiquidityVault` is included in the immutable bytecode evidence generator
+with pinned compiler input/settings, creation/runtime identities and exact
+source-to-commit checks.
 
-## Current blocking condition
+## Deployment status
 
-The recorded `0x4E7d740Af889EADcC902F9304315677E479aB3b6` key is unavailable and has been
-removed from both Safes on Ethereum, BNB Chain and Base. The bridge-signer,
-fee-payer and Governance Safe replacements are recorded in the inputs. The plan
-builder remains deliberately blocked until the replacement bridge signer's
-custody, recovery and signing-policy evidence is renewed and independently
-accepted. No deployment, canary or activation is part of this candidate.
+This is a remediation candidate only. MultX, release signing, relaying, Swap,
+canary and activation remain disabled. A new Autha disposition and separate
+paused-deployment authorization are required before any deployment.
 
 ## Validation
 
-From `MultX/contracts`:
+Run the complete contract and signer suites:
 
 ```text
-npm test
+cd MultX/contracts && npm test
+cd ../signer && npm test
 ```
-
-Expected result for this candidate: 195 passing tests.
