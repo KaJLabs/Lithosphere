@@ -24,7 +24,7 @@ custody independence.
 | --- | --- | --- |
 | 1 | Coltre MultX | `0x903AA7a6fc37F1947B6e4fC3832139A8D4152149` |
 | 2 | LiLe MultX | `0x8A21FeDfB1782F446C3b6D3062dd31E3b5392d4c` |
-| 3 | Ole MultX | `0x4E7d740Af889EADcC902F9304315677E479aB3b6` |
+| 3 | KaJ Labs / Alex Kobzev Ledger | `0x3fe6eD17fda54607f06E347158317A0bEE1B1202` |
 | 4 | MulVAL | `0x801E74047FDb7dE035e81f3Bc64E2C51661d5Ba0` |
 | 5 | M MULTX | `0x5A1833A4b204BE2BAb278886Dcc25c2332DFaA63` |
 
@@ -42,13 +42,14 @@ in the public repository.
 - Safe threshold: 2-of-3.
 - Timelock delay: 48 hours.
 - Fee payer and settlement/gas replenishment owner:
-  `0x4E7d740Af889EADcC902F9304315677E479aB3b6`.
+  `0x801E74047FDb7dE035e81f3Bc64E2C51661d5Ba0`.
 - Proposed deployer, pause guardian, DEX execution, payout custody, liquidity
   and recovery authority: the Governance Safe above.
 
-Ethereum and BNB Safe evidence has been reported. Base deployment and every
-Safe -> Timelock -> Bridge control path must still be proven from the paused
-deployment. These assignments do not resolve the remaining independent
+Ethereum, BNB and Base Safe deployments have been verified. The unavailable
+owner must still be replaced with a distinct third governance owner on every
+chain, and every Safe -> Timelock -> Bridge control path must be proven from the
+paused deployment. These assignments do not resolve the remaining independent
 governance findings by themselves.
 
 ## Initial production scope

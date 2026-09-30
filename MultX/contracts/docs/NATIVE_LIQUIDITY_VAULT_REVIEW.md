@@ -46,10 +46,11 @@ Neither script accepts a private key or broadcasts a transaction.
 
 ## Current blocking condition
 
-The recorded `0x4E7d740Af889EADcC902F9304315677E479aB3b6` key is unavailable but remains
-assigned as a Safe owner, bridge signer and fee payer. The plan builder is
-therefore deliberately blocked until those assignments and their evidence are
-replaced. No deployment, canary or activation is part of this candidate.
+The recorded `0x4E7d740Af889EADcC902F9304315677E479aB3b6` key is unavailable and remains
+an owner of the governance Safe. Its bridge-signer and fee-payer replacements
+have been approved in the inputs, but the plan builder remains deliberately
+blocked until both Safe rotations and the replacement evidence are complete.
+No deployment, canary or activation is part of this candidate.
 
 ## Validation
 
