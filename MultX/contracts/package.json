@@ -6,6 +6,9 @@
   "scripts": {
     "test": "hardhat test",
     "compile": "hardhat compile",
+    "native:plan": "node scripts/native-mesh/build-paused-deployment-plan.cjs",
+    "native:validate-plan": "node scripts/native-mesh/validate-paused-deployment-plan.cjs",
+    "native:preflight": "node scripts/native-mesh/preflight-paused-deployment.cjs",
     "audit:bytecode-hashes": "node scripts/hash-audit-bytecode.js",
     "coverage": "hardhat coverage",
     "deploy": "hardhat run scripts/deploy.js",
