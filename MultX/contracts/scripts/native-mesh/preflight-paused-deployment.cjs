@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
+const { loadBytecodeEvidence } = require('./verify-bytecode-evidence.cjs');
 
 const SAFE_ABI = [
   'function VERSION() view returns (string)',
@@ -106,10 +107,13 @@ async function main() {
   const plan = JSON.parse(planBytes);
   invariant(plan.status === 'REVIEW_CANDIDATE_DO_NOT_EXECUTE' && plan.enabled === false, 'review-only disabled plan required');
   invariant(Array.isArray(plan.chains) && plan.chains.map(chain => chain.chainId).sort((a, b) => a - b).join(',') === EXACT_CHAINS, 'exact three-chain plan required');
+  const bytecodeEvidence = loadBytecodeEvidence(plan, argument('--bytecode-evidence'),
+    argument('--expected-bytecode-sha256'));
   const results = [];
   for (const chain of plan.chains) results.push(await verifyChain(chain, plan));
   invariant(results.length === 3, 'zero or incomplete chain checks');
-  console.log(JSON.stringify({ result: 'PASS', planSha256: expectedPlanSha256, checks: results, secretsExposed: false }, null, 2));
+  console.log(JSON.stringify({ result: 'PASS', planSha256: expectedPlanSha256,
+    bytecodeEvidence, checks: results, secretsExposed: false }, null, 2));
 }
 
 main().catch(error => {

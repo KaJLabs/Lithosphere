@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
 const { verifyRoles, verifySafe } = require('../mainnet/verify-governance');
+const { loadBytecodeEvidence } = require('./verify-bytecode-evidence.cjs');
 
 const EXACT_CHAINS = '1,56,8453';
 const ZERO = ethers.constants.AddressZero;
@@ -195,12 +196,15 @@ async function main() {
   exactChains(plan.chains, 'plan');
   exactChains(record.chains, 'deployment record');
   invariant(record.planSha256 === expectedPlanSha256, 'deployment record plan SHA-256 mismatch');
+  const bytecodeEvidence = loadBytecodeEvidence(plan, argument('--bytecode-evidence'),
+    argument('--expected-bytecode-sha256'));
   const results = [];
   for (const chain of plan.chains) {
     const chainRecord = record.chains.find(item => Number(item.chainId) === chain.chainId);
     results.push(await verifyChain(chain, chainRecord, plan));
   }
-  console.log(JSON.stringify({ result: 'PASS', planSha256: expectedPlanSha256, checks: results, secretsExposed: false }, null, 2));
+  console.log(JSON.stringify({ result: 'PASS', planSha256: expectedPlanSha256,
+    bytecodeEvidence, checks: results, secretsExposed: false }, null, 2));
 }
 
 if (require.main === module) main().catch(error => {

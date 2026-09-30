@@ -181,7 +181,7 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         request: second.request, destinationChain: 202, destinationVault: targetVault.address,
         evidence: second.evidence,
       });
-      const waitSeconds = second.request.releaseDeadline - Math.floor(Date.now() / 1000) + 1;
+      const waitSeconds = second.request.releaseDeadline - Math.floor(Date.now() / 1000) + 3;
       if (waitSeconds > 0) await sleep(waitSeconds * 1000);
       await targetProvider.send('evm_setNextBlockTimestamp', [second.request.releaseDeadline + 2]);
       await mine(targetProvider, 3);

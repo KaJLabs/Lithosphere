@@ -87,6 +87,9 @@ async function rpcServer(chainId, { reorg = false } = {}) {
 }
 
 function plan() {
+  const deploy = new ethers.utils.Interface(['function deploy(bytes _initCode,bytes32 _salt) returns(address payable createdContract)']);
+  const timelockSalt = ethers.utils.id('test-timelock');
+  const vaultSalt = ethers.utils.id('test-vault');
   const runtimeIdentities = {
     safeProxyRuntimeSha256: runtimeHash(CODES.proxy),
     safeImplementationRuntimeSha256: runtimeHash(CODES.implementation),
@@ -95,18 +98,42 @@ function plan() {
   };
   return {
     status: 'REVIEW_CANDIDATE_DO_NOT_EXECUTE', enabled: false,
+    release: { commit: 'a'.repeat(40), timelockCreationSha256: runtimeHash('0x6001aa'),
+      timelockRuntimeSha256: runtimeHash('0x6003'), vaultCreationSha256: runtimeHash('0x6002bb'),
+      vaultRuntimeSha256: runtimeHash('0x6004') },
     governance: { safe: SAFE, safePolicy: { version: '1.4.1', owners: OWNERS, threshold: 2,
       guard: ethers.constants.AddressZero, fallbackHandler: FALLBACK } },
-    deterministicDeployment: { factory: FACTORY, timelockAddress: TIMELOCK, vaultAddress: VAULT },
+    deterministicDeployment: { factory: FACTORY, timelockAddress: TIMELOCK, vaultAddress: VAULT,
+      timelockSalt, vaultSalt, transactions: [
+        { to: FACTORY, data: deploy.encodeFunctionData('deploy', ['0x6001aa', timelockSalt]) },
+        { to: FACTORY, data: deploy.encodeFunctionData('deploy', ['0x6002bb', vaultSalt]) },
+      ] },
     chains: [1, 56, 8453].map(chainId => ({ chainId, safeImplementation: IMPLEMENTATION, runtimeIdentities,
       dex: { factory: DEX[0], router: DEX[1], pool: DEX[2] } })),
   };
 }
 
+function bytecodeEvidence(planValue) {
+  const settings = { optimizer: { enabled: true, runs: 200 }, evmVersion: 'paris' };
+  const record = (creationBytecode, runtimeSha256) => ({
+    creationBytecode, creationSha256: runtimeHash(creationBytecode), runtimeSha256,
+    solcVersion: '0.8.24+commit.e11b9ed9', settings,
+  });
+  return { schemaVersion: 1, commit: planValue.release.commit, contracts: {
+    govTimelock: record('0x6001', planValue.release.timelockRuntimeSha256),
+    nativeLiquidityVault: record('0x6002', planValue.release.vaultRuntimeSha256),
+  } };
+}
+
 function runPreflight(planPath, digest, urls) {
   const script = path.resolve(__dirname, '..', 'scripts', 'native-mesh', 'preflight-paused-deployment.cjs');
+  const evidenceBytes = Buffer.from(`${JSON.stringify(bytecodeEvidence(JSON.parse(fs.readFileSync(planPath, 'utf8'))))}\n`);
+  const evidencePath = path.join(path.dirname(planPath), 'bytecode-evidence.json');
+  fs.writeFileSync(evidencePath, evidenceBytes);
+  const evidenceSha256 = crypto.createHash('sha256').update(evidenceBytes).digest('hex');
   return new Promise(resolve => {
-    const child = spawn(process.execPath, [script, '--plan', planPath, '--expected-plan-sha256', digest], {
+    const child = spawn(process.execPath, [script, '--plan', planPath, '--expected-plan-sha256', digest,
+      '--bytecode-evidence', evidencePath, '--expected-bytecode-sha256', evidenceSha256], {
       cwd: path.resolve(__dirname, '..'),
       env: { ...process.env, MULTX_RPC_1: urls[0], MULTX_RPC_56: urls[1], MULTX_RPC_8453: urls[2] },
     });
