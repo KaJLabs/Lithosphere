@@ -48,9 +48,10 @@ in the public repository.
 
 Ethereum, BNB and Base Safe deployments have been verified. The unavailable
 owner must still be replaced with a distinct third governance owner on every
-chain, and every Safe -> Timelock -> Bridge control path must be proven from the
-paused deployment. These assignments do not resolve the remaining independent
-governance findings by themselves.
+chain. The operator Safe signer replacement is complete on Base and remains
+pending on Ethereum and BNB Chain. Every Safe -> Timelock -> Bridge control path
+must be proven from the paused deployment. These assignments do not resolve the
+remaining independent governance findings by themselves.
 
 ## Initial production scope
 

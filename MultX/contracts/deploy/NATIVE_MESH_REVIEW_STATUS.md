@@ -14,8 +14,10 @@ move to `READY_FOR_REVIEW`:
 
 1. The two accessible Safe owners must replace the unavailable owner on
    Ethereum, BNB Chain and Base.
-2. The operator Safe replacement must be executed on Ethereum, BNB Chain and
-   Base, retaining the 3-of-5 threshold.
+2. The operator Safe replacement must be executed on Ethereum and BNB Chain,
+   retaining the 3-of-5 threshold. The Base replacement is verified complete
+   in transaction
+   `0xaa5ce2aac91a2e2f6d13d08f359f2fe97c1df7d83416cbf19bf26bbba8ece306`.
 3. The updated governance and operator Safe state and replacement signer
    evidence must be verified.
 
