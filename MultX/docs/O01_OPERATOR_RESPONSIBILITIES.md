@@ -38,7 +38,7 @@ in the public repository.
 - Governance Safe: `0x7697e90dd65D865e9BB44B3a8523A8E064dE8Aef`.
 - Safe owners: `0x3fe6eD17fda54607f06E347158317A0bEE1B1202`,
   `0xBd672D23F0CC5D5946c0f4d0eC15339a541dD6B5`, and
-  `0x4E7d740Af889EADcC902F9304315677E479aB3b6`.
+  `0x8A21FeDfB1782F446C3b6D3062dd31E3b5392d4c`.
 - Safe threshold: 2-of-3.
 - Timelock delay: 48 hours.
 - Fee payer and settlement/gas replenishment owner:
@@ -46,12 +46,12 @@ in the public repository.
 - Proposed deployer, pause guardian, DEX execution, payout custody, liquidity
   and recovery authority: the Governance Safe above.
 
-Ethereum, BNB and Base Safe deployments have been verified. The unavailable
-owner must still be replaced with a distinct third governance owner on every
-chain. The operator Safe signer replacement is complete on Base and remains
-pending on Ethereum and BNB Chain. Every Safe -> Timelock -> Bridge control path
-must be proven from the paused deployment. These assignments do not resolve the
-remaining independent governance findings by themselves.
+Ethereum, BNB and Base Safe deployments and both owner rotations have been
+verified. The Governance Safe remains 2-of-3 and the operator Safe remains
+3-of-5 on every chain. The replacement bridge-signer evidence must be renewed,
+and every Safe -> Timelock -> Bridge control path must be proven from the paused
+deployment. These assignments do not resolve the remaining independent
+governance findings by themselves.
 
 ## Initial production scope
 

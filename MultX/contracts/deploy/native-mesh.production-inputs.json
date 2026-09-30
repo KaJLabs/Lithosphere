@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "profile": "multx-native-evm-initial",
   "enabled": false,
-  "deploymentStatus": "BLOCKED_PENDING_KEY_ROTATION",
+  "deploymentStatus": "BLOCKED_PENDING_SIGNER_EVIDENCE",
   "knownUnavailableAddresses": [
     "0x4E7d740Af889EADcC902F9304315677E479aB3b6"
   ],
@@ -13,7 +13,7 @@
     "owners": [
       "0x3fe6eD17fda54607f06E347158317A0bEE1B1202",
       "0xBd672D23F0CC5D5946c0f4d0eC15339a541dD6B5",
-      "0x4E7d740Af889EADcC902F9304315677E479aB3b6"
+      "0x8A21FeDfB1782F446C3b6D3062dd31E3b5392d4c"
     ],
     "threshold": 2,
     "modules": [],
@@ -92,6 +92,7 @@
   "evidence": {
     "coordinatorEvidenceId": "MXCOORD-20260925-01",
     "signerEvidenceRef": "private-evidence:multx-o01-signer-verification-20260930",
+    "safeRotationEvidenceRef": "MULTX_SAFE_ROTATION_FINAL_2026-10-01.json",
     "routeApprovalRef": "MULTX_AMM_ROUTE_APPROVAL_RECORDED_2026-09-23.md",
     "liquidityGovernanceRef": "MULTX_O01_LIQUIDITY_GOVERNANCE_APPROVAL_2026-09-24.md"
   }
