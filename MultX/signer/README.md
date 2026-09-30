@@ -52,3 +52,13 @@ The signer fails startup on malformed policy or journal data.
 
 No production policy or key material is included. Bridge contracts and routes
 must be populated only after audit approval and mainnet deployment.
+
+## Native settlement candidate
+
+The service also has separately gated native release, cancellation,
+finalization and refund handlers. They require an approved quote-authority
+signature, canonical source/destination evidence and an append-only native
+decision journal. `SIGNER_NATIVE_SIGNING_ENABLED` defaults to false and is
+independent of the legacy release flag. See the native policy and first-use
+journal instructions in `OPERATOR_RUNBOOK.md`; native activation needs its own
+review and approval.

@@ -4,16 +4,15 @@ import {
   getAddress,
   getBytes,
   keccak256,
-  solidityPackedKeccak256,
   toUtf8Bytes,
 } from 'ethers';
 
 const coder = AbiCoder.defaultAbiCoder();
 const RELEASE_ACTION = keccak256(toUtf8Bytes('MULTX_NATIVE_RELEASE_V1'));
 const CANCEL_ACTION = keccak256(toUtf8Bytes('MULTX_NATIVE_CANCEL_V1'));
+const FINALIZE_ACTION = keccak256(toUtf8Bytes('MULTX_NATIVE_FINALIZE_V1'));
 const REFUND_ACTION = keccak256(toUtf8Bytes('MULTX_NATIVE_REFUND_V1'));
-const RELEASE_PATH = keccak256(toUtf8Bytes('MULTX_NATIVE_TERMINAL_RELEASE_V1'));
-const REFUND_PATH = keccak256(toUtf8Bytes('MULTX_NATIVE_TERMINAL_REFUND_V1'));
+const OPERATION_ACTION = keccak256(toUtf8Bytes('MULTX_NATIVE_OPERATION_V2'));
 
 const bytes32 = (value, label) => {
   if (!/^0x[0-9a-fA-F]{64}$/.test(value || '')) throw new Error(`${label} must be bytes32`);
@@ -49,22 +48,14 @@ export function settlementIdentity(input) {
     [result.sourceChain, result.sourceVault, result.sourceDepositor, result.sourceNonce, result.clientReference],
   ));
   if (derived !== result.operationId) throw new Error('operationId does not match canonical source identity');
+  if (result.releaseDeadline !== result.sourceQuoteExpiry) {
+    throw new Error('release deadline must equal source quote expiry');
+  }
   return result;
 }
 
 export function nativeDecisionKey(operationId) {
   return `native:${bytes32(operationId, 'operationId')}`;
-}
-
-export function terminalPathCommitment(identity, path) {
-  const item = settlementIdentity(identity);
-  const tag = path === 'release' ? RELEASE_PATH : path === 'refund' ? REFUND_PATH : null;
-  if (!tag) throw new Error('terminal path must be release or refund');
-  return keccak256(coder.encode(
-    ['bytes32', 'bytes32', 'uint256', 'address', 'address', 'uint256', 'bytes32', 'bytes32', 'uint64', 'uint64'],
-    [tag, item.operationId, item.sourceChain, item.sourceVault, item.sourceDepositor,
-      item.sourceNonce, item.clientReference, item.sourceTxHash, item.sourceQuoteExpiry, item.releaseDeadline],
-  ));
 }
 
 function releaseRequest(input) {
@@ -81,6 +72,33 @@ function releaseRequest(input) {
 function cancelRequest(input) {
   const identity = settlementIdentity(input);
   return { ...identity, authorizationExpiry: uint(input?.authorizationExpiry, 'authorizationExpiry') };
+}
+
+export function operationCommitment(operation, destination) {
+  const item = releaseRequest(operation);
+  const authorityEpoch = bytes32(destination?.authorityEpoch, 'authorityEpoch');
+  const targetChain = uint(destination?.chainId, 'destinationChain');
+  const targetVault = address(destination?.vault, 'destinationVault');
+  return keccak256(coder.encode(
+    ['bytes32', 'bytes32', 'uint256', 'address', 'address', 'uint256', 'bytes32', 'bytes32',
+      'uint256', 'address', 'uint256', 'uint64', 'uint256', 'address', 'bytes32'],
+    [OPERATION_ACTION, item.operationId, item.sourceChain, item.sourceVault, item.sourceDepositor,
+      item.sourceNonce, item.clientReference, item.sourceTxHash, item.sourceAmount, item.recipient,
+      item.outputAmount, item.sourceQuoteExpiry, targetChain, targetVault, authorityEpoch],
+  ));
+}
+
+function assertSameIdentity(request, operation) {
+  for (const field of ['operationId', 'sourceVault', 'sourceDepositor', 'clientReference', 'sourceTxHash']) {
+    if (String(request[field]).toLowerCase() !== String(operation[field]).toLowerCase()) {
+      throw new Error(`cancellation ${field} does not match immutable operation`);
+    }
+  }
+  for (const field of ['sourceChain', 'sourceNonce', 'sourceQuoteExpiry', 'releaseDeadline']) {
+    if (BigInt(request[field]) !== BigInt(operation[field])) {
+      throw new Error(`cancellation ${field} does not match immutable operation`);
+    }
+  }
 }
 
 export function releaseDigest(input, destinationChain, destinationVault) {
@@ -106,6 +124,14 @@ export function cancelDigest(input, destinationChain, destinationVault) {
   return keccak256(coder.encode(
     ['bytes32', 'bytes32', 'uint256', 'address'],
     [CANCEL_ACTION, requestHash, uint(destinationChain, 'destinationChain'), address(destinationVault, 'destinationVault')],
+  ));
+}
+
+export function finalizeDigest(operationId, destinationTxHash, sourceChain, sourceVault) {
+  return keccak256(coder.encode(
+    ['bytes32', 'bytes32', 'bytes32', 'uint256', 'address'],
+    [FINALIZE_ACTION, bytes32(operationId, 'operationId'), bytes32(destinationTxHash, 'destinationTxHash'),
+      uint(sourceChain, 'sourceChain'), address(sourceVault, 'sourceVault')],
   ));
 }
 
@@ -140,9 +166,9 @@ export function createNativeSettlementDecision({ journal, signer, now = () => Ma
     queue = run.catch(() => {});
     return run;
   };
-  const persistAndSign = async (identity, path, digest, verifyEvidence) => {
+  const verifyTwice = async (verifyEvidence, persist, digest) => {
     await verifyEvidence();
-    await journal.record(nativeDecisionKey(identity.operationId), terminalPathCommitment(identity, path));
+    await persist();
     await verifyEvidence();
     return signer.signMessage(getBytes(digest));
   };
@@ -152,40 +178,92 @@ export function createNativeSettlementDecision({ journal, signer, now = () => Ma
       return decide(async () => {
         const request = releaseRequest(input);
         const time = BigInt(now());
-        if (request.releaseDeadline > request.sourceQuoteExpiry) throw new Error('release exceeds source quote');
         if (time > request.releaseDeadline) throw new Error('release deadline passed');
         if (request.authorizationExpiry < time || request.authorizationExpiry > request.releaseDeadline) {
           throw new Error('invalid release authorization window');
         }
-        return persistAndSign(request, 'release', releaseDigest(request, destination.chainId, destination.vault), verifyEvidence);
+        const key = nativeDecisionKey(request.operationId);
+        const operationHash = operationCommitment(request, destination);
+        const digest = releaseDigest(request, destination.chainId, destination.vault);
+        return verifyTwice(verifyEvidence, () => journal.transition({
+          key, state: 'RELEASE_AUTHORIZED', operationHash, decisionHash: digest,
+          authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'),
+          authorizationExpiry: Number(request.authorizationExpiry),
+        }), digest);
       });
     },
-    signCancellation(input, destination, verifyEvidence) {
+    signCancellation(input, operation, destination, verifyEvidence) {
       return decide(async () => {
         const request = cancelRequest(input);
+        const immutable = releaseRequest(operation);
+        assertSameIdentity(request, immutable);
         const time = BigInt(now());
-        if (request.releaseDeadline > request.sourceQuoteExpiry) throw new Error('release exceeds source quote');
         if (time <= request.releaseDeadline) throw new Error('release window remains active');
         if (request.authorizationExpiry < time) throw new Error('cancellation authorization expired');
-        return persistAndSign(request, 'refund', cancelDigest(request, destination.chainId, destination.vault), verifyEvidence);
+        const key = nativeDecisionKey(request.operationId);
+        const prior = journal.get(key);
+        if (prior?.state === 'PAYOUT_FINALIZED' || prior?.state === 'REFUND_AUTHORIZED') {
+          throw new Error(`operation already terminal as ${prior.state}`);
+        }
+        if (prior?.state === 'RELEASE_AUTHORIZED' && time <= BigInt(prior.authorizationExpiry)) {
+          throw new Error('recorded release authorization remains executable');
+        }
+        const operationHash = operationCommitment(immutable, destination);
+        const digest = cancelDigest(request, destination.chainId, destination.vault);
+        return verifyTwice(verifyEvidence, () => journal.transition({
+          key, state: 'CANCELLATION_AUTHORIZED', operationHash, decisionHash: digest,
+          authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'),
+          authorizationExpiry: Number(request.authorizationExpiry),
+        }), digest);
       });
     },
-    signRefund({ request, deposit, identity, source, cancellation }, verifyEvidence) {
+    signFinalization({ operation, destinationTxHash, source, destination }, verifyEvidence) {
+      return decide(async () => {
+        const immutable = releaseRequest(operation);
+        const key = nativeDecisionKey(immutable.operationId);
+        const prior = journal.get(key);
+        if (prior?.state === 'REFUND_AUTHORIZED') {
+          throw new Error(`operation already committed to recovery as ${prior.state}`);
+        }
+        const operationHash = operationCommitment(immutable, destination);
+        const digest = finalizeDigest(immutable.operationId, destinationTxHash, source.chainId, source.vault);
+        return verifyTwice(verifyEvidence, () => journal.transition({
+          key, state: 'PAYOUT_FINALIZED', operationHash, decisionHash: digest,
+          authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'), authorizationExpiry: 0,
+        }), digest);
+      });
+    },
+    signRefund({ request, deposit, identity, source, destination, cancellation }, verifyEvidence) {
       return decide(async () => {
         const item = settlementIdentity(identity);
-        if (request.operationId.toLowerCase() !== item.operationId) throw new Error('refund operation mismatch');
+        if (String(request.operationId).toLowerCase() !== item.operationId) throw new Error('refund operation mismatch');
         const time = BigInt(now());
         const expiry = uint(request.authorizationExpiry, 'authorizationExpiry');
         if (expiry < time) throw new Error('refund authorization expired');
-        const eligibleAt = uint(deposit.quoteExpiry, 'deposit.quoteExpiry') + uint(source.finalityDelaySeconds, 'finalityDelaySeconds');
+        const eligibleAt = uint(deposit.quoteExpiry, 'deposit.quoteExpiry') + uint(deposit.finalityDelaySeconds, 'finalityDelaySeconds');
         if (time <= eligibleAt) throw new Error('destination cancellation is not final');
         if (String(cancellation.txHash).toLowerCase() !== String(request.cancellationTxHash).toLowerCase() ||
             String(cancellation.blockHash).toLowerCase() !== String(request.cancellationBlockHash).toLowerCase() ||
-            BigInt(cancellation.blockNumber) !== BigInt(request.cancellationBlockNumber) ||
-            cancellation.finalized !== true) {
+            BigInt(cancellation.blockNumber) !== BigInt(request.cancellationBlockNumber) || cancellation.finalized !== true) {
           throw new Error('finalized cancellation evidence mismatch');
         }
-        return persistAndSign(item, 'refund', refundDigest(request, deposit, source.chainId, source.vault), verifyEvidence);
+        const operation = {
+          ...item, sourceAmount: deposit.amount, recipient: deposit.recipient,
+          outputAmount: deposit.quotedOutput, authorizationExpiry: item.releaseDeadline,
+        };
+        const key = nativeDecisionKey(item.operationId);
+        const prior = journal.get(key);
+        if (prior?.state === 'PAYOUT_FINALIZED') throw new Error('operation payout already finalized');
+        if (prior?.state === 'RELEASE_AUTHORIZED' && time <= BigInt(prior.authorizationExpiry)) {
+          throw new Error('recorded release authorization remains executable');
+        }
+        const operationHash = operationCommitment(operation, destination);
+        const digest = refundDigest(request, deposit, source.chainId, source.vault);
+        return verifyTwice(verifyEvidence, () => journal.transition({
+          key, state: 'REFUND_AUTHORIZED', operationHash, decisionHash: digest,
+          authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'),
+          authorizationExpiry: Number(expiry),
+        }), digest);
       });
     },
   };

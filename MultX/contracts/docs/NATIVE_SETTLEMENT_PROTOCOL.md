@@ -32,19 +32,25 @@ Source:      Pending -> Finalized
 
 ## Signer rules
 
-For each canonical operation, every signer durably commits to one path:
-
-- `release`; or
-- `refund`, which covers destination cancellation followed by source refund.
-
-The journal key is the canonical operation ID. A release-path commitment cannot
-be replaced by a refund-path commitment. Cancellation and refund reproduce the
-same refund-path commitment. The journal is written and synced before signing,
-and evidence is rechecked after the write.
+Each signer keeps an append-only state journal for the canonical operation and
+authority epoch. The allowed progression is an initial release authorization,
+then a destination cancellation after its deadline and every prior authorization
+expiry, then a source refund after finalized cancellation evidence. A verified
+destination payout instead makes the operation terminal. Payout and refund
+decisions cannot follow one another. The same intact signer can recover an
+expired, unused release after a restart or a failed second evidence check.
+If cancellation was authorized but an earlier destination release later becomes
+final, signers can authorize source finalization after verifying that release;
+the destination contract rejects the outstanding cancellation.
+The journal is written and synced before signing, and evidence is rechecked
+after the write.
 
 Release signing requires a canonical source deposit, finalized source block,
-configured route, authorization expiry at or before the release deadline, and
-an active release window.
+configured route, a quote signed by the approved quote authority, authorization
+expiry at or before the release deadline, and an active release window. The
+quote signature binds the full canonical source identity, input amount,
+destination vault, recipient, output amount and quote expiry. The signer checks
+the deposited values against the quote and source contract state.
 
 Cancellation signing requires the release deadline to have passed, the
 destination state to remain `None`, and a current authorization. It produces a
@@ -54,6 +60,14 @@ Refund signing requires the exact source deposit, exact finalized cancellation
 event, matching transaction/block evidence, canonical block recheck and the
 route-specific finality delay to have elapsed. A cancellation observed only in
 an unfinalized or later-reorganized block is insufficient.
+
+The signer service exposes separate native release, cancellation, finalization
+and refund endpoints. `SIGNER_NATIVE_SIGNING_ENABLED` defaults to false. Enabling
+it requires an approved native policy, a matching signer identity and an intact
+native state journal. Production native policy is loaded from
+`SIGNER_NATIVE_POLICY_FILE`, and the journal path is `SIGNER_NATIVE_STATE_FILE`.
+Deployment and activation require separate acceptance; the existence of these
+endpoints does not authorize either.
 
 ## Adversarial cases
 

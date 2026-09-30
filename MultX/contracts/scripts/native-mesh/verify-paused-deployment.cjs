@@ -2,6 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { ethers } = require('ethers');
+const { verifyRoles, verifySafe } = require('../mainnet/verify-governance');
 
 const EXACT_CHAINS = '1,56,8453';
 const ZERO = ethers.constants.AddressZero;
@@ -50,14 +51,57 @@ function exactChains(items, label) {
     `${label} must contain exactly chains ${EXACT_CHAINS}`);
 }
 
-async function verifyFactoryTransaction(provider, expected, txHash, blockTag, label) {
+async function getLogsByTopics(provider, address, fromBlock, toBlock, topics) {
+  const logs = [];
+  for (let start = fromBlock; start <= toBlock; start += 2000) {
+    logs.push(...await provider.getLogs({ address, fromBlock: start, toBlock: Math.min(start + 1999, toBlock), topics }));
+  }
+  return logs;
+}
+
+async function verifyPristineVaultHistory(provider, vaultAddress, deployment, anchor) {
+  const receipt = await provider.getTransactionReceipt(deployment.transactionHash);
+  invariant(receipt?.blockHash?.toLowerCase() === deployment.blockHash.toLowerCase(),
+    'vault constructor receipt changed');
+  const expected = (receipt.logs || []).filter(log => log.address?.toLowerCase() === vaultAddress.toLowerCase());
+  const expectedTopics = [
+    ethers.utils.id('OwnershipTransferred(address,address)'),
+    ethers.utils.id('ValidatorSetUpdated(address[])'),
+    ethers.utils.id('Paused(address)'),
+  ];
+  invariant(expected.length === expectedTopics.length &&
+    expectedTopics.every(topic => expected.some(log => log.topics?.[0] === topic)),
+  'vault constructor event evidence incomplete');
+  const logs = await getLogsByTopics(provider, vaultAddress, deployment.blockNumber, anchor, undefined);
+  invariant(logs.length === expected.length, 'vault has post-constructor event history');
+  const expectedByIndex = new Map(expected.map(log => [log.logIndex, log]));
+  for (const log of logs) {
+    const constructorLog = expectedByIndex.get(log.logIndex);
+    invariant(!log.removed && log.transactionHash?.toLowerCase() === deployment.transactionHash.toLowerCase() &&
+      log.blockNumber === deployment.blockNumber && log.blockHash?.toLowerCase() === deployment.blockHash.toLowerCase() &&
+      constructorLog && log.data === constructorLog.data &&
+      JSON.stringify(log.topics) === JSON.stringify(constructorLog.topics),
+    'vault has post-constructor event history');
+  }
+  return logs.length;
+}
+
+async function verifyFactoryTransaction(provider, expected, txHash, blockTag, label, deployedAddress,
+  expectedRuntimeSha256, confirmations = 1) {
   invariant(/^0x[0-9a-f]{64}$/i.test(txHash || ''), `${label} transaction hash missing`);
   const [transaction, receipt] = await Promise.all([
     provider.getTransaction(txHash), provider.getTransactionReceipt(txHash),
   ]);
   invariant(transaction && receipt, `${label} deployment transaction unavailable`);
   invariant(receipt.status === 1, `${label} deployment transaction failed`);
-  invariant(receipt.blockNumber <= blockTag, `${label} deployment transaction is after anchor`);
+  invariant(blockTag - receipt.blockNumber + 1 >= confirmations,
+    `${label} deployment transaction lacks required confirmations`);
+  invariant(receipt.blockNumber > 0 && /^0x[0-9a-f]{64}$/i.test(receipt.blockHash || ''), `${label} creation block unavailable`);
+  const creationBlock = await provider.getBlock(receipt.blockNumber);
+  invariant(creationBlock?.hash?.toLowerCase() === receipt.blockHash.toLowerCase(), `${label} creation receipt is not canonical`);
+  invariant(await provider.getCode(deployedAddress, receipt.blockNumber - 1) === '0x', `${label} code existed before creation`);
+  invariant(codeHash(await provider.getCode(deployedAddress, receipt.blockNumber)) === expectedRuntimeSha256,
+    `${label} creation runtime mismatch`);
   invariant((transaction.to || '').toLowerCase() === expected.to.toLowerCase(), `${label} factory mismatch`);
   invariant(transaction.value.eq(0), `${label} deployment transaction must have zero value`);
   invariant(transaction.data.toLowerCase() === expected.data.toLowerCase(), `${label} deployment calldata mismatch`);
@@ -77,9 +121,10 @@ async function verifyChain(chain, record, plan) {
   const vaultAddress = plan.deterministicDeployment.vaultAddress;
   const timelock = new ethers.Contract(timelockAddress, TIMELOCK_ABI, provider);
   const vault = new ethers.Contract(vaultAddress, VAULT_ABI, provider);
-  const [timelockCode, vaultCode, minDelay, proposer, executor, adminSelf, adminSafe,
+  const [factoryCode, timelockCode, vaultCode, minDelay, proposer, executor, adminSelf, adminSafe,
     owner, paused, validators, threshold, activeChains, escrow, depositCap, payoutCap,
     depositVolume, payoutVolume, guardian, balance] = await Promise.all([
+    provider.getCode(plan.deterministicDeployment.factory, blockTag),
     provider.getCode(timelockAddress, blockTag),
     provider.getCode(vaultAddress, blockTag),
     timelock.getMinDelay({ blockTag }),
@@ -94,6 +139,8 @@ async function verifyChain(chain, record, plan) {
     vault.payoutVolume({ blockTag }), vault.pauseGuardian({ blockTag }),
     provider.getBalance(vaultAddress, blockTag),
   ]);
+  invariant(codeHash(factoryCode) === chain.runtimeIdentities.deterministicFactoryRuntimeSha256,
+    `chain ${chain.chainId} factory runtime mismatch`);
   invariant(codeHash(timelockCode) === plan.release.timelockRuntimeSha256, `chain ${chain.chainId} Timelock runtime mismatch`);
   invariant(codeHash(vaultCode) === plan.release.vaultRuntimeSha256, `chain ${chain.chainId} vault runtime mismatch`);
   invariant(minDelay.eq(172800), `chain ${chain.chainId} Timelock delay mismatch`);
@@ -107,14 +154,32 @@ async function verifyChain(chain, record, plan) {
   `chain ${chain.chainId} vault is not pristine`);
   invariant(guardian === ZERO, `chain ${chain.chainId} pause guardian must be unset before configuration`);
 
+  const safePolicy = {
+    ...plan.governance.safePolicy,
+    implementation: chain.safeImplementation,
+    proxyRuntimeSha256: chain.runtimeIdentities.safeProxyRuntimeSha256,
+    implementationRuntimeSha256: chain.runtimeIdentities.safeImplementationRuntimeSha256,
+    fallbackHandlerRuntimeSha256: chain.runtimeIdentities.fallbackHandlerRuntimeSha256,
+  };
+  await verifySafe(provider, plan.governance.safe, safePolicy, blockTag, codeHash,
+    (address, abi, reader) => new ethers.Contract(address, abi, reader), chain.chainId);
+
   const transactions = plan.deterministicDeployment.transactions;
   const provenance = [
-    await verifyFactoryTransaction(provider, transactions[0], record.timelockTxHash, blockTag, `chain ${chain.chainId} Timelock`),
-    await verifyFactoryTransaction(provider, transactions[1], record.vaultTxHash, blockTag, `chain ${chain.chainId} vault`),
+    await verifyFactoryTransaction(provider, transactions[0], record.timelockTxHash, blockTag,
+      `chain ${chain.chainId} Timelock`, timelockAddress, plan.release.timelockRuntimeSha256, chain.confirmations),
+    await verifyFactoryTransaction(provider, transactions[1], record.vaultTxHash, blockTag,
+      `chain ${chain.chainId} vault`, vaultAddress, plan.release.vaultRuntimeSha256, chain.confirmations),
   ];
+  await verifyRoles(provider, timelock, {
+    proposers: [plan.governance.safe], executors: [plan.governance.safe],
+    cancellers: [plan.governance.safe], admins: [timelockAddress],
+  }, provenance[0].blockNumber, blockTag, getLogsByTopics);
+  const constructorLogs = await verifyPristineVaultHistory(provider, vaultAddress, provenance[1], blockTag);
   const recheck = await provider.getBlock(blockTag);
   invariant(recheck?.hash === anchor.hash, `chain ${chain.chainId} anchor changed during verification`);
-  return { chainId: chain.chainId, blockNumber: blockTag, blockHash: anchor.hash, provenance, result: 'PASS' };
+  return { chainId: chain.chainId, blockNumber: blockTag, blockHash: anchor.hash, provenance,
+    constructorLogs, result: 'PASS' };
 }
 
 async function main() {
@@ -138,7 +203,9 @@ async function main() {
   console.log(JSON.stringify({ result: 'PASS', planSha256: expectedPlanSha256, checks: results, secretsExposed: false }, null, 2));
 }
 
-main().catch(error => {
+if (require.main === module) main().catch(error => {
   console.error(error.message);
   process.exit(1);
 });
+
+module.exports = { verifyFactoryTransaction, verifyPristineVaultHistory, verifyChain };
