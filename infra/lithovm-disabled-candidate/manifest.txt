@@ -1,0 +1,37 @@
+Candidate identity: lithovm-disabled-gateway-lab-1
+Status: lab-only, not a production release or deployment approval
+Base Evmos commit: eca13ef2521a9ef13c32e80b1b147230bdb155b5
+Base Lithosphere release manifest: ../litho-mainnet-9005/bin/lithod-release-manifest.sh (litho-l1-v20.0.0-r1)
+R1 historical Lithic toolchain commit: 4de97ab806ebec5b05c4eeab238281320b973f65
+R1 historical chain lab commit: 0e2522d88fdb3d93a83ed0c833b840ca44ae12ac
+Overlay: evmos-keeper-overlay.patch
+Overlay SHA-256: cec13ee2fecb097a3cea11d9a74fb65bef96dc2892cc110908799c1b621cf694
+Lab-only Go build tag: lithovm_chain_lab
+Normal build: no LithoVM gateway hook installed
+Tagged build: activates a laboratory gateway; never deploy this binary
+
+R2 disabled remediation delta (2026-10-01; R1 pins above retained as history)
+Apply after the R1 release patches and evmos-keeper-overlay.patch, in order.
+Evmos source before delta: 0e2522d88fdb3d93a83ed0c833b840ca44ae12ac
+Evmos source after delta: ddfe53fcdfbbddf9919466cd4313a0c42f773965
+Lithic source: 7d8bcc70be23f83f6c7b17b0e577f9c8e0f9a109
+Cosmos SDK lab source: f2e6295b662fdb27ea33da1296c29588ccdaab42
+R2 source-only review ZIP SHA-256: 30cad65a5fcf41d406f31f55242a41c9148ca12a4aeeb694ebdbfa5411a18de6
+remediation-r2/0001-test-gateway-cover-keeper-gas-boundaries-and-estimat.patch SHA-256 e47c58e4aed04df62db41d8b47d5deb73540300c0828f2efd0fb0f631717d9df
+remediation-r2/0002-feat-lithovm-isolate-native-lab-store-and-round-trip.patch SHA-256 31dd95cca44089c655519d8d1bebb101ef94633f7aa3dd539dcfc7f9ea56360b
+remediation-r2/0003-feat-lithovm-rehearse-height-gated-native-store-addi.patch SHA-256 4ae0d4505c03e4d366bfceb9e4970304b1c19121bb9c9f889a2adf0a6e4634db
+remediation-r2/0004-fix-cmd-retain-gas-adjustment-default-with-pinned-SD.patch SHA-256 01c5391d7084f721c5c895de549343238f4f0fc773b5f3057ad8394670350ff7
+R2 patch sequence was applied to the 0e2522d source and the staged tree matched ddfe53f byte-for-byte.
+No registration, Makalu deployment, gas-policy approval or release authorization is implied.
+
+R3 focused response candidate (2026-10-01; R1/R2 history above retained)
+Current Lithic source pin: f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce
+Current Evmos source pin: 3cadea9d252be3a4aec63f5e1ba200560eb14007
+Current Cosmos SDK base pin: f2e6295b662fdb27ea33da1296c29588ccdaab42
+Required Cosmos SDK compatibility patch SHA-256: 6ee2863bced57121109f100df4c45a0664185e12e48824f9e34346035e0f3659
+Apply remediation-r3/0001 after the R2 patches; it restores the local module tx gas-adjustment default.
+remediation-r3/0001-fix-cli-preserve-module-transaction-gas-adjustment-d.patch SHA-256 74781bf81d86bf8808c6ab36ecbf965b773c1dcb6d87c526977a62550cfc9ff0
+Focused review source ZIP SHA-256: da8e8b87acaac83723b0c49800d315ebeb13242ed704599f2abfc36269471874
+This is a disabled review candidate. WSL2 Go 1.22.12 ordinary/tagged command,
+app and full EVM keeper suites passed from the R3 ZIP with the pinned SDK
+patch; independent reproduction and isolated full-block benchmark remain open.

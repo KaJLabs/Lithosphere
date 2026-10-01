@@ -1,0 +1,72 @@
+From 3cadea9d252be3a4aec63f5e1ba200560eb14007 Mon Sep 17 00:00:00 2001
+From: bachal-abro <mbachalabro1@gmail.com>
+Date: Thu, 1 Oct 2026 18:40:04 +0500
+Subject: [PATCH] fix(cli): preserve module transaction gas adjustment default
+
+---
+ cmd/evmosd/cmd_test.go |  9 +++++++++
+ cmd/evmosd/root.go     | 17 ++++-------------
+ 2 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/cmd/evmosd/cmd_test.go b/cmd/evmosd/cmd_test.go
+index 7ee6832..dcba1c1 100644
+--- a/cmd/evmosd/cmd_test.go
++++ b/cmd/evmosd/cmd_test.go
+@@ -37,6 +37,15 @@ func TestGasAdjustmentDefault(t *testing.T) {
+ 	require.Equal(t, "1.2", flag.DefValue)
+ 	require.Equal(t, "1.2", flag.Value.String())
+ 	require.False(t, flag.Changed)
++	// Module tx commands register a local flag that shadows the root flag.
++	// Check the value users actually get with --gas auto.
++	raw, _, err := rootCmd.Find([]string{"tx", "evm", "raw"})
++	require.NoError(t, err)
++	require.Equal(t, "raw", raw.Name())
++	local := raw.Flags().Lookup(flags.FlagGasAdjustment)
++	require.NotNil(t, local)
++	require.Equal(t, "1.2", local.DefValue)
++	require.Equal(t, "1.2", local.Value.String())
+ }
+ 
+ func TestAddKeyLedgerCmd(t *testing.T) {
+diff --git a/cmd/evmosd/root.go b/cmd/evmosd/root.go
+index 53412e8..34068b8 100644
+--- a/cmd/evmosd/root.go
++++ b/cmd/evmosd/root.go
+@@ -9,7 +9,6 @@ import (
+ 	"io"
+ 	"os"
+ 	"path/filepath"
+-	"strconv"
+ 	"time"
+ 
+ 	"github.com/spf13/cast"
+@@ -193,6 +192,10 @@ func NewRootCmd() (*cobra.Command, sdktestutil.TestEncodingConfig) {
+ 		addModuleInitFlags,
+ 	)
+ 
++	// The release-patched SDK exposes this as a variable. Set it before
++	// module tx commands register their local gas-adjustment flags; a root
++	// persistent flag cannot override those local defaults.
++	flags.DefaultGasAdjustment = servercfg.DefaultGasAdjustment
+ 	// add keybase, auxiliary RPC, query, and tx child commands
+ 	rootCmd.AddCommand(
+ 		sdkserver.StatusCommand(),
+@@ -204,18 +207,6 @@ func NewRootCmd() (*cobra.Command, sdktestutil.TestEncodingConfig) {
+ 	if err != nil {
+ 		panic(err)
+ 	}
+-	// The pinned SDK exposes DefaultGasAdjustment as a constant. Set the
+-	// already-registered flag default instead of assigning to that constant.
+-	gasFlag := rootCmd.PersistentFlags().Lookup(flags.FlagGasAdjustment)
+-	if gasFlag == nil {
+-		panic("gas-adjustment flag is missing")
+-	}
+-	gasDefault := strconv.FormatFloat(servercfg.DefaultGasAdjustment, 'f', -1, 64)
+-	if err := gasFlag.Value.Set(gasDefault); err != nil {
+-		panic(err)
+-	}
+-	gasFlag.DefValue = gasDefault
+-
+ 	// add rosetta
+ 	rootCmd.AddCommand(rosettaCmd.RosettaCommand(encodingConfig.InterfaceRegistry, encodingConfig.Codec))
+ 
