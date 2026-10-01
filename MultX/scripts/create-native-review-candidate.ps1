@@ -47,7 +47,7 @@ if ($LASTEXITCODE -ne 0) {
 if (-not [string]::IsNullOrWhiteSpace([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_STATUS.txt')))) {
   throw 'CI rehearsal checkout was not clean'
 }
-$ciResults = @(Get-Content -LiteralPath (Join-Path $ciEvidence 'results-all.json') -Raw | ConvertFrom-Json)
+$ciResults = Get-Content -LiteralPath (Join-Path $ciEvidence 'results-all.json') -Raw | ConvertFrom-Json
 if ($ciResults.Count -lt 6 -or @($ciResults | Where-Object { $_.exitCode -ne 0 }).Count -gt 0) {
   throw 'CI rehearsal phase failure or incomplete results'
 }
