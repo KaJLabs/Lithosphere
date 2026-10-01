@@ -111,7 +111,7 @@ test('PostgreSQL readiness binds source, destination and approved route atomical
   }
   await assert.rejects(verifyAndRecordNativePayout(pool,{...minedProvider,getTransactionReceipt:async()=>null},'s'),/not mined/);
   await assert.rejects(verifyAndRecordNativePayout(pool,{...minedProvider,getBlockNumber:async()=>0},'s'),/not final/);
-  await assert.rejects(verifyAndRecordNativePayout(pool,{...minedProvider,getBalance:async()=>0n},'s'),/credit not established/);
+  await assert.rejects(verifyAndRecordNativePayout(pool,{...minedProvider,getCode:async()=> '0x6000'},'s'),/contract recipient unsupported/);
   assert.equal((await pool.query("SELECT state FROM native_swaps WHERE swap_id='s'")).rows[0].state,'payout_ready');
   const missing=await reconcileNativePayoutBatch(pool,new Map(),{limit:1});
   assert.equal(missing.results[0].state,'provider_missing');assert.equal(missing.next,'s');
