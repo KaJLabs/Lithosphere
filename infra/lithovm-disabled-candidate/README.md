@@ -76,8 +76,10 @@ above remain historical. Apply `remediation-r3/0001` after the four R2
 patches. The source ZIP in the manifest includes the pinned Cosmos SDK
 compatibility patch; apply that patch to the pristine SDK base before any Go
 build or test. It also archives raw Git blob bytes with autocrlf conversion
-disabled. The R3 ZIP is a focused retest input, not a release or evidence
-that the Go suites and benchmark have passed at the new pins.
+disabled. WSL2 Go 1.22.12 command, app and full EVM keeper suites passed
+in ordinary and tagged modes from a fresh R3 ZIP extraction with the pinned
+SDK patch. Independent reproduction and the isolated full-block benchmark
+are still open. The R3 ZIP is a focused retest input, not a release.
 
 ## Release blockers
 

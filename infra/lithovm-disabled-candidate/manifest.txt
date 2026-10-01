@@ -32,4 +32,6 @@ Required Cosmos SDK compatibility patch SHA-256: 6ee2863bced57121109f100df4c45a0
 Apply remediation-r3/0001 after the R2 patches; it restores the local module tx gas-adjustment default.
 remediation-r3/0001-fix-cli-preserve-module-transaction-gas-adjustment-d.patch SHA-256 74781bf81d86bf8808c6ab36ecbf965b773c1dcb6d87c526977a62550cfc9ff0
 Focused review source ZIP SHA-256: da8e8b87acaac83723b0c49800d315ebeb13242ed704599f2abfc36269471874
-This is a disabled review candidate. Go suite and benchmark evidence are not yet established at these exact pins.
+This is a disabled review candidate. WSL2 Go 1.22.12 ordinary/tagged command,
+app and full EVM keeper suites passed from the R3 ZIP with the pinned SDK
+patch; independent reproduction and isolated full-block benchmark remain open.
