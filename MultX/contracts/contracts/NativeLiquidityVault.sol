@@ -12,6 +12,7 @@ import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 /// @dev The vault starts paused and is deployed with the reviewed 48-hour
 ///      Timelock as its initial owner.
 contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
+    uint64 public constant MAX_QUOTE_LIFETIME_SECONDS = 3600;
     enum DepositState { None, Pending, Finalized, Refunded }
     enum ReleaseState { None, Released, Cancelled }
 
@@ -144,6 +145,7 @@ contract NativeLiquidityVault is Ownable, Pausable, ReentrancyGuard {
         require(recipient != address(0), "Invalid recipient");
         require(msg.value > 0 && quotedOutput > 0, "Invalid amount");
         require(quoteExpiry > block.timestamp, "Quote expired");
+        require(quoteExpiry <= block.timestamp + MAX_QUOTE_LIFETIME_SECONDS, "Quote lifetime too long");
 
         uint256 sourceNonce = depositNonces[msg.sender]++;
         bytes32 operationId = deriveOperationId(msg.sender, sourceNonce, clientReference);

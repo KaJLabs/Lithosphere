@@ -71,6 +71,9 @@ an economic quote signature. Direct on-chain deposits without an approved quote
 can therefore be cancelled and refunded after expiry; they cannot obtain a
 release authorization. This recovery path must remain available even if the
 quote authority refuses an economically invalid quote.
+The vault rejects a quote expiry more than one hour after deposit time, bounding
+the wait for a direct deposit that never had a valid signed quote. This one-hour
+limit is a proposed protocol parameter requiring independent review and approval.
 
 Refund signing requires the exact source deposit, exact finalized cancellation
 event, matching transaction/block evidence, canonical block recheck and the

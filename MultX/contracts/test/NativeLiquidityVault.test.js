@@ -109,9 +109,23 @@ describe('NativeLiquidityVault', function () {
     const userId = await vault.deriveOperationId(user.address, 0, reference);
     const outsiderId = await vault.deriveOperationId(outsider.address, 0, reference);
     expect(userId).not.to.equal(outsiderId);
-    await vault.connect(outsider).depositNative(reference, remoteChain, recipient.address, 1, 9999999999, { value: 1 });
-    await expect(vault.connect(user).depositNative(reference, remoteChain, recipient.address, 90, 9999999999, { value: 100 }))
-      .to.emit(vault, 'NativeDeposited').withArgs(userId, user.address, recipient.address, 100, remoteChain, 90, 9999999999);
+    const expiry = (await ethers.provider.getBlock('latest')).timestamp + 600;
+    await vault.connect(outsider).depositNative(reference, remoteChain, recipient.address, 1, expiry, { value: 1 });
+    await expect(vault.connect(user).depositNative(reference, remoteChain, recipient.address, 90, expiry, { value: 100 }))
+      .to.emit(vault, 'NativeDeposited').withArgs(userId, user.address, recipient.address, 100, remoteChain, 90, expiry);
+  });
+
+  it('bounds direct deposits without a valid quote to a one-hour recovery window', async function () {
+    await configure();
+    const now = (await ethers.provider.getBlock('latest')).timestamp;
+    await expect(vault.connect(user).depositNative(
+      ethers.utils.id('unquoted-too-long'), remoteChain, recipient.address, 1,
+      now + 3602, { value: 1 },
+    )).to.be.revertedWith('Quote lifetime too long');
+    await vault.connect(user).depositNative(
+      ethers.utils.id('unquoted-bounded'), remoteChain, recipient.address, 1,
+      now + 3600, { value: 1 },
+    );
   });
 
   it('escrows source funds separately from payout liquidity', async function () {
@@ -257,8 +271,9 @@ describe('NativeLiquidityVault', function () {
     await configure(100, 50);
     await vault.fundLiquidity({ value: 500 });
     await deposit(ethers.utils.id('cap-deposit'), 100, 90, 600);
+    const expiry = (await ethers.provider.getBlock('latest')).timestamp + 600;
     await expect(vault.connect(user).depositNative(
-      ethers.utils.id('cap-extra'), remoteChain, recipient.address, 1, 9999999999, { value: 1 },
+      ethers.utils.id('cap-extra'), remoteChain, recipient.address, 1, expiry, { value: 1 },
     )).to.be.revertedWith('Deposit cap exceeded');
     const now = (await ethers.provider.getBlock('latest')).timestamp;
     const request = releaseRequest(
