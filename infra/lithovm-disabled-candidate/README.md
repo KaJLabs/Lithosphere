@@ -5,7 +5,7 @@ source. It does **not** modify that release's immutable manifest, build script,
 or artifacts. It is not a deployable release. No Makalu or mainnet activation,
 LAX deployment, or MultX change is included.
 
-The cross-repository [security-review handoff](https://github.com/bachal-mb/Lithic/blob/feat/deployment-interface/docs/SECURITY_REVIEW_HANDOFF_2026_09_27.md)
+The cross-repository [security-review handoff](https://github.com/KaJLabs/Lithic/blob/f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce/docs/SECURITY_REVIEW_HANDOFF_2026_09_27.md)
 lists scope, trust assumptions, evidence and remaining approval gates.
 
 The overlay contains only the keeper call hook, the disabled ordinary-build
@@ -67,6 +67,17 @@ fuzz smoke jobs passed at `7d8bcc7`. Growth pricing and the 10M cap, full-block
 validator evidence, coordinated store-upgrade rollback, Makalu acceptance and
 independent security closure remain open. Do not register, deploy or activate
 the tagged gateway.
+
+## R3 focused response source
+
+Autha's formal LTH-R2 report keeps the candidate disabled. The R3 response
+uses the **current** pins at the end of `manifest.txt`, while the R1/R2 pins
+above remain historical. Apply `remediation-r3/0001` after the four R2
+patches. The source ZIP in the manifest includes the pinned Cosmos SDK
+compatibility patch; apply that patch to the pristine SDK base before any Go
+build or test. It also archives raw Git blob bytes with autocrlf conversion
+disabled. The R3 ZIP is a focused retest input, not a release or evidence
+that the Go suites and benchmark have passed at the new pins.
 
 ## Release blockers
 
