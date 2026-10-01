@@ -34,9 +34,23 @@ test('terminal payout refuses cancellation and operation/epoch drift', () => {
   try {
     const journal = createNativeStateJournal(file);
     journal.transition({ key, state: 'RELEASE_AUTHORIZED', operationHash, decisionHash: decisionHash(4), authorityEpoch, authorizationExpiry: 100 });
+    journal.transition({ key, state: 'PAYOUT_PROOF_PENDING', operationHash, decisionHash: decisionHash(5), authorityEpoch });
     journal.transition({ key, state: 'PAYOUT_FINALIZED', operationHash, decisionHash: decisionHash(5), authorityEpoch });
     assert.throws(() => journal.transition({ key, state: 'CANCELLATION_AUTHORIZED', operationHash,
       decisionHash: decisionHash(6), authorityEpoch, authorizationExpiry: 200 }), /refusing native transition/);
+  } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+
+test('reload rejects a forged early certificate renewal', () => {
+  const { directory, file } = fixture();
+  try {
+    const journal = createNativeStateJournal(file);
+    journal.transition({ key, state: 'CANCELLATION_AUTHORIZED', operationHash,
+      decisionHash: decisionHash(4), authorityEpoch, authorizationExpiry: 200 });
+    fs.appendFileSync(file, `${JSON.stringify({ key, sequence: 2, state: 'CANCELLATION_AUTHORIZED',
+      operationHash, decisionHash: decisionHash(5), authorityEpoch,
+      authorizationExpiry: 300, renewedAt: 199 })}\n`);
+    assert.throws(() => createNativeStateJournal(file), /invalid native certificate renewal/);
   } finally { fs.rmSync(directory, { recursive: true, force: true }); }
 });
 

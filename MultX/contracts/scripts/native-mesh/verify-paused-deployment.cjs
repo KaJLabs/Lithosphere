@@ -74,17 +74,35 @@ async function verifyPristineVaultHistory(provider, vaultAddress, deployment, an
     expectedTopics.every(topic => expected.some(log => log.topics?.[0] === topic)),
   'vault constructor event evidence incomplete');
   const logs = await getLogsByTopics(provider, vaultAddress, deployment.blockNumber, anchor, undefined);
-  invariant(logs.length === expected.length, 'vault has post-constructor event history');
+  const fundingTopic = ethers.utils.id('LiquidityFunded(address,uint256)');
   const expectedByIndex = new Map(expected.map(log => [log.logIndex, log]));
+  const finalConstructorIndex = Math.max(...expected.map(log => log.logIndex));
+  let constructorLogs = 0;
+  let fundingEvents = 0;
+  let observedFundingWei = ethers.BigNumber.from(0);
   for (const log of logs) {
     const constructorLog = expectedByIndex.get(log.logIndex);
-    invariant(!log.removed && log.transactionHash?.toLowerCase() === deployment.transactionHash.toLowerCase() &&
+    const isConstructor = !log.removed && log.transactionHash?.toLowerCase() === deployment.transactionHash.toLowerCase() &&
       log.blockNumber === deployment.blockNumber && log.blockHash?.toLowerCase() === deployment.blockHash.toLowerCase() &&
       constructorLog && log.data === constructorLog.data &&
-      JSON.stringify(log.topics) === JSON.stringify(constructorLog.topics),
+      JSON.stringify(log.topics) === JSON.stringify(constructorLog.topics);
+    if (isConstructor) { constructorLogs += 1; continue; }
+    invariant(!log.removed && log.blockNumber >= deployment.blockNumber && log.blockNumber <= anchor &&
+      (log.blockNumber > deployment.blockNumber || log.logIndex > finalConstructorIndex) &&
+      log.transactionHash?.toLowerCase() !== deployment.transactionHash.toLowerCase() &&
+      /^0x[0-9a-f]{64}$/i.test(log.transactionHash || '') &&
+      /^0x[0-9a-f]{64}$/i.test(log.blockHash || '') &&
+      log.topics?.length === 2 && log.topics[0] === fundingTopic &&
+      /^0x[0-9a-f]{64}$/i.test(log.topics[1]) && /^0x[0-9a-f]{64}$/i.test(log.data || ''),
     'vault has post-constructor event history');
+    const block = await provider.getBlock(log.blockNumber);
+    invariant(block?.hash?.toLowerCase() === log.blockHash.toLowerCase(),
+      'vault funding log is not canonical');
+    observedFundingWei = observedFundingWei.add(ethers.BigNumber.from(log.data));
+    fundingEvents += 1;
   }
-  return logs.length;
+  invariant(constructorLogs === expected.length, 'vault constructor event evidence incomplete');
+  return { constructorLogs, fundingEvents, observedFundingWei };
 }
 
 async function verifyFactoryTransaction(provider, expected, txHash, blockTag, label, deployedAddress,
@@ -151,7 +169,7 @@ async function verifyChain(chain, record, plan) {
   invariant(sameSet(validators, plan.bridgeSignerSet.addresses), `chain ${chain.chainId} validator set mismatch`);
   invariant(threshold.eq(3), `chain ${chain.chainId} validator threshold mismatch`);
   invariant(activeChains.isZero() && escrow.isZero() && depositCap.isZero() && payoutCap.isZero() &&
-    depositVolume.isZero() && payoutVolume.isZero() && balance.isZero(),
+    depositVolume.isZero() && payoutVolume.isZero(),
   `chain ${chain.chainId} vault is not pristine`);
   invariant(guardian === ZERO, `chain ${chain.chainId} pause guardian must be unset before configuration`);
 
@@ -176,11 +194,15 @@ async function verifyChain(chain, record, plan) {
     proposers: [plan.governance.safe], executors: [plan.governance.safe],
     cancellers: [plan.governance.safe], admins: [timelockAddress],
   }, provenance[0].blockNumber, blockTag, getLogsByTopics);
-  const constructorLogs = await verifyPristineVaultHistory(provider, vaultAddress, provenance[1], blockTag);
+  const history = await verifyPristineVaultHistory(provider, vaultAddress, provenance[1], blockTag);
+  invariant(balance.gte(history.observedFundingWei), `chain ${chain.chainId} funding balance is inconsistent with history`);
   const recheck = await provider.getBlock(blockTag);
   invariant(recheck?.hash === anchor.hash, `chain ${chain.chainId} anchor changed during verification`);
   return { chainId: chain.chainId, blockNumber: blockTag, blockHash: anchor.hash, provenance,
-    constructorLogs, result: 'PASS' };
+    constructorLogs: history.constructorLogs, fundingEvents: history.fundingEvents,
+    observedFundingWei: history.observedFundingWei.toString(),
+    unapprovedBalanceWei: balance.toString(),
+    requiresFundingReconciliation: !balance.isZero(), result: 'PASS' };
 }
 
 async function main() {

@@ -7,22 +7,35 @@ const HASH = /^0x[0-9a-fA-F]{64}$/;
 const STATES = new Set([
   'RELEASE_AUTHORIZED',
   'CANCELLATION_AUTHORIZED',
+  'PAYOUT_PROOF_PENDING',
   'PAYOUT_FINALIZED',
   'REFUND_AUTHORIZED',
 ]);
 const ALLOWED = {
-  NONE: new Set(['RELEASE_AUTHORIZED', 'CANCELLATION_AUTHORIZED', 'PAYOUT_FINALIZED', 'REFUND_AUTHORIZED']),
-  RELEASE_AUTHORIZED: new Set(['CANCELLATION_AUTHORIZED', 'PAYOUT_FINALIZED', 'REFUND_AUTHORIZED']),
-  CANCELLATION_AUTHORIZED: new Set(['PAYOUT_FINALIZED', 'REFUND_AUTHORIZED']),
+  NONE: new Set(['RELEASE_AUTHORIZED', 'CANCELLATION_AUTHORIZED', 'PAYOUT_PROOF_PENDING', 'REFUND_AUTHORIZED']),
+  RELEASE_AUTHORIZED: new Set(['CANCELLATION_AUTHORIZED', 'PAYOUT_PROOF_PENDING', 'REFUND_AUTHORIZED']),
+  CANCELLATION_AUTHORIZED: new Set(['CANCELLATION_AUTHORIZED', 'PAYOUT_PROOF_PENDING', 'REFUND_AUTHORIZED']),
+  PAYOUT_PROOF_PENDING: new Set(['PAYOUT_PROOF_PENDING', 'PAYOUT_FINALIZED', 'CANCELLATION_AUTHORIZED', 'REFUND_AUTHORIZED']),
   PAYOUT_FINALIZED: new Set(),
-  REFUND_AUTHORIZED: new Set(),
+  REFUND_AUTHORIZED: new Set(['REFUND_AUTHORIZED', 'PAYOUT_PROOF_PENDING']),
 };
+const RENEWABLE = new Set(['CANCELLATION_AUTHORIZED', 'REFUND_AUTHORIZED']);
 
 const validRecord = record =>
   KEY.test(record?.key || '') && STATES.has(record?.state) &&
   HASH.test(record?.operationHash || '') && HASH.test(record?.decisionHash || '') &&
   HASH.test(record?.authorityEpoch || '') && Number.isSafeInteger(record?.sequence) && record.sequence > 0 &&
-  Number.isSafeInteger(record?.authorizationExpiry) && record.authorizationExpiry >= 0;
+  Number.isSafeInteger(record?.authorizationExpiry) && record.authorizationExpiry >= 0 &&
+  (record.renewedAt === undefined || (Number.isSafeInteger(record.renewedAt) && record.renewedAt > 0));
+
+const validRenewal = (prior, record) => RENEWABLE.has(record.state) &&
+  prior?.state === record.state && record.decisionHash !== prior.decisionHash &&
+  Number.isSafeInteger(record.renewedAt) && record.renewedAt > prior.authorizationExpiry &&
+  record.authorizationExpiry > record.renewedAt &&
+  record.authorizationExpiry > prior.authorizationExpiry;
+const validPendingReplacement = (prior, record) => prior?.state === 'PAYOUT_PROOF_PENDING' &&
+  record.state === prior.state && record.decisionHash !== prior.decisionHash &&
+  record.authorizationExpiry === 0 && record.renewedAt === undefined;
 
 export function createNativeStateJournal(stateFile, {
   strictPermissions = false,
@@ -82,6 +95,13 @@ export function createNativeStateJournal(stateFile, {
       if (prior && (prior.operationHash !== record.operationHash || prior.authorityEpoch !== record.authorityEpoch)) {
         throw new Error(`native operation identity changed for ${record.key}`);
       }
+      if (prior?.state === record.state && !validRenewal(prior, record) &&
+          !validPendingReplacement(prior, record)) {
+        throw new Error(`invalid native certificate renewal for ${record.key}`);
+      }
+      if (prior?.state !== record.state && record.renewedAt !== undefined) {
+        throw new Error(`unexpected native certificate renewal for ${record.key}`);
+      }
       states.set(record.key, record);
     }
   }
@@ -102,18 +122,22 @@ export function createNativeStateJournal(stateFile, {
       const value = states.get(key);
       return value ? { ...value } : null;
     },
-    transition({ key, state, operationHash, decisionHash, authorityEpoch, authorizationExpiry = 0 }) {
+    transition({ key, state, operationHash, decisionHash, authorityEpoch, authorizationExpiry = 0,
+      renewedAt }) {
       if (!validRecord({ key, state, operationHash, decisionHash, authorityEpoch, authorizationExpiry, sequence: 1 })) {
         throw new Error('invalid native settlement decision');
       }
       assertUnchanged();
       const prior = states.get(key);
       if (prior?.state === state) {
-        if (prior.operationHash !== operationHash || prior.decisionHash !== decisionHash ||
-            prior.authorityEpoch !== authorityEpoch || prior.authorizationExpiry !== authorizationExpiry) {
-          throw new Error(`refusing native decision drift for ${key}`);
+        if (prior.operationHash === operationHash && prior.decisionHash === decisionHash &&
+            prior.authorityEpoch === authorityEpoch && prior.authorizationExpiry === authorizationExpiry) {
+          return false;
         }
-        return false;
+        if (!validRenewal(prior, { state, decisionHash, authorizationExpiry, renewedAt }) &&
+            !validPendingReplacement(prior, { state, decisionHash, authorizationExpiry, renewedAt })) {
+          throw new Error(`refusing native certificate renewal for ${key}`);
+        }
       }
       const from = prior?.state || 'NONE';
       if (!ALLOWED[from].has(state)) throw new Error(`refusing native transition ${from} -> ${state}`);
@@ -125,6 +149,7 @@ export function createNativeStateJournal(stateFile, {
         decisionHash, authorityEpoch, authorizationExpiry,
         at: new Date().toISOString(),
       };
+      if (prior?.state === state) record.renewedAt = renewedAt;
       const flags = fs.constants.O_APPEND | (strictPermissions ? 0 : fs.constants.O_CREAT) |
         fs.constants.O_WRONLY | (fs.constants.O_NOFOLLOW || 0);
       const fd = fs.openSync(stateFile, flags, 0o600);

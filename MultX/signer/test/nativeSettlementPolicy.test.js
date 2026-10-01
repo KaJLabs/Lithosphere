@@ -137,6 +137,78 @@ test('a cancellation authorization can yield to a canonical late-confirmed payou
   } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
 });
 
+test('three intact journals renew expired cancellation and refund certificates after restart', async () => {
+  const fixtures = [fixture(2201), fixture(2201), fixture(2201)];
+  try {
+    await Promise.all(fixtures.map(item => item.policy.signCancellation(cancel, release, destination, async () => {})));
+    let restored = fixtures.map(item => fixture(2301, item));
+    const renewedCancel = { ...cancel, authorizationExpiry: 2600 };
+    const cancellationSignatures = await Promise.all(restored.map(item =>
+      item.policy.signCancellation(renewedCancel, release, destination, async () => {})));
+    assert.equal(cancellationSignatures.length, 3);
+    assert(restored.every(item => item.journal.get(nativeDecisionKey(identity.operationId)).sequence === 2));
+    await Promise.all(restored.map(item => item.policy.signRefund({
+      request: refund, deposit, identity, source, destination, cancellation,
+    }, async () => {})));
+    restored = fixtures.map(item => fixture(2501, item));
+    const renewedRefund = { ...refund, authorizationExpiry: 2800 };
+    const refundSignatures = await Promise.all(restored.map(item => item.policy.signRefund({
+      request: renewedRefund, deposit, identity, source, destination, cancellation,
+    }, async () => {})));
+    assert.equal(refundSignatures.length, 3);
+    assert(restored.every(item => item.journal.get(nativeDecisionKey(identity.operationId)).sequence === 4));
+    await assert.rejects(restored[0].policy.signRefund({ request: { ...refund, authorizationExpiry: 2900 },
+      deposit, identity, source, destination, cancellation }, async () => {}), /renewal/);
+  } finally { fixtures.forEach(item => fs.rmSync(item.directory, { recursive: true, force: true })); }
+});
+
+test('post-journal evidence failure permits renewal only after the old certificate expires', async () => {
+  const f = fixture(2201);
+  try {
+    let checks = 0;
+    await assert.rejects(f.policy.signCancellation(cancel, release, destination, async () => {
+      if (++checks === 2) throw new Error('RPC changed');
+    }), /RPC changed/);
+    assert.equal(f.journal.get(nativeDecisionKey(identity.operationId)).sequence, 1);
+    f.setTime(2301);
+    const renewed = { ...cancel, authorizationExpiry: 2600 };
+    await f.policy.signCancellation(renewed, release, destination, async () => {});
+    assert.equal(f.journal.get(nativeDecisionKey(identity.operationId)).sequence, 2);
+    await f.policy.signCancellation(renewed, release, destination, async () => {});
+    assert.equal(f.journal.get(nativeDecisionKey(identity.operationId)).sequence, 2);
+    await assert.rejects(f.policy.signCancellation({ ...renewed, authorizationExpiry: 2700 },
+      release, destination, async () => {}), /renewal/);
+  } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
+});
+
+test('a failed second payout-proof check leaves a recoverable provisional record', async () => {
+  const f = fixture(2201);
+  try {
+    let checks = 0;
+    await assert.rejects(f.policy.signFinalization({ operation: release,
+      destinationTxHash: hash(10), source, destination }, async () => {
+      if (++checks === 2) throw new Error('destination proof reorged');
+    }), /destination proof reorged/);
+    assert.equal(f.journal.get(nativeDecisionKey(identity.operationId)).state, 'PAYOUT_PROOF_PENDING');
+    const restored = fixture(2201, f);
+    await restored.policy.signCancellation(cancel, release, destination, async () => {});
+    assert.equal(restored.journal.get(nativeDecisionKey(identity.operationId)).state, 'CANCELLATION_AUTHORIZED');
+  } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
+});
+
+test('a source-pending operation can follow an expired refund authorization with verified payout proof', async () => {
+  const f = fixture(2201);
+  try {
+    await f.policy.signRefund({ request: refund, deposit, identity, source, destination, cancellation }, async () => {});
+    await assert.rejects(f.policy.signFinalization({ operation: release,
+      destinationTxHash: hash(10), source, destination }, async () => {}), /committed to recovery/);
+    f.setTime(2501);
+    await f.policy.signFinalization({ operation: release,
+      destinationTxHash: hash(10), source, destination }, async () => {});
+    assert.equal(f.journal.get(nativeDecisionKey(identity.operationId)).state, 'PAYOUT_FINALIZED');
+  } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
+});
+
 test('rejects cancellation evidence failure, insufficient finality and immutable value drift', async () => {
   const f = fixture(2201);
   try {

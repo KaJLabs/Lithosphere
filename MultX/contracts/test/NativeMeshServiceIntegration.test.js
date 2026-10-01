@@ -73,6 +73,7 @@ describe('Native mesh service on two disposable EVM nodes', function () {
       ]);
 
       const artifact = await hre.artifacts.readArtifact('NativeLiquidityVault');
+      const forwarderArtifact = await hre.artifacts.readArtifact('NativeMeshForwarder');
       const validators = [3, 4, 5, 6, 7].map(index => wallet(index).address);
       const deploy = async provider => {
         const owner = wallet(0).connect(provider);
@@ -82,6 +83,14 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         return vault;
       };
       const sourceVault = await deploy(sourceProvider), targetVault = await deploy(targetProvider);
+      const deployForwarder = async provider => {
+        const result = await new ethers.ContractFactory(forwarderArtifact.abi,
+          forwarderArtifact.bytecode, wallet(0).connect(provider)).deploy();
+        await result.deployed();
+        return result;
+      };
+      const sourceForwarder = await deployForwarder(sourceProvider);
+      const targetForwarder = await deployForwarder(targetProvider);
       const setup = async (vault, remoteChain, remoteVault) => {
         await (await vault.setRoute(remoteChain, remoteVault, 1)).wait();
         await (await vault.setDailyCaps(ethers.utils.parseEther('10'), ethers.utils.parseEther('10'))).wait();
@@ -132,26 +141,30 @@ describe('Native mesh service on two disposable EVM nodes', function () {
       }))));
       const destination = { chainId: 202, vault: targetVault.address };
       const depositor = wallet(2).connect(sourceProvider), recipient = wallet(8).address;
-      const makeDeposit = async (name, lifetime) => {
+      const makeDeposit = async (name, lifetime, signedQuote = true) => {
         const clientReference = ethers.utils.id(name);
-        const nonce = (await sourceVault.depositNonces(depositor.address)).toNumber();
-        const operationId = await sourceVault.deriveOperationId(depositor.address, nonce, clientReference);
+        const nonce = (await sourceVault.depositNonces(sourceForwarder.address)).toNumber();
+        const operationId = await sourceVault.deriveOperationId(sourceForwarder.address, nonce, clientReference);
         const expiry = Math.floor(Date.now() / 1000) + lifetime;
-        const tx = await sourceVault.connect(depositor).depositNative(clientReference, 202, recipient,
-          ethers.utils.parseEther('0.08'), expiry, { value: ethers.utils.parseEther('0.1') });
+        const depositCall = sourceVault.interface.encodeFunctionData('depositNative',
+          [clientReference, 202, recipient, ethers.utils.parseEther('0.08'), expiry]);
+        const tx = await sourceForwarder.connect(depositor).forward(sourceVault.address,
+          depositCall, { value: ethers.utils.parseEther('0.1') });
         const receipt = await tx.wait();
         await mine(sourceProvider);
         const request = {
           operationId, sourceChain: 101, sourceVault: sourceVault.address,
-          sourceDepositor: depositor.address, sourceNonce: nonce, clientReference,
+          sourceDepositor: sourceForwarder.address, sourceNonce: nonce, clientReference,
           sourceTxHash: receipt.transactionHash, sourceAmount: ethers.utils.parseEther('0.1').toString(),
           recipient, outputAmount: ethers.utils.parseEther('0.08').toString(),
           sourceQuoteExpiry: expiry, releaseDeadline: expiry, authorizationExpiry: expiry - 1,
         };
-        const quoteDigest = nativeModule.quoteDigest(request, destination);
-        const quoteSignature = await quoteAuthority.signMessage(ethers.utils.arrayify(quoteDigest));
+        const quoteSignature = signedQuote
+          ? await quoteAuthority.signMessage(ethers.utils.arrayify(nativeModule.quoteDigest(request, destination)))
+          : undefined;
         return { request, evidence: {
-          sourceBlockNumber: receipt.blockNumber, sourceBlockHash: receipt.blockHash, quoteSignature,
+          sourceBlockNumber: receipt.blockNumber, sourceBlockHash: receipt.blockHash,
+          ...(quoteSignature ? { quoteSignature } : {}),
         } };
       };
 
@@ -161,7 +174,8 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         evidence: first.evidence,
       });
       const beforeBalance = await targetProvider.getBalance(recipient);
-      const paidReceipt = await (await targetVault.releaseNative(first.request, release)).wait();
+      const paidCall = targetVault.interface.encodeFunctionData('releaseNative', [first.request, release]);
+      const paidReceipt = await (await targetForwarder.forward(targetVault.address, paidCall)).wait();
       assert.equal((await targetProvider.getBalance(recipient)).sub(beforeBalance).toString(),
         ethers.utils.parseEther('0.08').toString());
       await mine(targetProvider);
@@ -191,13 +205,20 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         sourceNonce: second.request.sourceNonce, clientReference: second.request.clientReference,
         sourceTxHash: second.request.sourceTxHash, sourceQuoteExpiry: second.request.sourceQuoteExpiry,
         releaseDeadline: second.request.releaseDeadline,
-        authorizationExpiry: Math.floor(Date.now() / 1000) + 120,
+        authorizationExpiry: Math.floor(Date.now() / 1000) + 5,
       };
-      const cancellation = await signThree('/v1/native/sign-cancellation', {
+      await signThree('/v1/native/sign-cancellation', {
         request: cancelRequest, operation: second.request,
         destinationChain: 202, destinationVault: targetVault.address, evidence: second.evidence,
       });
-      const cancelledReceipt = await (await targetVault.cancelRelease(cancelRequest, cancellation)).wait();
+      await sleep((cancelRequest.authorizationExpiry - Math.floor(Date.now() / 1000) + 1) * 1000);
+      const renewedCancel = { ...cancelRequest, authorizationExpiry: Math.floor(Date.now() / 1000) + 120 };
+      const cancellation = await signThree('/v1/native/sign-cancellation', {
+        request: renewedCancel, operation: second.request,
+        destinationChain: 202, destinationVault: targetVault.address, evidence: second.evidence,
+      });
+      const cancelCall = targetVault.interface.encodeFunctionData('cancelRelease', [renewedCancel, cancellation]);
+      const cancelledReceipt = await (await targetForwarder.forward(targetVault.address, cancelCall)).wait();
       await targetProvider.send('evm_increaseTime', [2]);
       await mine(targetProvider, 3);
       await sourceProvider.send('evm_setNextBlockTimestamp', [second.request.releaseDeadline + 2]);
@@ -207,16 +228,63 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         cancellationTxHash: cancelledReceipt.transactionHash,
         cancellationBlockHash: cancelledReceipt.blockHash,
         cancellationBlockNumber: cancelledReceipt.blockNumber,
-        authorizationExpiry: Math.floor(Date.now() / 1000) + 120,
+        authorizationExpiry: Math.floor(Date.now() / 1000) + 5,
       };
-      const refunds = await signThree('/v1/native/sign-refund', {
+      await signThree('/v1/native/sign-refund', {
         request: refundRequest, identity: second.request,
         sourceChain: 101, sourceVault: sourceVault.address,
         destinationChain: 202, destinationVault: targetVault.address, evidence: {},
       });
-      await (await sourceVault.refundDeposit(refundRequest, refunds)).wait();
+      await sleep((refundRequest.authorizationExpiry - Math.floor(Date.now() / 1000) + 1) * 1000);
+      const renewedRefund = { ...refundRequest, authorizationExpiry: Math.floor(Date.now() / 1000) + 120 };
+      const refunds = await signThree('/v1/native/sign-refund', {
+        request: renewedRefund, identity: second.request,
+        sourceChain: 101, sourceVault: sourceVault.address,
+        destinationChain: 202, destinationVault: targetVault.address, evidence: {},
+      });
+      await (await sourceVault.refundDeposit(renewedRefund, refunds)).wait();
       assert.equal(Number((await sourceVault.deposits(second.request.operationId)).state), 3);
       assert.equal(Number(await targetVault.releaseStates(second.request.operationId)), 2);
+
+      const unquoted = await makeDeposit('unquoted-direct', 6, false);
+      const unquotedWait = unquoted.request.releaseDeadline - Math.floor(Date.now() / 1000) + 2;
+      if (unquotedWait > 0) await sleep(unquotedWait * 1000);
+      const targetHead = await targetProvider.getBlock('latest');
+      await targetProvider.send('evm_setNextBlockTimestamp',
+        [Math.max(targetHead.timestamp + 1, unquoted.request.releaseDeadline + 2)]);
+      await mine(targetProvider, 3);
+      const unquotedCancel = {
+        operationId: unquoted.request.operationId, sourceChain: unquoted.request.sourceChain,
+        sourceVault: unquoted.request.sourceVault, sourceDepositor: unquoted.request.sourceDepositor,
+        sourceNonce: unquoted.request.sourceNonce, clientReference: unquoted.request.clientReference,
+        sourceTxHash: unquoted.request.sourceTxHash, sourceQuoteExpiry: unquoted.request.sourceQuoteExpiry,
+        releaseDeadline: unquoted.request.releaseDeadline,
+        authorizationExpiry: Math.floor(Date.now() / 1000) + 120,
+      };
+      const unquotedCancellation = await signThree('/v1/native/sign-cancellation', {
+        request: unquotedCancel, operation: unquoted.request,
+        destinationChain: 202, destinationVault: targetVault.address, evidence: unquoted.evidence,
+      });
+      const unquotedReceipt = await (await targetVault.cancelRelease(unquotedCancel, unquotedCancellation)).wait();
+      await mine(targetProvider, 3);
+      const sourceHead = await sourceProvider.getBlock('latest');
+      await sourceProvider.send('evm_setNextBlockTimestamp',
+        [Math.max(sourceHead.timestamp + 1, unquoted.request.releaseDeadline + 2)]);
+      await mine(sourceProvider, 3);
+      const unquotedRefund = {
+        operationId: unquoted.request.operationId,
+        cancellationTxHash: unquotedReceipt.transactionHash,
+        cancellationBlockHash: unquotedReceipt.blockHash,
+        cancellationBlockNumber: unquotedReceipt.blockNumber,
+        authorizationExpiry: Math.floor(Date.now() / 1000) + 120,
+      };
+      const unquotedRefundSignatures = await signThree('/v1/native/sign-refund', {
+        request: unquotedRefund, identity: unquoted.request,
+        sourceChain: 101, sourceVault: sourceVault.address,
+        destinationChain: 202, destinationVault: targetVault.address, evidence: {},
+      });
+      await (await sourceVault.refundDeposit(unquotedRefund, unquotedRefundSignatures)).wait();
+      assert.equal(Number((await sourceVault.deposits(unquoted.request.operationId)).state), 3);
     } finally {
       for (const child of children) child.kill();
       fs.rmSync(directory, { recursive: true, force: true });

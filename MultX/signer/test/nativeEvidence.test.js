@@ -41,18 +41,22 @@ function fixture() {
     quotedOutput: 900n, quoteExpiry: 1000, targetVault: TARGET_VAULT,
     finalityDelaySeconds: 60, state: 1,
   };
-  const state = { targetReleaseState: 0, sourceDepositState: 1 };
+  const state = { targetReleaseState: 0, sourceDepositState: 1,
+    outerRecipient: null, targetForkAt: null, targetForked: false };
   const providers = new Map([1, 56].map(chainId => [chainId, {
     send: async method => {
       assert.equal(method, 'eth_chainId');
       return `0x${chainId.toString(16)}`;
     },
     getBlockNumber: async () => 20,
-    getBlock: async number => ({ number: Number(number), hash: hashFor(number), timestamp: Number(number) === 12 ? 1100 : 1200 }),
+    getBlock: async number => ({ number: Number(number),
+      hash: chainId === 56 && state.targetForked && [11, 12].includes(Number(number))
+        ? hashFor(99) : hashFor(number),
+      timestamp: Number(number) === 12 ? 1100 : 1200 }),
     getTransactionReceipt: async hash => {
-      if (hash === SOURCE_TX) return { status: 1, blockNumber: 10, blockHash: hashFor(10), to: SOURCE_VAULT };
-      if (hash === RELEASE_TX) return { status: 1, blockNumber: 11, blockHash: hashFor(11), to: TARGET_VAULT };
-      if (hash === CANCEL_TX) return { status: 1, blockNumber: 12, blockHash: hashFor(12), to: TARGET_VAULT };
+      if (hash === SOURCE_TX) return { status: 1, blockNumber: 10, blockHash: hashFor(10), to: state.outerRecipient || SOURCE_VAULT };
+      if (hash === RELEASE_TX) return { status: 1, blockNumber: 11, blockHash: hashFor(11), to: state.outerRecipient || TARGET_VAULT };
+      if (hash === CANCEL_TX) return { status: 1, blockNumber: 12, blockHash: hashFor(12), to: state.outerRecipient || TARGET_VAULT };
       return null;
     },
   }]));
@@ -64,8 +68,10 @@ function fixture() {
         args: { depositor: DEPOSITOR, recipient: RECIPIENT, amount: 1000n,
           targetChain: 56, quotedOutput: 900n, quoteExpiry: 1000 },
       }] : [],
-      deposits: async (_id, options) => Number(options.blockTag) === 10
-        ? deposit : { ...deposit, state: state.sourceDepositState },
+      deposits: async (_id, options) => {
+        if (state.targetForkAt === 'sourceRead') state.targetForked = true;
+        return Number(options.blockTag) === 10 ? deposit : { ...deposit, state: state.sourceDepositState };
+      },
       releaseStates: async () => 0,
     }],
     [56, {
@@ -86,7 +92,12 @@ function fixture() {
         }];
         return [];
       },
-      releaseStates: async (_id, options) => Number(options.blockTag) === 12 ? 2 : state.targetReleaseState,
+      releaseStates: async (_id, options) => {
+        if (state.targetForkAt === 'terminalRead' && [11, 12].includes(Number(options.blockTag))) {
+          state.targetForked = true;
+        }
+        return Number(options.blockTag) === 12 ? 2 : state.targetReleaseState;
+      },
       deposits: async () => { throw new Error('unexpected target deposit read'); },
     }],
   ]);
@@ -110,6 +121,7 @@ test('verifies quote authority, canonical source deposit and unused destination'
   state.sourceDepositState = 3;
   await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
     /no longer pending/);
+  state.sourceDepositState = 1;
   const wrong = Wallet.createRandom();
   const evidence = await releaseEvidence(wrong);
   await assert.rejects(verifier.verifyRelease(operation, destination, evidence), /quote authorization signer mismatch/);
@@ -129,11 +141,54 @@ test('verifies expiry recovery, finalization and refund evidence', async () => {
     destinationBlockNumber: 11, destinationBlockHash: hashFor(11),
   }), /transaction mismatch/);
 
-  state.targetReleaseState = 0;
+  state.targetReleaseState = 2;
   const verified = await verifier.verifyRefund({
     operationId, cancellationTxHash: CANCEL_TX, cancellationBlockHash: hashFor(12),
     cancellationBlockNumber: 12, authorizationExpiry: 1300,
   }, operation, { chainId: 1, vault: SOURCE_VAULT }, destination, {});
   assert.equal(verified.deposit.amount, 1000n);
   assert.equal(verified.cancellation.finalized, true);
+});
+
+test('accepts approved vault events from contract-wallet and contract-relayer transactions', async () => {
+  const { quoteWallet, verifier, state } = fixture();
+  state.outerRecipient = '0x5555555555555555555555555555555555555555';
+  await verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet));
+  await verifier.verifyCancellation(operation, destination, { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) });
+  state.targetReleaseState = 1;
+  await verifier.verifyFinalization(operation, { chainId: 1, vault: SOURCE_VAULT }, destination, {
+    destinationTxHash: RELEASE_TX, expectedDestinationTxHash: RELEASE_TX,
+    destinationBlockNumber: 11, destinationBlockHash: hashFor(11),
+  });
+  state.targetReleaseState = 2;
+  await verifier.verifyRefund({ operationId, cancellationTxHash: CANCEL_TX,
+    cancellationBlockHash: hashFor(12), cancellationBlockNumber: 12, authorizationExpiry: 1300 },
+  operation, { chainId: 1, vault: SOURCE_VAULT }, destination, {});
+});
+
+test('rejects terminal proof reorganization after historical or dependent reads', async () => {
+  const finalization = fixture();
+  finalization.state.targetReleaseState = 1;
+  finalization.state.targetForkAt = 'terminalRead';
+  await assert.rejects(finalization.verifier.verifyFinalization(operation,
+    { chainId: 1, vault: SOURCE_VAULT }, destination, {
+      destinationTxHash: RELEASE_TX, expectedDestinationTxHash: RELEASE_TX,
+      destinationBlockNumber: 11, destinationBlockHash: hashFor(11),
+    }), /not canonical/);
+
+  const refund = fixture();
+  refund.state.targetReleaseState = 2;
+  refund.state.targetForkAt = 'terminalRead';
+  await assert.rejects(refund.verifier.verifyRefund({ operationId,
+    cancellationTxHash: CANCEL_TX, cancellationBlockHash: hashFor(12),
+    cancellationBlockNumber: 12, authorizationExpiry: 1300 }, operation,
+  { chainId: 1, vault: SOURCE_VAULT }, destination, {}), /not canonical/);
+});
+
+test('permits cancellation of a real deposit when no approved payout quote exists', async () => {
+  const { verifier } = fixture();
+  await assert.rejects(verifier.verifyRelease(operation, destination,
+    { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }), /quote authorization signature/);
+  await verifier.verifyCancellation(operation, destination,
+    { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) });
 });

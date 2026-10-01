@@ -1,7 +1,8 @@
 param(
   [Parameter(Mandatory = $true)][string]$OutputZip,
   [Parameter(Mandatory = $true)][string]$BytecodeEvidence,
-  [Parameter(Mandatory = $true)][string]$PreviousReview
+  [Parameter(Mandatory = $true)][string]$PreviousReview,
+  [Parameter(Mandatory = $true)][string]$CIEvidenceDirectory
 )
 
 $ErrorActionPreference = 'Stop'
@@ -22,9 +23,36 @@ $output = [System.IO.Path]::GetFullPath($OutputZip)
 if (Test-Path -LiteralPath $output) { throw 'Output archive already exists' }
 $evidence = (Resolve-Path -LiteralPath $BytecodeEvidence).Path
 $review = (Resolve-Path -LiteralPath $PreviousReview).Path
+$ciEvidence = (Resolve-Path -LiteralPath $CIEvidenceDirectory).Path
 $evidenceText = [System.IO.File]::ReadAllText($evidence)
 if ($evidenceText -notmatch '"commit"\s*:\s*"([0-9a-f]{40})"' -or $Matches[1] -ne $commit) {
   throw 'Bytecode evidence does not match source commit'
+}
+$requiredCI = @('GIT_COMMIT.txt', 'GIT_STATUS.txt', 'SHA256SUMS.txt',
+  'results-all.json', 'contracts-tests.log', 'signer-tests.log')
+foreach ($name in $requiredCI) {
+  if (-not (Test-Path -LiteralPath (Join-Path $ciEvidence $name) -PathType Leaf)) {
+    throw "Missing retained CI evidence: $name"
+  }
+}
+if (([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_COMMIT.txt'))).Trim() -ne $commit) {
+  throw 'CI rehearsal source commit mismatch'
+}
+if (-not [string]::IsNullOrWhiteSpace([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_STATUS.txt')))) {
+  throw 'CI rehearsal checkout was not clean'
+}
+$ciResults = @(Get-Content -LiteralPath (Join-Path $ciEvidence 'results-all.json') -Raw | ConvertFrom-Json)
+if ($ciResults.Count -lt 6 -or @($ciResults | Where-Object { $_.exitCode -ne 0 }).Count -gt 0) {
+  throw 'CI rehearsal phase failure or incomplete results'
+}
+foreach ($line in [System.IO.File]::ReadAllLines((Join-Path $ciEvidence 'SHA256SUMS.txt'))) {
+  if ($line -notmatch '^([0-9a-f]{64})\s+(.+)$') { throw 'Malformed CI evidence checksum line' }
+  $namedFile = [System.IO.Path]::GetFileName($Matches[2])
+  $checkedFile = Join-Path $ciEvidence $namedFile
+  if (-not (Test-Path -LiteralPath $checkedFile -PathType Leaf) -or
+      (Get-FileHash -LiteralPath $checkedFile -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1]) {
+    throw "CI evidence checksum mismatch: $namedFile"
+  }
 }
 
 & git -C $repo archive --format=zip "--output=$output" $commit .github/workflows/ci-multx.yaml MultX/contracts MultX/signer MultX/scripts/create-native-review-candidate.ps1
@@ -58,24 +86,25 @@ try {
 
 $metadata = [ordered]@{
   schemaVersion = 1
-  candidate = 'MULTX_NATIVE_MESH_R3_REVIEW_CANDIDATE_2026-10-01'
+  candidate = [System.IO.Path]::GetFileNameWithoutExtension($output)
   commit = $commit
   source = 'git archive of the exact signed commit'
   deploymentAuthorized = $false
   signingEnabled = $false
   relayingEnabled = $false
   swapEnabled = $false
-  contractTests = '210 passing on Windows, including separate-process two-chain native service rehearsal'
-  signerTests = '52 passing; 9 POSIX filesystem cases skipped on Windows and retained for Linux CI'
-  productionDependencyAudit = '0 vulnerabilities'
+  ciRehearsal = 'Retained CI_EVIDENCE results and raw test logs, bound to this source commit'
   developerToolingAudit = '34 findings; see NATIVE_TOOLCHAIN_RISK_DISPOSITION_2026-10-01.md'
 }
 $utf8 = New-Object System.Text.UTF8Encoding($false)
 $zip = [System.IO.Compression.ZipFile]::Open($output, [System.IO.Compression.ZipArchiveMode]::Update)
 try {
   Add-Bytes $zip 'SIGNED_COMMIT.txt' $commitBytes
-  Add-Bytes $zip 'R3_BYTECODE_EVIDENCE.json' ([System.IO.File]::ReadAllBytes($evidence))
-  Add-Bytes $zip 'AUTHA_NATIVE_MESH_R2_REVIEW_2026-10-01.md' ([System.IO.File]::ReadAllBytes($review))
+  Add-Bytes $zip 'BYTECODE_EVIDENCE.json' ([System.IO.File]::ReadAllBytes($evidence))
+  Add-Bytes $zip ([System.IO.Path]::GetFileName($review)) ([System.IO.File]::ReadAllBytes($review))
+  foreach ($file in @(Get-ChildItem -LiteralPath $ciEvidence -File | Sort-Object Name)) {
+    Add-Bytes $zip "CI_EVIDENCE/$($file.Name)" ([System.IO.File]::ReadAllBytes($file.FullName))
+  }
   Add-Bytes $zip 'CANDIDATE_METADATA.json' ($utf8.GetBytes(($metadata | ConvertTo-Json -Depth 5) + "`n"))
   $sha = [System.Security.Cryptography.SHA256]::Create()
   try {

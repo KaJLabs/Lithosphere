@@ -44,6 +44,17 @@ final, signers can authorize source finalization after verifying that release;
 the destination contract rejects the outstanding cancellation.
 The journal is written and synced before signing, and evidence is rechecked
 after the write.
+Finalization first records a provisional payout proof. Only a successful second
+evidence check advances it to a payout decision and permits signing. A failed
+second check leaves a provisional record from which a verified cancellation can
+proceed after expiry. If a refund certificate expires unused and the source is
+still pending, a newly verified canonical payout can likewise be finalized.
+If a cancellation or refund certificate expires before it is included, the same
+signers may append a replacement authorization with a later expiry. Renewal is
+allowed only after the previous expiry, for the same immutable operation and
+authority epoch, and after fresh on-chain evidence checks. Duplicate delivery
+of the identical certificate does not append another record. Issuing a refund
+certificate does not establish that the source refund executed.
 
 Release signing requires a canonical source deposit, finalized source block,
 configured route, a quote signed by the approved quote authority, authorization
@@ -55,11 +66,25 @@ the deposited values against the quote and source contract state.
 Cancellation signing requires the release deadline to have passed, the
 destination state to remain `None`, and a current authorization. It produces a
 destination transaction/block record.
+It verifies the actual source deposit and destination state but does not require
+an economic quote signature. Direct on-chain deposits without an approved quote
+can therefore be cancelled and refunded after expiry; they cannot obtain a
+release authorization. This recovery path must remain available even if the
+quote authority refuses an economically invalid quote.
 
 Refund signing requires the exact source deposit, exact finalized cancellation
 event, matching transaction/block evidence, canonical block recheck and the
 route-specific finality delay to have elapsed. A cancellation observed only in
-an unfinalized or later-reorganized block is insufficient.
+an unfinalized or later-reorganized block is insufficient. Terminal payout and
+cancellation proofs are rechecked against the canonical destination block and
+current finalized terminal state after dependent source reads.
+
+Paused-deployment certification permits unsolicited native funding events,
+including zero-value calls, while rejecting all settlement and configuration
+history beyond construction. It reports the observed funding and entire balance
+as unapproved. Any nonzero balance requires separate funding reconciliation
+before operational acceptance or activation; a paused-deployment PASS alone is
+not approval to use that balance as payout liquidity.
 
 The signer service exposes separate native release, cancellation, finalization
 and refund endpoints. `SIGNER_NATIVE_SIGNING_ENABLED` defaults to false. Enabling

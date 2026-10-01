@@ -56,12 +56,36 @@ describe('Native mesh post-deployment provenance', function () {
   it('rejects hidden cancellation history even if aggregate counters return to zero', async function () {
     const { provider, state } = fixture();
     const deployment = { transactionHash: TX, blockNumber: 12, blockHash: BLOCK_HASH };
-    expect(await verifyPristineVaultHistory(provider, VAULT, deployment, 20)).to.equal(3);
+    expect((await verifyPristineVaultHistory(provider, VAULT, deployment, 20)).constructorLogs).to.equal(3);
     state.history.push({
       ...state.history[0], blockNumber: 15, logIndex: 4,
       transactionHash: `0x${'40'.repeat(32)}`,
       topics: [ethers.utils.id('ReleaseCancelled(bytes32,uint256,bytes32)')],
     });
+    await assert.rejects(verifyPristineVaultHistory(provider, VAULT, deployment, 20),
+      /post-constructor event history/);
+  });
+
+  it('reconciles unsolicited funding events without accepting hidden settlement history', async function () {
+    const { provider, state } = fixture();
+    const deployment = { transactionHash: TX, blockNumber: 12, blockHash: BLOCK_HASH };
+    const funding = { address: VAULT, blockNumber: 15, blockHash: BLOCK_HASH,
+      transactionHash: `0x${'41'.repeat(32)}`, logIndex: 4, removed: false,
+      topics: [ethers.utils.id('LiquidityFunded(address,uint256)'),
+        ethers.utils.hexZeroPad('0x1111111111111111111111111111111111111111', 32)],
+      data: ethers.utils.hexZeroPad('0x00', 32) };
+    state.history.push(funding);
+    let result = await verifyPristineVaultHistory(provider, VAULT, deployment, 20);
+    expect(result.fundingEvents).to.equal(1);
+    expect(result.observedFundingWei.isZero()).to.equal(true);
+    state.history.push({ ...funding, blockNumber: 12, logIndex: 5,
+      transactionHash: `0x${'42'.repeat(32)}`, data: ethers.utils.hexZeroPad('0x05', 32) });
+    result = await verifyPristineVaultHistory(provider, VAULT, deployment, 20);
+    expect(result.fundingEvents).to.equal(2);
+    expect(result.observedFundingWei.toString()).to.equal('5');
+    state.history.push({ ...funding, blockNumber: 16, logIndex: 6,
+      transactionHash: `0x${'43'.repeat(32)}`,
+      topics: [ethers.utils.id('ReleaseCancelled(bytes32,uint256,bytes32)')] });
     await assert.rejects(verifyPristineVaultHistory(provider, VAULT, deployment, 20),
       /post-constructor event history/);
   });
@@ -72,5 +96,23 @@ describe('Native mesh post-deployment provenance', function () {
     await assert.rejects(verifyPristineVaultHistory(provider, VAULT,
       { transactionHash: TX, blockNumber: 12, blockHash: BLOCK_HASH }, 20),
     /constructor event evidence incomplete/);
+  });
+
+  it('accepts a real zero-value funding call while paused and records unsolicited value', async function () {
+    const [owner, ...validators] = await ethers.getSigners();
+    const vault = await (await ethers.getContractFactory('NativeLiquidityVault'))
+      .deploy(owner.address, validators.slice(0, 5).map(item => item.address));
+    await vault.deployed();
+    const creation = await vault.deployTransaction.wait();
+    const deployment = { transactionHash: creation.transactionHash,
+      blockNumber: creation.blockNumber, blockHash: creation.blockHash };
+    await (await owner.sendTransaction({ to: vault.address, value: 0, data: '0x' })).wait();
+    await (await owner.sendTransaction({ to: vault.address, value: 5, data: '0x' })).wait();
+    const history = await verifyPristineVaultHistory(ethers.provider, vault.address,
+      deployment, await ethers.provider.getBlockNumber());
+    expect(history.constructorLogs).to.equal(3);
+    expect(history.fundingEvents).to.equal(2);
+    expect(history.observedFundingWei.toString()).to.equal('5');
+    expect((await ethers.provider.getBalance(vault.address)).toString()).to.equal('5');
   });
 });

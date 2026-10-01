@@ -94,15 +94,15 @@ export function createNativeEvidenceVerifier(policy, {
     return { value, block: after };
   }
 
-  async function sourceDeposit(operation, destination, evidence) {
+  async function sourceDeposit(operation, destination, evidence, requireQuote = true) {
     const source = resolveNativeChain(policy, operation.sourceChain, operation.sourceVault);
     resolveNativeChain(policy, destination.chainId, destination.vault);
-    assertQuote(policy, operation, destination, evidence?.quoteSignature);
+    if (requireQuote) assertQuote(policy, operation, destination, evidence?.quoteSignature);
     const block = await confirmedBlock(source, evidence?.sourceBlockNumber, evidence?.sourceBlockHash);
     const { provider, contract } = client(source);
     const receipt = await provider.getTransactionReceipt(operation.sourceTxHash);
     if (!receipt || Number(receipt.status) !== 1 || receipt.blockNumber !== Number(evidence.sourceBlockNumber) ||
-        lower(receipt.blockHash) !== lower(evidence.sourceBlockHash) || lower(receipt.to) !== lower(source.vault)) {
+        lower(receipt.blockHash) !== lower(evidence.sourceBlockHash)) {
       throw new Error('source deposit receipt mismatch');
     }
     const events = await contract.queryFilter(contract.filters.NativeDeposited(operation.operationId),
@@ -137,13 +137,21 @@ export function createNativeEvidenceVerifier(policy, {
     return { source, deposit };
   }
 
+  async function terminalState(chain, operationId, expectedState, blockNumber, blockHash) {
+    await confirmedBlock(chain, blockNumber, blockHash);
+    const { value } = await stableFinalizedState(chain, (contract, blockTag) =>
+      contract.releaseStates(operationId, { blockTag }));
+    if (Number(value) !== expectedState) throw new Error('destination terminal state changed');
+    await confirmedBlock(chain, blockNumber, blockHash);
+  }
+
   async function releasedEvent(operation, destination, evidence) {
     const chain = resolveNativeChain(policy, destination.chainId, destination.vault);
     await confirmedBlock(chain, evidence?.destinationBlockNumber, evidence?.destinationBlockHash);
     const { provider, contract } = client(chain);
     const receipt = await provider.getTransactionReceipt(evidence?.destinationTxHash);
     if (!receipt || Number(receipt.status) !== 1 || receipt.blockNumber !== Number(evidence.destinationBlockNumber) ||
-        lower(receipt.blockHash) !== lower(evidence.destinationBlockHash) || lower(receipt.to) !== lower(chain.vault)) {
+        lower(receipt.blockHash) !== lower(evidence.destinationBlockHash)) {
       throw new Error('destination release receipt mismatch');
     }
     const events = await contract.queryFilter(contract.filters.NativeReleased(operation.operationId),
@@ -159,6 +167,7 @@ export function createNativeEvidenceVerifier(policy, {
     }
     const state = await contract.releaseStates(operation.operationId, { blockTag: Number(evidence.destinationBlockNumber) });
     if (Number(state) !== 1) throw new Error('destination release state is not Released');
+    await terminalState(chain, operation.operationId, 1, evidence.destinationBlockNumber, evidence.destinationBlockHash);
     return { chain, receipt };
   }
 
@@ -171,7 +180,7 @@ export function createNativeEvidenceVerifier(policy, {
       if (Number(value) !== 0) throw new Error('destination operation is already terminal');
     },
     async verifyCancellation(operation, destination, evidence) {
-      await sourceDeposit(operation, destination, evidence);
+      await sourceDeposit(operation, destination, evidence, false);
       const target = resolveNativeChain(policy, destination.chainId, destination.vault);
       const { value, block } = await stableFinalizedState(target, async (contract, blockTag) => ({
         state: Number(await contract.releaseStates(operation.operationId, { blockTag })),
@@ -200,6 +209,8 @@ export function createNativeEvidenceVerifier(policy, {
           deposit.targetChain !== destination.chainId || deposit.targetVault !== destination.vault) {
         throw new Error('source finalization deposit mismatch');
       }
+      await terminalState(resolveNativeChain(policy, destination.chainId, destination.vault),
+        operation.operationId, 1, evidence.destinationBlockNumber, evidence.destinationBlockHash);
     },
     async verifyRefund(request, identity, source, destination, evidence) {
       if (Number(identity.sourceChain) !== Number(source.chainId) ||
@@ -212,7 +223,7 @@ export function createNativeEvidenceVerifier(policy, {
       const { provider, contract } = client(target);
       const receipt = await provider.getTransactionReceipt(request.cancellationTxHash);
       if (!receipt || Number(receipt.status) !== 1 || receipt.blockNumber !== Number(request.cancellationBlockNumber) ||
-          lower(receipt.blockHash) !== lower(request.cancellationBlockHash) || lower(receipt.to) !== lower(target.vault)) {
+          lower(receipt.blockHash) !== lower(request.cancellationBlockHash)) {
         throw new Error('destination cancellation receipt mismatch');
       }
       const events = await contract.queryFilter(contract.filters.ReleaseCancelled(identity.operationId),
@@ -239,6 +250,8 @@ export function createNativeEvidenceVerifier(policy, {
       if (Number(finalized.value) < Number(cancellationBlock.timestamp) + deposit.finalityDelaySeconds) {
         throw new Error('destination cancellation finality delay has not elapsed');
       }
+      await terminalState(target, identity.operationId, 2,
+        request.cancellationBlockNumber, request.cancellationBlockHash);
       return { deposit, cancellation: { txHash: request.cancellationTxHash, blockHash: request.cancellationBlockHash,
         blockNumber: Number(request.cancellationBlockNumber), finalized: true } };
     },

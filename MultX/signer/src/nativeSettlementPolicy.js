@@ -214,6 +214,7 @@ export function createNativeSettlementDecision({ journal, signer, now = () => Ma
           key, state: 'CANCELLATION_AUTHORIZED', operationHash, decisionHash: digest,
           authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'),
           authorizationExpiry: Number(request.authorizationExpiry),
+          ...(prior?.state === 'CANCELLATION_AUTHORIZED' ? { renewedAt: Number(time) } : {}),
         }), digest);
       });
     },
@@ -222,15 +223,29 @@ export function createNativeSettlementDecision({ journal, signer, now = () => Ma
         const immutable = releaseRequest(operation);
         const key = nativeDecisionKey(immutable.operationId);
         const prior = journal.get(key);
-        if (prior?.state === 'REFUND_AUTHORIZED') {
+        const time = BigInt(now());
+        if (prior?.state === 'REFUND_AUTHORIZED' && time <= BigInt(prior.authorizationExpiry)) {
           throw new Error(`operation already committed to recovery as ${prior.state}`);
         }
         const operationHash = operationCommitment(immutable, destination);
         const digest = finalizeDigest(immutable.operationId, destinationTxHash, source.chainId, source.vault);
-        return verifyTwice(verifyEvidence, () => journal.transition({
+        const entry = {
+          key, operationHash, decisionHash: digest,
+          authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'), authorizationExpiry: 0,
+        };
+        if (prior?.state === 'PAYOUT_FINALIZED') {
+          return verifyTwice(verifyEvidence, () => journal.transition({
+            ...entry, state: 'PAYOUT_FINALIZED',
+          }), digest);
+        }
+        await verifyEvidence();
+        journal.transition({ ...entry, state: 'PAYOUT_PROOF_PENDING' });
+        await verifyEvidence();
+        journal.transition({
           key, state: 'PAYOUT_FINALIZED', operationHash, decisionHash: digest,
           authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'), authorizationExpiry: 0,
-        }), digest);
+        });
+        return signer.signMessage(getBytes(digest));
       });
     },
     signRefund({ request, deposit, identity, source, destination, cancellation }, verifyEvidence) {
@@ -263,6 +278,7 @@ export function createNativeSettlementDecision({ journal, signer, now = () => Ma
           key, state: 'REFUND_AUTHORIZED', operationHash, decisionHash: digest,
           authorityEpoch: bytes32(destination.authorityEpoch, 'authorityEpoch'),
           authorizationExpiry: Number(expiry),
+          ...(prior?.state === 'REFUND_AUTHORIZED' ? { renewedAt: Number(time) } : {}),
         }), digest);
       });
     },
