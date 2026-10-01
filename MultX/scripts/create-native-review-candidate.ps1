@@ -51,14 +51,27 @@ $ciResults = Get-Content -LiteralPath (Join-Path $ciEvidence 'results-all.json')
 if ($ciResults.Count -lt 6 -or @($ciResults | Where-Object { $_.exitCode -ne 0 }).Count -gt 0) {
   throw 'CI rehearsal phase failure or incomplete results'
 }
+$omittedCI = @()
+$checkedCI = @()
 foreach ($line in [System.IO.File]::ReadAllLines((Join-Path $ciEvidence 'SHA256SUMS.txt'))) {
   if ($line -notmatch '^([0-9a-f]{64})\s+(.+)$') { throw 'Malformed CI evidence checksum line' }
+  $expectedHash = $Matches[1]
   $namedFile = [System.IO.Path]::GetFileName($Matches[2])
   $checkedFile = Join-Path $ciEvidence $namedFile
-  if (-not (Test-Path -LiteralPath $checkedFile -PathType Leaf) -or
-      (Get-FileHash -LiteralPath $checkedFile -Algorithm SHA256).Hash.ToLowerInvariant() -ne $Matches[1]) {
+  if (-not (Test-Path -LiteralPath $checkedFile -PathType Leaf)) {
+    if ($namedFile -match '^local-node-\d+\.log$') {
+      $omittedCI += $namedFile
+      continue
+    }
+    throw "Missing CI evidence file: $namedFile"
+  }
+  if ((Get-FileHash -LiteralPath $checkedFile -Algorithm SHA256).Hash.ToLowerInvariant() -ne $expectedHash) {
     throw "CI evidence checksum mismatch: $namedFile"
   }
+  $checkedCI += $namedFile
+}
+foreach ($name in @('results-all.json', 'contracts-tests.log', 'signer-tests.log')) {
+  if ($checkedCI -notcontains $name) { throw "Required CI evidence is not checksummed: $name" }
 }
 
 & git -C $repo archive --format=zip "--output=$output" $commit .github/workflows/ci-multx.yaml MultX/contracts MultX/signer MultX/scripts/create-native-review-candidate.ps1
@@ -102,6 +115,8 @@ $metadata = [ordered]@{
   relayingEnabled = $false
   swapEnabled = $false
   ciRehearsal = 'Retained CI_EVIDENCE results and raw test logs, bound to this source commit'
+  ciRetainedChecksumsVerified = $checkedCI.Count
+  ciLogsOmittedFromUpload = @($omittedCI)
   developerToolingAudit = '34 findings; see NATIVE_TOOLCHAIN_RISK_DISPOSITION_2026-10-01.md'
 }
 $utf8 = New-Object System.Text.UTF8Encoding($false)
