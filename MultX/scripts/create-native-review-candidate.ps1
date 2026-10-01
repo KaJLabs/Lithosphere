@@ -35,8 +35,14 @@ foreach ($name in $requiredCI) {
     throw "Missing retained CI evidence: $name"
   }
 }
-if (([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_COMMIT.txt'))).Trim() -ne $commit) {
-  throw 'CI rehearsal source commit mismatch'
+$ciCommit = ([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_COMMIT.txt'))).Trim()
+if ($ciCommit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid CI rehearsal commit' }
+if ((& git -C $repo cat-file -t $ciCommit).Trim() -ne 'commit' -or $LASTEXITCODE -ne 0) {
+  throw 'CI rehearsal commit unavailable locally'
+}
+& git -C $repo diff --quiet $commit $ciCommit -- .github/workflows/ci-multx.yaml MultX
+if ($LASTEXITCODE -ne 0) {
+  throw 'CI rehearsal MultX source differs from candidate commit'
 }
 if (-not [string]::IsNullOrWhiteSpace([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_STATUS.txt')))) {
   throw 'CI rehearsal checkout was not clean'
@@ -88,6 +94,8 @@ $metadata = [ordered]@{
   schemaVersion = 1
   candidate = [System.IO.Path]::GetFileNameWithoutExtension($output)
   commit = $commit
+  ciRehearsalCommit = $ciCommit
+  ciMultXSourceEquivalent = $true
   source = 'git archive of the exact signed commit'
   deploymentAuthorized = $false
   signingEnabled = $false
