@@ -35,17 +35,15 @@ export async function verifyDirectNativePayout(provider, expected) {
   if (tip - height + 1 < expected.confirmations) fail('payout not final enough');
   const block = await provider.getBlock(height);
   if (!block || hash(block.hash) !== hash(receipt.blockHash)) fail('payout reorged');
+  // A successful, canonical direct-value transaction to an EOA proves this
+  // transaction's credit. Whole-block balance deltas include unrelated spends.
   // Contract recipients need execution traces/accounting specific to their adapter.
   if (await provider.getCode(recipient, height) !== '0x') fail('contract recipient unsupported');
-  const [before, after] = await Promise.all([
-    provider.getBalance(recipient, height - 1), provider.getBalance(recipient, height),
-  ]);
-  if (BigInt(after) - BigInt(before) < BigInt(tx.value)) fail('native credit not established');
   const checked = await provider.getBlock(height);
   if (!checked || hash(checked.hash) !== hash(block.hash)) fail('payout reorged during verification');
   return Object.freeze({ swapId: expected.swapId, chainId: expected.chainId,
     transactionHash: txHash, blockNumber: height, blockHash: hash(block.hash),
     recipient, amountBaseUnits: BigInt(tx.value).toString(),
-    evidenceKey: `${expected.chainId}:${txHash}`, verification: 'direct-native-credit',
+    evidenceKey: `${expected.chainId}:${txHash}`, verification: 'direct-native-transfer',
   });
 }

@@ -40,9 +40,9 @@ if ($ciCommit -notmatch '^[0-9a-f]{40}$') { throw 'Invalid CI rehearsal commit' 
 if ((& git -C $repo cat-file -t $ciCommit).Trim() -ne 'commit' -or $LASTEXITCODE -ne 0) {
   throw 'CI rehearsal commit unavailable locally'
 }
-& git -C $repo diff --quiet $commit $ciCommit -- .github/workflows/ci-multx.yaml MultX
+& git -C $repo diff --quiet $commit $ciCommit -- .github/workflows/ci-multx.yaml MultX Makalu/contracts/src/dex
 if ($LASTEXITCODE -ne 0) {
-  throw 'CI rehearsal MultX source differs from candidate commit'
+  throw 'CI rehearsal source or DEX fixture differs from candidate commit'
 }
 if (-not [string]::IsNullOrWhiteSpace([System.IO.File]::ReadAllText((Join-Path $ciEvidence 'GIT_STATUS.txt')))) {
   throw 'CI rehearsal checkout was not clean'
@@ -74,7 +74,7 @@ foreach ($name in @('results-all.json', 'contracts-tests.log', 'signer-tests.log
   if ($checkedCI -notcontains $name) { throw "Required CI evidence is not checksummed: $name" }
 }
 
-& git -C $repo archive --format=zip "--output=$output" $commit .github/workflows/ci-multx.yaml MultX/contracts MultX/signer MultX/scripts/create-native-review-candidate.ps1
+& git -C $repo archive --format=zip "--output=$output" $commit .github/workflows/ci-multx.yaml MultX Makalu/contracts/src/dex
 if ($LASTEXITCODE -ne 0) { throw 'Git archive failed' }
 
 $process = New-Object System.Diagnostics.Process
@@ -109,6 +109,9 @@ $metadata = [ordered]@{
   commit = $commit
   ciRehearsalCommit = $ciCommit
   ciMultXSourceEquivalent = $true
+  ciFixtureSourceEquivalent = $true
+  includesFullApiSdkWebSources = $true
+  includesMakaluV2Fixtures = $true
   source = 'git archive of the exact signed commit'
   deploymentAuthorized = $false
   signingEnabled = $false
