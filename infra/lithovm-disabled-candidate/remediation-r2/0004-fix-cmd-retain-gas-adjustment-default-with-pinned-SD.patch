@@ -1,0 +1,70 @@
+From ddfe53fcdfbbddf9919466cd4313a0c42f773965 Mon Sep 17 00:00:00 2001
+From: bachal-abro <mbachalabro1@gmail.com>
+Date: Thu, 1 Oct 2026 01:51:19 +0500
+Subject: [PATCH 4/4] fix(cmd): retain gas-adjustment default with pinned SDK
+
+---
+ cmd/evmosd/cmd_test.go |  9 +++++++++
+ cmd/evmosd/root.go     | 15 ++++++++++++---
+ 2 files changed, 21 insertions(+), 3 deletions(-)
+
+diff --git a/cmd/evmosd/cmd_test.go b/cmd/evmosd/cmd_test.go
+index 1ae5775..7ee6832 100644
+--- a/cmd/evmosd/cmd_test.go
++++ b/cmd/evmosd/cmd_test.go
+@@ -30,6 +30,15 @@ func TestInitCmd(t *testing.T) {
+ 	require.NoError(t, err)
+ }
+ 
++func TestGasAdjustmentDefault(t *testing.T) {
++	rootCmd, _ := evmosd.NewRootCmd()
++	flag := rootCmd.PersistentFlags().Lookup(flags.FlagGasAdjustment)
++	require.NotNil(t, flag)
++	require.Equal(t, "1.2", flag.DefValue)
++	require.Equal(t, "1.2", flag.Value.String())
++	require.False(t, flag.Changed)
++}
++
+ func TestAddKeyLedgerCmd(t *testing.T) {
+ 	rootCmd, _ := evmosd.NewRootCmd()
+ 	rootCmd.SetArgs([]string{
+diff --git a/cmd/evmosd/root.go b/cmd/evmosd/root.go
+index 435206b..53412e8 100644
+--- a/cmd/evmosd/root.go
++++ b/cmd/evmosd/root.go
+@@ -9,6 +9,7 @@ import (
+ 	"io"
+ 	"os"
+ 	"path/filepath"
++	"strconv"
+ 	"time"
+ 
+ 	"github.com/spf13/cast"
+@@ -203,6 +204,17 @@ func NewRootCmd() (*cobra.Command, sdktestutil.TestEncodingConfig) {
+ 	if err != nil {
+ 		panic(err)
+ 	}
++	// The pinned SDK exposes DefaultGasAdjustment as a constant. Set the
++	// already-registered flag default instead of assigning to that constant.
++	gasFlag := rootCmd.PersistentFlags().Lookup(flags.FlagGasAdjustment)
++	if gasFlag == nil {
++		panic("gas-adjustment flag is missing")
++	}
++	gasDefault := strconv.FormatFloat(servercfg.DefaultGasAdjustment, 'f', -1, 64)
++	if err := gasFlag.Value.Set(gasDefault); err != nil {
++		panic(err)
++	}
++	gasFlag.DefValue = gasDefault
+ 
+ 	// add rosetta
+ 	rootCmd.AddCommand(rosettaCmd.RosettaCommand(encodingConfig.InterfaceRegistry, encodingConfig.Codec))
+@@ -267,9 +279,6 @@ func txCommand() *cobra.Command {
+ 		authcmd.GetSimulateCmd(),
+ 	)
+ 
+-	// DefaultGasAdjustment value to use as default in gas-adjustment flag
+-	flags.DefaultGasAdjustment = servercfg.DefaultGasAdjustment
+-
+ 	cmd.PersistentFlags().String(flags.FlagChainID, "", "The network chain ID")
+ 
+ 	return cmd

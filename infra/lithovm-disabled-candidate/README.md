@@ -44,6 +44,30 @@ release patches. The chain lab at the pinned commit passed ordinary and tagged
 keeper suites, plus the tagged candidate race test. These are local tests,
 **not** Makalu validation or an independent security review.
 
+## R2 disabled remediation delta
+
+The R1 overlay and immutable release patches above remain unchanged. The
+`remediation-r2/` directory contains four ordered `git format-patch` files
+from Evmos `0e2522d` to `ddfe53f`, covering keeper estimation, the isolated
+native store and upgrade rehearsal, and the pinned-SDK CLI build fix. Verify
+each SHA-256 in `manifest.txt`, then apply the four files in filename order
+with `git apply --check` and `git apply` after the R1 overlay and lab-only Go
+module replacements. The local verification applied all four to `0e2522d`
+and compared the complete staged tree to `ddfe53f` with zero diff. The full
+source snapshot is
+`LITHIC_LTH_R1_REMEDIATION_SOURCE_7d8bcc7_2026-10-01.zip`, pinned by SHA-256
+in the manifest; it excludes the upstream tracked Evmos `scripts/.env`.
+
+The R2 source pins are Lithic `7d8bcc7`, Evmos `ddfe53f`, and SDK `f2e6295`.
+The included [Lithic remediation tracker](https://github.com/KaJLabs/Lithic/blob/7d8bcc70be23f83f6c7b17b0e577f9c8e0f9a109/docs/LTH_R1_REMEDIATION.md)
+records local evidence and open independent retests. Ordinary and tagged
+command/app/keeper suites passed on the isolated VPS; the tagged chain binary
+was built but not started. Lithic PR #13's cross-platform checks and all five
+fuzz smoke jobs passed at `7d8bcc7`. Growth pricing and the 10M cap, full-block
+validator evidence, coordinated store-upgrade rollback, Makalu acceptance and
+independent security closure remain open. Do not register, deploy or activate
+the tagged gateway.
+
 ## Release blockers
 
 - Publish and independently review the pinned toolchain and this overlay;

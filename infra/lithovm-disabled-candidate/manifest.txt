@@ -9,3 +9,17 @@ Overlay SHA-256: cec13ee2fecb097a3cea11d9a74fb65bef96dc2892cc110908799c1b621cf69
 Lab-only Go build tag: lithovm_chain_lab
 Normal build: no LithoVM gateway hook installed
 Tagged build: activates a laboratory gateway; never deploy this binary
+
+R2 disabled remediation delta (2026-10-01; R1 pins above retained as history)
+Apply after the R1 release patches and evmos-keeper-overlay.patch, in order.
+Evmos source before delta: 0e2522d88fdb3d93a83ed0c833b840ca44ae12ac
+Evmos source after delta: ddfe53fcdfbbddf9919466cd4313a0c42f773965
+Lithic source: 7d8bcc70be23f83f6c7b17b0e577f9c8e0f9a109
+Cosmos SDK lab source: f2e6295b662fdb27ea33da1296c29588ccdaab42
+R2 source-only review ZIP SHA-256: 30cad65a5fcf41d406f31f55242a41c9148ca12a4aeeb694ebdbfa5411a18de6
+remediation-r2/0001-test-gateway-cover-keeper-gas-boundaries-and-estimat.patch SHA-256 e47c58e4aed04df62db41d8b47d5deb73540300c0828f2efd0fb0f631717d9df
+remediation-r2/0002-feat-lithovm-isolate-native-lab-store-and-round-trip.patch SHA-256 31dd95cca44089c655519d8d1bebb101ef94633f7aa3dd539dcfc7f9ea56360b
+remediation-r2/0003-feat-lithovm-rehearse-height-gated-native-store-addi.patch SHA-256 4ae0d4505c03e4d366bfceb9e4970304b1c19121bb9c9f889a2adf0a6e4634db
+remediation-r2/0004-fix-cmd-retain-gas-adjustment-default-with-pinned-SD.patch SHA-256 01c5391d7084f721c5c895de549343238f4f0fc773b5f3057ad8394670350ff7
+R2 patch sequence was applied to the 0e2522d source and the staged tree matched ddfe53f byte-for-byte.
+No registration, Makalu deployment, gas-policy approval or release authorization is implied.
