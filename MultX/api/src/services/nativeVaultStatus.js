@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { Contract, getAddress, toBeHex, ZeroAddress } from 'ethers';
+import { Contract, getAddress, toQuantity, ZeroAddress } from 'ethers';
 
 const ABI = [
   'function deposits(bytes32) view returns(address depositor,address recipient,uint256 amount,uint256 targetChain,uint256 quotedOutput,uint64 quoteExpiry,address targetVault,uint64 finalityDelaySeconds,uint8 state)',
@@ -48,14 +48,14 @@ async function anchor(provider, chainId, confirmations) {
   const height = await provider.getBlockNumber();
   const number = height - confirmations + 1;
   if (number < 1) throw Error('native vault finality anchor unavailable');
-  const block = await provider.send('eth_getBlockByNumber', [toBeHex(number), false]);
+  const block = await provider.send('eth_getBlockByNumber', [toQuantity(number), false]);
   if (!block?.hash) throw Error('native vault block unavailable');
   return { number, hash: block.hash.toLowerCase() };
 }
 
 async function verifyAnchor(provider, chainId, initial) {
   if (Number(await provider.send('eth_chainId', [])) !== chainId) throw Error('native vault RPC chain mismatch');
-  const current = await provider.send('eth_getBlockByNumber', [toBeHex(initial.number), false]);
+  const current = await provider.send('eth_getBlockByNumber', [toQuantity(initial.number), false]);
   if (!current?.hash || current.hash.toLowerCase() !== initial.hash) throw Error('native vault anchor changed');
 }
 

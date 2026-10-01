@@ -208,8 +208,13 @@
     },
     {
       "path": "src/nativeVaultStatusEntrypoint.mjs",
-      "bytes": 1544,
-      "sha256": "0e597f845f9cd5807af61a2191c1eb50275802eae58afceefb526ec32256c048"
+      "bytes": 1596,
+      "sha256": "84399fc0f001e06b95be9edcb86f1bb34db159db66a83bfd6cac6aa7542451d8"
+    },
+    {
+      "path": "src/nativeVaultStatusProvider.js",
+      "bytes": 308,
+      "sha256": "bcbbe88b9adac44d7852cdba073ac01bdc942555bccb655ce5f43e32ec3e67bd"
     },
     {
       "path": "src/networkConfig.js",
@@ -398,8 +403,8 @@
     },
     {
       "path": "src/services/nativeVaultStatus.js",
-      "bytes": 7868,
-      "sha256": "4baf6547881a598cdba5f14fd71008323b29995a6c07597d5c258b7d41ad6fcc"
+      "bytes": 7877,
+      "sha256": "5f631dd070642ae060c88c55b4b4fb213be73e0f39694915f99f86b2634b2457"
     },
     {
       "path": "src/services/nativeWalletAuth.js",

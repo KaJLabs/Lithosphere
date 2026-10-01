@@ -11,6 +11,8 @@ To run it in an isolated review environment, set `MULTX_NATIVE_VAULT_STATUS_ENAB
 
 Start with `node src/nativeVaultStatusEntrypoint.mjs` from `MultX/api`. The reader verifies both RPC chain identities, both pinned vault runtime hashes and reciprocal route mappings at the configured confirmation anchors. It rechecks anchor hashes before returning a status. Missing or inconsistent state fails closed.
 
+The reader requires the currently configured routes to remain enabled and reciprocal. Disabling or replacing a route can therefore make an older completed or recovering operation unavailable through this view. Treat an unavailable or temporarily inconsistent status as an observation failure; use the approved incident/recovery records to investigate it, not as evidence that funds were lost or permission to retry a payout.
+
 For the browser, set `VITE_MULTX_NATIVE_VAULT_STATUS_ENABLED=true`, `VITE_MULTX_NATIVE_VAULT_STATUS_API_URL` to the approved status API origin, and `VITE_MULTX_NATIVE_VAULT_STATUS_ROUTES` to a JSON array of the same chain IDs and vault addresses. The browser configuration is public; it must contain no RPC URLs or credentials. With the flag unset, the view is hidden.
 
 The status view is only an observation aid. A displayed payout, cancellation, or refund is not an authorization to sign or relay. Production use still requires the independent review, route and deployment evidence, custody and governance acceptance, canary, and separate activation approval.

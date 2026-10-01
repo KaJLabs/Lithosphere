@@ -1,6 +1,6 @@
 import 'dotenv/config';
-import { JsonRpcProvider } from 'ethers';
 import { createNativeVaultStatusApplication } from './nativeVaultStatusApplication.js';
+import { createNativeVaultStatusProvider } from './nativeVaultStatusProvider.js';
 
 if (process.env.MULTX_NATIVE_VAULT_STATUS_ENABLED !== 'true') {
   throw Error('native vault status service is disabled');
@@ -25,7 +25,7 @@ for (const [id, rawUrl] of Object.entries(rpcUrls)) {
       !(url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)))) {
     throw Error('invalid native vault RPC configuration');
   }
-  providers.set(chainId, new JsonRpcProvider(url.href));
+  providers.set(chainId, createNativeVaultStatusProvider(url.href));
 }
 
 const app = createNativeVaultStatusApplication({ routes, providers, allowedOrigins });
