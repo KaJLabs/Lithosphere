@@ -133,7 +133,10 @@ jobs:
         with:
           context: MultX/api
           push: false
+          load: true
           tags: multx-api:ci
+      - name: Verify API image runtime source manifest
+        run: docker run --rm --entrypoint node multx-api:ci /usr/local/lib/verify-runtime-source.mjs
 
   signer:
     runs-on: ubuntu-latest
