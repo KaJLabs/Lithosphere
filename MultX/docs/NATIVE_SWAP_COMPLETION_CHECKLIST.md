@@ -73,6 +73,9 @@ wrapped-native token, verifies its credit, withdraws the approved native output,
 verifies wrapped debit/native custody credit and then pays the recipient. Acceptance
 reserves delivery gas; verified redemption adds the native output reservation.
 The separate `prefunded-fixed-fill` path still requires native output prefunding.
+The earlier wrapped-bridge application, including fixed-fill and DEX modes, is
+excluded from the R4 native-vault release. Its reservation and payout paths need
+separate review before they can be enabled.
 Both use exact-input, one-use approved fixed-fill policies, rather than a general
 amount/pricing engine. Pool reserves and backing are rechecked but not escrowed.
 Custodians remain trusted; production backing and replenishment need approval.

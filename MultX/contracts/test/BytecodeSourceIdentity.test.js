@@ -3,9 +3,14 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
-const { assertBuildSources } = require('../scripts/mainnet/generate-bytecode-evidence');
+const { assertBuildSources, CONTRACTS } = require('../scripts/mainnet/generate-bytecode-evidence');
 
 describe('M-03 byte-exact compiler source identity', function () {
+  it('includes the native liquidity vault in immutable release evidence', function () {
+    expect(CONTRACTS.nativeLiquidityVault).to.deep.equal([
+      'contracts/NativeLiquidityVault.sol', 'NativeLiquidityVault',
+    ]);
+  });
   let root, commit;
   beforeEach(function () {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'multx-source-'));

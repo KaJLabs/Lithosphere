@@ -10,9 +10,13 @@ function fixture(){
  const provider={getNetwork:async()=>({chainId:9005n}),getTransaction:async()=>tx,getTransactionReceipt:async()=>receipt,getBlockNumber:async()=>61,getBlock:async()=>({hash:h(2)}),getCode:async()=> '0x',getBalance:async(_,height)=>height===49?500n:1500n};
  return {expected,tx,receipt,provider};
 }
-test('verifies direct native credit using pinned receipt and historical balances',async()=>{
+test('verifies direct native transfer using the pinned transaction and receipt',async()=>{
  const f=fixture();const result=await verifyDirectNativePayout(f.provider,f.expected);
- assert.equal(result.amountBaseUnits,'1000');assert.equal(result.evidenceKey,'9005:'+h(1));assert(Object.isFrozen(result));
+ assert.equal(result.amountBaseUnits,'1000');assert.equal(result.evidenceKey,'9005:'+h(1));assert.equal(result.verification,'direct-native-transfer');assert(Object.isFrozen(result));
+});
+test('same-block recipient spending does not erase an assigned payout',async()=>{
+ const f=fixture();f.provider.getBalance=async()=>{throw Error('whole-block balance is not transaction-scoped');};
+ assert.equal((await verifyDirectNativePayout(f.provider,f.expected)).amountBaseUnits,'1000');
 });
 for(const [name,change] of [
  ['wrong chain',f=>f.provider.getNetwork=async()=>({chainId:1n})],
@@ -26,7 +30,6 @@ for(const [name,change] of [
  ['insufficient finality',f=>f.provider.getBlockNumber=async()=>60],
  ['reorg',f=>f.provider.getBlock=async()=>({hash:h(3)})],
  ['contract recipient',f=>f.provider.getCode=async()=> '0x6000'],
- ['missing native credit',f=>f.provider.getBalance=async()=>500n],
  ['reorg during reads',f=>{let reads=0;f.provider.getBlock=async()=>({hash:++reads===1?h(2):h(3)});} ],
  ['unapproved finality',f=>f.expected.confirmations=0],
  ['self payout',f=>f.expected.recipient=f.expected.sender],

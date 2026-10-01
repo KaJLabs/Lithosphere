@@ -1,0 +1,6 @@
+# Use only after the native policy, journal and activation are separately approved.
+# docker compose -f compose.yaml -f compose.native.example.yaml config
+services:
+  signer:
+    volumes:
+      - "${SIGNER_NATIVE_POLICY_PATH}:/run/config/native-policy.json:ro"

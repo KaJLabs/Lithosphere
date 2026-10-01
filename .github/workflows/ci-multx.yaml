@@ -28,6 +28,8 @@ jobs:
           cache: npm
           cache-dependency-path: MultX/contracts/package-lock.json
       - run: npm ci
+      - name: Install signer dependency for native service integration
+        run: npm --prefix ../signer ci
       - name: Reject critical findings in the complete dependency tree
         run: npm audit --audit-level=critical
       - name: Reject production high or critical dependency findings
@@ -131,7 +133,10 @@ jobs:
         with:
           context: MultX/api
           push: false
+          load: true
           tags: multx-api:ci
+      - name: Verify API image runtime source manifest
+        run: docker run --rm --entrypoint node multx-api:ci /usr/local/lib/verify-runtime-source.mjs
 
   signer:
     runs-on: ubuntu-latest

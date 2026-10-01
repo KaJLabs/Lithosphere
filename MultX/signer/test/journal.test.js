@@ -50,6 +50,19 @@ test('rejects malformed journal decisions', () => {
   }
 });
 
+test('persists native operation terminal-path decisions', () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'multx-journal-'));
+  const stateFile = path.join(directory, 'decisions.jsonl');
+  try {
+    const journal = createDecisionJournal(stateFile);
+    const operationKey = `native:0x${'11'.repeat(32)}`;
+    assert.equal(journal.record(operationKey, `0x${'aa'.repeat(32)}`), true);
+    assert.throws(() => journal.record(operationKey, `0x${'bb'.repeat(32)}`), /refusing equivocation/);
+  } finally {
+    fs.rmSync(directory, { recursive: true, force: true });
+  }
+});
+
 test('strict mode rejects permissive journal storage', () => {
   if (process.platform === 'win32') return;
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'multx-journal-'));

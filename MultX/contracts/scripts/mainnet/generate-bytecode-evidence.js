@@ -9,6 +9,7 @@ const CONTRACTS = {
   sourceBridge: ['contracts/MultXBridge.sol', 'MultXBridge'],
   destinationBridge: ['contracts/MultXBridgeDest.sol', 'MultXBridgeDest'],
   wrappedToken: ['contracts/WrappedLEP100.sol', 'WrappedLEP100'],
+  nativeLiquidityVault: ['contracts/NativeLiquidityVault.sol', 'NativeLiquidityVault'],
 };
 
 const sha256Hex = (hex) => crypto.createHash('sha256').update(Buffer.from(hex.replace(/^0x/, ''), 'hex')).digest('hex');

@@ -17,16 +17,19 @@ a replacement payout. Custody must retain and resupply those bytes after restart
 A submitted result means RPC acceptance/visibility, never swap completion.
 
 verifyAndRecordNativePayout performs receipt reconciliation. It requires the
-assigned transaction, successful receipt, canonical block, approved confirmation
-count and independently observed native recipient balance credit. It records
+assigned direct-value transaction to an EOA, successful receipt, canonical block
+and approved confirmation count. These prove the assigned transfer executed;
+whole-block balance deltas are not used because unrelated recipient spending
+can erase the net increase. It records
 evidence and completes the swap atomically. Concurrent reconciliation completes
 once. Revoking a route blocks submission but allows recording a payout that has
 already happened. Completed replay returns stored evidence, not a fresh reorg check.
 
 Validation uses real local PostgreSQL, an ephemeral signing wallet and synthetic
 RPC responses. It covers a lost broadcast response, hash-based retry with one
-broadcast, policy revocation, missing receipt, insufficient confirmations, absent
-native credit and concurrent completion. It is not a live-chain rehearsal.
+broadcast, policy revocation, missing receipt, insufficient confirmations, wrong
+recipient, reverted transfer and concurrent completion. A local EVM test covers
+a valid payout and recipient spend in the same block, not production-chain behavior.
 
 Remaining launch work: production-approved routes and liquidity, payout custody
 integration, custody/submission coordinator wiring, local chain execution

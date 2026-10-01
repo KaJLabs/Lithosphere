@@ -93,6 +93,21 @@ directory (0700) and approved identity file (0600), then run as the signer UID:
 node scripts/initialize-state.js /run/config/state-identity.json /var/lib/multx-signer/signed-releases.jsonl PUBLIC_SIGNER_ADDRESS --confirm-first-use-new-identity
 ```
 
+For a separately approved native signer identity, mount the reviewed native
+policy file at `/run/config/native-policy.json`, set
+`SIGNER_NATIVE_POLICY_FILE` and `SIGNER_NATIVE_STATE_FILE`, and initialize the
+native journal independently while both signing flags remain false:
+
+```sh
+node scripts/initialize-state.js /run/config/state-identity.json /var/lib/multx-signer/native-settlement.jsonl PUBLIC_SIGNER_ADDRESS --confirm-first-use-new-identity --native
+```
+
+Use a separate reviewed Compose override to mount the native policy read-only.
+An existing native journal must be restored from the latest approved backup;
+first-use initialization is never a recovery/reset operation. Keep
+`SIGNER_NATIVE_SIGNING_ENABLED=false` until native settlement acceptance and
+activation approval.
+
 This creates an exclusive journal header and fsyncs the file and its parent. No
 private key is read and no signature is produced. Keep release signing disabled.
 Missing identity or journal, changed identity, empty/old-format state and partial

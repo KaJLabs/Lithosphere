@@ -1,6 +1,6 @@
 require("@nomiclabs/hardhat-ethers");
 require("@nomicfoundation/hardhat-chai-matchers");
-require("solidity-coverage");
+if (process.argv.includes('coverage')) require("solidity-coverage");
 require("dotenv").config();
 
 module.exports = {
@@ -40,7 +40,8 @@ module.exports = {
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : []
     },
     hardhat: {
-      chainId: 700777
+      chainId: process.env.NATIVE_MESH_TEST_CHAIN_ID
+        ? Number(process.env.NATIVE_MESH_TEST_CHAIN_ID) : 700777
     }
   }
 };

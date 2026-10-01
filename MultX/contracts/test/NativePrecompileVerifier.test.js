@@ -76,7 +76,7 @@ describe('native checkpoint freshness', function () {
   it('accepts matching fresh checkpoint and rejects stale/future/mismatched headers', function () {
     const e=fixture().evidence;const header={hash:e.verificationBlockHash,timestamp:1000};
     validateNativeCheckpoint(e,10,header,1010);
-    for(const [latest,h,now] of [[43,header,1010],[9,header,1010],[10,header,1301],
+    for(const [latest,h,now] of [[43,header,1010],[11,header,1010],[9,header,1010],[10,header,1301],
       [10,header,994],[10,{...header,hash:'0x'+'c'.repeat(64)},1010],[10,{...header,timestamp:undefined},1010]]) {
       assert.throws(()=>validateNativeCheckpoint(e,latest,h,now));
     }

@@ -5,12 +5,16 @@ import { getAddress, getBytes, verifyMessage } from 'ethers';
 import { hasValidBearerToken, loadBearerToken } from './auth.js';
 import { validateDeploymentMode } from './deploymentMode.js';
 import { createDecisionJournal } from './journal.js';
+import { createNativeEvidenceVerifier } from './nativeEvidence.js';
+import { resolveNativeChain } from './nativePolicy.js';
+import { createNativeSettlementDecision } from './nativeSettlementPolicy.js';
+import { createNativeStateJournal } from './nativeStateJournal.js';
 import { loadStateIdentity } from './stateIdentity.js';
 import {
   resolvePolicy,
   validateAttestation,
 } from './policy.js';
-import { loadSignerPolicy } from './runtimeConfig.js';
+import { loadNativeSignerPolicy, loadSignerPolicy } from './runtimeConfig.js';
 import { createSigningKey } from './signingKey.js';
 import { createSourceEvidenceClient } from './sourceEvidence.js';
 import { createReleaseDecision } from './signingDecision.js';
@@ -24,18 +28,30 @@ const requiredFile = (envName) => {
 };
 
 const signingEnabled = process.env.SIGNER_RELEASE_SIGNING_ENABLED === 'true';
+const nativeSigningEnabled = process.env.SIGNER_NATIVE_SIGNING_ENABLED === 'true';
 const deploymentMode = validateDeploymentMode();
 const policy = loadSignerPolicy({ signingEnabled });
+const nativePolicy = loadNativeSignerPolicy({ signingEnabled: nativeSigningEnabled });
 const signer = await createSigningKey();
 if (policy?.signerAddress && getAddress(policy.signerAddress) !== signer.address) {
   throw new Error(`policy signer ${policy.signerAddress} does not match key ${signer.address}`);
 }
+if (nativePolicy?.signerAddress && getAddress(nativePolicy.signerAddress) !== signer.address) {
+  throw new Error(`native policy signer ${nativePolicy.signerAddress} does not match key ${signer.address}`);
+}
+
+const stateIdentity = deploymentMode.production
+  ? loadStateIdentity(process.env.SIGNER_STATE_IDENTITY_FILE, signer.address) : null;
 
 const journal = createDecisionJournal(
   process.env.SIGNER_STATE_FILE || '/var/lib/multx-signer/signed-releases.jsonl',
-  { strictPermissions: deploymentMode.production, expectedIdentity: deploymentMode.production
-    ? loadStateIdentity(process.env.SIGNER_STATE_IDENTITY_FILE, signer.address) : null },
+  { strictPermissions: deploymentMode.production, expectedIdentity: stateIdentity },
 );
+
+const nativeJournal = nativeSigningEnabled ? createNativeStateJournal(
+  process.env.SIGNER_NATIVE_STATE_FILE || '/var/lib/multx-signer/native-settlement.jsonl',
+  { strictPermissions: deploymentMode.production, expectedIdentity: stateIdentity },
+) : null;
 
 const challenge = getBytes(Buffer.from('MultX production signer transaction-free verification v1'));
 const challengeSignature = await signer.signMessage(challenge);
@@ -45,6 +61,7 @@ if (verifyMessage(challenge, challengeSignature).toLowerCase() !== signer.addres
 console.log(`[signer] transaction-free key verification passed for ${signer.address}`);
 
 if (!signingEnabled) console.log('[signer] release signing is disabled');
+if (!nativeSigningEnabled) console.log('[signer] native settlement signing is disabled');
 
 const providers = new Map();
 const sourceContract = (source) => {
@@ -60,6 +77,54 @@ const verifyAndSign = async (input) => {
   const attestation = validateAttestation(input);
   const { source } = resolvePolicy(policy, attestation);
   return decideRelease(source, attestation, sourceContract(source));
+};
+
+const nativeEvidence = nativePolicy ? createNativeEvidenceVerifier(nativePolicy) : null;
+const nativeDecision = nativeSigningEnabled
+  ? createNativeSettlementDecision({ journal: nativeJournal, signer }) : null;
+const nativeDestination = input => ({
+  ...resolveNativeChain(nativePolicy, input?.destinationChain, input?.destinationVault),
+  authorityEpoch: nativePolicy.authorityEpoch,
+});
+const nativeSource = input => resolveNativeChain(nativePolicy, input?.sourceChain, input?.sourceVault);
+const sameRefundEvidence = (left, right) =>
+  left.deposit.depositor === right.deposit.depositor && left.deposit.recipient === right.deposit.recipient &&
+  left.deposit.amount === right.deposit.amount && left.deposit.targetChain === right.deposit.targetChain &&
+  left.deposit.quotedOutput === right.deposit.quotedOutput && left.deposit.quoteExpiry === right.deposit.quoteExpiry &&
+  left.deposit.targetVault === right.deposit.targetVault &&
+  left.deposit.finalityDelaySeconds === right.deposit.finalityDelaySeconds &&
+  left.cancellation.txHash.toLowerCase() === right.cancellation.txHash.toLowerCase() &&
+  left.cancellation.blockHash.toLowerCase() === right.cancellation.blockHash.toLowerCase() &&
+  left.cancellation.blockNumber === right.cancellation.blockNumber && right.cancellation.finalized === true;
+
+const nativeVerifyAndSign = async (path, input) => {
+  const destination = nativeDestination(input);
+  if (path === '/v1/native/sign-release') {
+    return nativeDecision.signRelease(input.request, destination,
+      () => nativeEvidence.verifyRelease(input.request, destination, input.evidence));
+  }
+  if (path === '/v1/native/sign-cancellation') {
+    return nativeDecision.signCancellation(input.request, input.operation, destination,
+      () => nativeEvidence.verifyCancellation(input.operation, destination, input.evidence));
+  }
+  const source = nativeSource(input);
+  if (path === '/v1/native/sign-finalization') {
+    const evidence = { ...input.evidence, expectedDestinationTxHash: input.destinationTxHash };
+    return nativeDecision.signFinalization({
+      operation: input.operation, destinationTxHash: input.destinationTxHash, source, destination,
+    }, () => nativeEvidence.verifyFinalization(input.operation, source, destination, evidence));
+  }
+  if (path === '/v1/native/sign-refund') {
+    const verified = await nativeEvidence.verifyRefund(input.request, input.identity, source, destination, input.evidence);
+    return nativeDecision.signRefund({
+      request: input.request, identity: input.identity, source, destination,
+      deposit: verified.deposit, cancellation: verified.cancellation,
+    }, async () => {
+      const current = await nativeEvidence.verifyRefund(input.request, input.identity, source, destination, input.evidence);
+      if (!sameRefundEvidence(verified, current)) throw new Error('refund evidence changed during signing');
+    });
+  }
+  throw new Error('unsupported native signing path');
 };
 
 const readJson = (req) => new Promise((resolve, reject) => {
@@ -96,7 +161,7 @@ let bearerToken = null;
 let server;
 const handler = async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
-    return send(res, 200, { status: 'healthy', signingEnabled });
+    return send(res, 200, { status: 'healthy', signingEnabled, nativeSigningEnabled });
   }
 
   if (transport === 'proxy-http') {
@@ -116,6 +181,14 @@ const handler = async (req, res) => {
     if (req.method === 'POST' && req.url === '/v1/sign-release') {
       if (!signingEnabled) return send(res, 503, { error: 'signing_disabled' });
       const signature = await verifyAndSign(await readJson(req));
+      return send(res, 200, { address: signer.address, signature });
+    }
+    if (req.method === 'POST' && [
+      '/v1/native/sign-release', '/v1/native/sign-cancellation',
+      '/v1/native/sign-finalization', '/v1/native/sign-refund',
+    ].includes(req.url)) {
+      if (!nativeSigningEnabled) return send(res, 503, { error: 'native_signing_disabled' });
+      const signature = await nativeVerifyAndSign(req.url, await readJson(req));
       return send(res, 200, { address: signer.address, signature });
     }
     return send(res, 404, { error: 'not_found' });
