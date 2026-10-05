@@ -5,9 +5,12 @@ import { useState } from 'react';
 
 import CopyButton from '@/components/CopyButton';
 import ErrorState from '@/components/ErrorState';
+import ValidatorBadge from '@/components/ValidatorBadge';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
+import { NETWORK } from '@/lib/network';
 import type { ApiValidatorDetail } from '@/lib/types';
+import { validatorProfile } from '@/lib/validator-profiles';
 
 function formatTokens(raw: string) {
   const baseUnits = Number(raw);
@@ -40,14 +43,22 @@ export default function ValidatorDetailPage() {
   const operatorAddress = typeof router.query.operatorAddress === 'string'
     ? router.query.operatorAddress
     : null;
-  const { data, loading, error, refetch } = useApi<ApiValidatorDetail>(
+  const { data: chainData, loading, error, refetch } = useApi<ApiValidatorDetail>(
     operatorAddress ? `/validators/${encodeURIComponent(operatorAddress)}` : null
   );
 
   if (error) return <ErrorState message={error} onRetry={refetch} />;
-  if (loading || !data) {
+  if (loading || !chainData) {
     return <div className="card p-8 text-center text-[var(--color-text-muted)]">Loading validator...</div>;
   }
+
+  const profile = validatorProfile(chainData.address, NETWORK.isMainnet);
+  const data = {
+    ...chainData,
+    moniker: profile?.name ?? chainData.moniker,
+    // Rollout operators have no approved branding yet.
+    profileImageUrl: profile ? null : chainData.profileImageUrl,
+  };
 
   // API decimals can be serialized as JSON strings by PostgreSQL. Normalize at
   // the render boundary so an older API deployment cannot crash this page.
@@ -70,6 +81,7 @@ export default function ValidatorDetailPage() {
             <div>
             <div className="flex flex-wrap items-center gap-3">
               <h1 className="text-2xl font-bold">{data.moniker}</h1>
+              <ValidatorBadge validator={data} />
               <span className={data.status === 'Bonded' && !data.jailed ? 'badge-success' : 'badge-warning'}>
                 {data.jailed ? 'Jailed' : data.status}
               </span>

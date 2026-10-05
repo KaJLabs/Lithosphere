@@ -3,10 +3,13 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
 import ErrorState from '@/components/ErrorState';
+import ValidatorBadge from '@/components/ValidatorBadge';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber } from '@/lib/format';
+import { NETWORK } from '@/lib/network';
 import type { ApiValidator } from '@/lib/types';
+import { MAINNET_VALIDATOR_PROFILES, validatorProfile } from '@/lib/validator-profiles';
 
 type ValidatorStatus = 'all' | 'active' | 'inactive';
 type ValidatorSort = 'tokens' | 'uptime' | 'commission' | 'missed';
@@ -29,10 +32,16 @@ export default function ValidatorsPage() {
   const [status, setStatus] = useState<ValidatorStatus>('all');
   const [sort, setSort] = useState<ValidatorSort>('tokens');
   const params = new URLSearchParams({ metrics: '1', sort });
-  if (search) params.set('search', search);
+  const approvedSearch = NETWORK.isMainnet
+    ? Object.entries(MAINNET_VALIDATOR_PROFILES).find(([, profile]) => profile.name.toLowerCase() === search.trim().toLowerCase())?.[0]
+    : undefined;
+  if (search) params.set('search', approvedSearch ?? search);
   if (status !== 'all') params.set('status', status);
   const { data, loading, error, refetch } = useApi<ApiValidator[]>(`/validators?${params.toString()}`);
-  const validators = data ?? [];
+  const validators = useMemo(() => (data ?? []).map((validator) => ({
+    ...validator,
+    moniker: validatorProfile(validator.address, NETWORK.isMainnet)?.name ?? validator.moniker,
+  })), [data]);
   const active = validators.filter(statusIsActive).length;
   const totalStake = validators.reduce((sum, validator) => sum + tokenAmount(validator.tokens), 0);
   const avgUptime = useMemo(() => {
@@ -124,7 +133,7 @@ export default function ValidatorsPage() {
                     <td className="font-mono">{validator.votingPower} LITHO</td>
                     <td>{value == null ? '—' : <HealthBar value={value} />}</td>
                     <td>{validator.commission || '—'}</td><td>{validator.missedBlocks ?? '—'}</td>
-                    <td><span className={statusIsActive(validator) ? 'badge-success' : validator.jailed ? 'badge-error' : 'badge-neutral'}>{validator.jailed ? 'Jailed' : validator.status}</span></td>
+                    <td><div className="flex flex-wrap items-center gap-2"><span className={statusIsActive(validator) ? 'badge-success' : validator.jailed ? 'badge-error' : 'badge-neutral'}>{validator.jailed ? 'Jailed' : validator.status}</span><ValidatorBadge validator={validator} /></div></td>
                   </tr>
                 );
               })}
