@@ -16,3 +16,12 @@ test('Express and body-parser use patched qs for hostile constructor round trips
     }
   }
 });
+
+test('Express proxy trust rejects an IPv4-mapped IPv6 subnet with an unsafe prefix', () => {
+  // GHSA-jqcg-44mw-7w3h: this malformed /8 must not trust every IPv4 client.
+  const fromExpress = createRequire(require.resolve('express'));
+  const proxyaddr = fromExpress('proxy-addr');
+  assert.equal(fromExpress('proxy-addr/package.json').version, '2.0.8');
+  assert.equal(proxyaddr.compile('::ffff:10.0.0.0/8')('192.0.2.1', 0), false);
+  assert.equal(proxyaddr.compile('::ffff:10.0.0.0/104')('10.1.2.3', 0), true);
+});

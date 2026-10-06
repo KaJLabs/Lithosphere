@@ -23,7 +23,8 @@
     "swagger-ui-express": "^5.0.1"
   },
   "overrides": {
-    "qs": "6.16.0"
+    "qs": "6.16.0",
+    "proxy-addr": "2.0.8"
   },
   "devDependencies": {
     "solc": "0.8.24"
