@@ -13,6 +13,8 @@ on:
   pull_request:
     paths:
       - .github/workflows/publish-multx-r5-runtime.yaml
+      - .github/docker/multx-r5-api.Dockerfile
+      - .github/docker/multx-r5-signer.Dockerfile
 
 permissions:
   contents: read
@@ -78,6 +80,70 @@ jobs:
           node MultX/scripts/check-closure-mutations.cjs api
           node MultX/scripts/check-closure-mutations.cjs signer
 
+  scan-packaging:
+    name: Scan hardened API and signer packaging
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out publication controls
+        uses: actions/checkout@v4
+        with:
+          path: publication-control
+
+      - name: Check out exact accepted source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.ACCEPTED_COMMIT }}
+          path: accepted-source
+
+      - name: Verify source identity
+        working-directory: accepted-source
+        run: test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build API candidate
+        uses: docker/build-push-action@v6
+        with:
+          context: accepted-source/MultX/api
+          file: publication-control/.github/docker/multx-r5-api.Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: multx-r5-api:scan
+
+      - name: Verify API source manifest
+        run: docker run --rm --entrypoint node multx-r5-api:scan /usr/local/lib/verify-runtime-source.mjs
+
+      - name: Scan API candidate
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: multx-r5-api:scan
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+
+      - name: Build signer candidate
+        uses: docker/build-push-action@v6
+        with:
+          context: accepted-source/MultX/signer
+          file: publication-control/.github/docker/multx-r5-signer.Dockerfile
+          platforms: linux/amd64
+          load: true
+          push: false
+          tags: multx-r5-signer:scan
+
+      - name: Scan signer candidate
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: multx-r5-signer:scan
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+
   publish:
     name: Scan, publish, sign and attest immutable images
     if: github.event_name == 'workflow_dispatch'
@@ -91,15 +157,24 @@ jobs:
       id-token: write
       attestations: write
     steps:
+      - name: Check out publication controls
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: publication-control
+
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.ACCEPTED_COMMIT }}
           fetch-depth: 0
+          path: accepted-source
 
       - name: Verify source identity
+        working-directory: accepted-source
         run: test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
 
       - name: Require accepted source to be merged into main
+        working-directory: accepted-source
         run: |
           set -euo pipefail
           git fetch --no-tags origin refs/heads/main
@@ -110,7 +185,8 @@ jobs:
       - name: Build pinned API image locally
         uses: docker/build-push-action@v6
         with:
-          context: MultX/api
+          context: accepted-source/MultX/api
+          file: publication-control/.github/docker/multx-r5-api.Dockerfile
           platforms: linux/amd64
           load: true
           push: false
@@ -123,7 +199,8 @@ jobs:
       - name: Build pinned signer image locally
         uses: docker/build-push-action@v6
         with:
-          context: MultX/signer
+          context: accepted-source/MultX/signer
+          file: publication-control/.github/docker/multx-r5-signer.Dockerfile
           platforms: linux/amd64
           load: true
           push: false
