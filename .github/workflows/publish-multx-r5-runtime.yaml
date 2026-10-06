@@ -94,10 +94,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.ACCEPTED_COMMIT }}
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Verify source identity
         run: test "$(git rev-parse HEAD)" = "$ACCEPTED_COMMIT"
+
+      - name: Require accepted source to be merged into main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin refs/heads/main
+          git merge-base --is-ancestor "$ACCEPTED_COMMIT" FETCH_HEAD
 
       - uses: docker/setup-buildx-action@v3
 
