@@ -32,8 +32,9 @@ function fixture() {
   const policy = parseNativeSignerPolicy({
     quoteSigner: quoteWallet.address, authorityEpoch: `0x${'ab'.repeat(32)}`,
     chains: [
-      { chainId: 1, rpcUrl: 'http://127.0.0.1:10001', vault: SOURCE_VAULT, confirmations: 3, finalityDelaySeconds: 60 },
-      { chainId: 56, rpcUrl: 'http://127.0.0.1:10056', vault: TARGET_VAULT, confirmations: 3, finalityDelaySeconds: 60 },
+      { chainId: 1, rpcUrl: 'http://127.0.0.1:10001', finalityRpcUrl: 'http://127.0.0.1:11001', vault: SOURCE_VAULT, confirmations: 3, finalityDelaySeconds: 60 },
+      { chainId: 56, rpcUrl: 'http://127.0.0.1:10056', finalityRpcUrl: 'http://127.0.0.1:11056', vault: TARGET_VAULT, confirmations: 3, finalityDelaySeconds: 60 },
+      { chainId: 8453, rpcUrl: 'http://127.0.0.1:18453', finalityRpcUrl: 'http://127.0.0.1:19453', vault: SOURCE_VAULT, confirmations: 3, finalityDelaySeconds: 60 },
     ],
   });
   const deposit = {
@@ -42,15 +43,21 @@ function fixture() {
     finalityDelaySeconds: 60, state: 1,
   };
   const state = { targetReleaseState: 0, sourceDepositState: 1,
-    outerRecipient: null, targetForkAt: null, targetForked: false };
-  const providers = new Map([1, 56].map(chainId => [chainId, {
+    outerRecipient: null, targetForkAt: null, targetForked: false,
+    finalized: { 1: 18, 56: 18, 8453: 18 }, peerFinalized: { 1: 18, 56: 18, 8453: 18 },
+    peerForked: false, missingFinality: false };
+  const makeProvider = (chainId, peer = false) => ({
     send: async method => {
-      assert.equal(method, 'eth_chainId');
-      return `0x${chainId.toString(16)}`;
+      if (method === 'eth_chainId') return `0x${chainId.toString(16)}`;
+      assert.equal(method, 'eth_getBlockByNumber');
+      if (state.missingFinality) return null;
+      const number = (peer ? state.peerFinalized : state.finalized)[chainId];
+      return { number: `0x${number.toString(16)}`, hash: peer && state.peerForked ? hashFor(99) : hashFor(number) };
     },
     getBlockNumber: async () => 20,
     getBlock: async number => ({ number: Number(number),
-      hash: chainId === 56 && state.targetForked && [11, 12].includes(Number(number))
+      hash: peer && state.peerForked ? hashFor(99) :
+        chainId === 56 && state.targetForked && [11, 12].includes(Number(number))
         ? hashFor(99) : hashFor(number),
       timestamp: Number(number) === 12 ? 1100 : 1200 }),
     getTransactionReceipt: async hash => {
@@ -59,7 +66,9 @@ function fixture() {
       if (hash === CANCEL_TX) return { status: 1, blockNumber: 12, blockHash: hashFor(12), to: state.outerRecipient || TARGET_VAULT };
       return null;
     },
-  }]));
+  });
+  const providers = new Map([1, 56, 8453].map(chainId => [chainId, makeProvider(chainId)]));
+  const peers = new Map([1, 56, 8453].map(chainId => [chainId, makeProvider(chainId, true)]));
   const contracts = new Map([
     [1, {
       filters: { NativeDeposited: id => ({ kind: 'deposit', id }) },
@@ -101,8 +110,10 @@ function fixture() {
       deposits: async () => { throw new Error('unexpected target deposit read'); },
     }],
   ]);
+  contracts.set(8453, contracts.get(1));
   const verifier = createNativeEvidenceVerifier(policy, {
     providerFactory: chain => providers.get(chain.chainId),
+    finalityProviderFactory: chain => peers.get(chain.chainId),
     contractFactory: chain => contracts.get(chain.chainId),
   });
   return { quoteWallet, verifier, state };
@@ -191,4 +202,55 @@ test('permits cancellation of a real deposit when no approved payout quote exist
     { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }), /quote authorization signature/);
   await verifier.verifyCancellation(operation, destination,
     { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) });
+});
+
+test('rejects a three-block-deep deposit that is not finalized', async () => {
+  const { quoteWallet, verifier, state } = fixture();
+  state.finalized[1] = 9;
+  state.peerFinalized[1] = 9;
+  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
+    /not finalized/);
+  state.finalized[1] = 10;
+  state.peerFinalized[1] = 10;
+  await verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet));
+});
+
+test('fails closed on independent finalized RPC disagreement or unavailable finality', async () => {
+  const { quoteWallet, verifier, state } = fixture();
+  state.peerForked = true;
+  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
+    /independent finalized RPC views disagree/);
+  state.peerForked = false;
+  state.peerFinalized[1] = 0;
+  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
+    /finality head unavailable/);
+  state.peerFinalized[1] = 18;
+  state.missingFinality = true;
+  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
+    /finality head unavailable/);
+});
+
+test('Base latest/safe depth does not substitute for an L2 finalized head', async () => {
+  const { quoteWallet, verifier, state } = fixture();
+  const baseOperation = { ...operation, sourceChain: 8453, operationId: keccak256(coder.encode(
+    ['uint256', 'address', 'address', 'uint256', 'bytes32'],
+    [8453, SOURCE_VAULT, DEPOSITOR, 7, CLIENT_REFERENCE],
+  )) };
+  const evidence = { sourceBlockNumber: 10, sourceBlockHash: hashFor(10),
+    quoteSignature: await quoteWallet.signMessage(getBytes(quoteDigest(baseOperation, destination))) };
+  state.finalized[8453] = 9;
+  state.peerFinalized[8453] = 9;
+  await assert.rejects(verifier.verifyRelease(baseOperation, destination, evidence), /not finalized/);
+  state.finalized[8453] = 10;
+  state.peerFinalized[8453] = 10;
+  await verifier.verifyRelease(baseOperation, destination, evidence);
+});
+
+test('rejects cancellation proof until the destination block is finalized', async () => {
+  const { verifier, state } = fixture();
+  state.finalized[56] = 11;
+  state.peerFinalized[56] = 11;
+  await assert.rejects(verifier.verifyRefund({ operationId, cancellationTxHash: CANCEL_TX,
+    cancellationBlockHash: hashFor(12), cancellationBlockNumber: 12, authorizationExpiry: 1300 },
+  operation, { chainId: 1, vault: SOURCE_VAULT }, destination, {}), /not finalized/);
 });

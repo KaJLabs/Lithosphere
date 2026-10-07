@@ -51,13 +51,15 @@ function normalizeDeposit(value) {
 
 export function createNativeEvidenceVerifier(policy, {
   providerFactory = chain => new JsonRpcProvider(chain.rpcUrl, undefined, { cacheTimeout: -1 }),
+  finalityProviderFactory = chain => new JsonRpcProvider(chain.finalityRpcUrl, undefined, { cacheTimeout: -1 }),
   contractFactory = (chain, provider) => new Contract(chain.vault, ABI, provider),
 } = {}) {
   const clients = new Map();
   const client = chain => {
     if (!clients.has(chain.chainId)) {
       const provider = providerFactory(chain);
-      clients.set(chain.chainId, { provider, contract: contractFactory(chain, provider) });
+      clients.set(chain.chainId, { provider, peer: finalityProviderFactory(chain),
+        contract: contractFactory(chain, provider) });
     }
     return clients.get(chain.chainId);
   };
@@ -67,31 +69,67 @@ export function createNativeEvidenceVerifier(policy, {
     if (measured !== chain.chainId) throw new Error(`native RPC chain ${chain.chainId} identity mismatch`);
   }
 
+  function blockIdentity(block, label) {
+    if (block?.number == null) throw new Error(`${label} finality head unavailable`);
+    const number = Number(BigInt(block.number));
+    if (!Number.isSafeInteger(number) || number <= 0 || !bytes32(block?.hash)) {
+      throw new Error(`${label} finality head unavailable`);
+    }
+    return { number, hash: lower(block.hash) };
+  }
+
+  async function finalizedAnchor(chain) {
+    const { provider, peer } = client(chain);
+    await Promise.all([assertNetwork(chain, provider), assertNetwork(chain, peer)]);
+    // The two providers may have different finalized heights. Use the lower
+    // height only if both independently report it as canonical and finalized.
+    const heads = await Promise.all([provider, peer].map(async rpc =>
+      blockIdentity(await rpc.send('eth_getBlockByNumber', ['finalized', false]), 'RPC')));
+    const number = Math.min(heads[0].number, heads[1].number);
+    const blocks = await Promise.all([provider.getBlock(number), peer.getBlock(number)]);
+    const first = blockIdentity(blocks[0], 'primary RPC');
+    const second = blockIdentity(blocks[1], 'independent RPC');
+    if (first.number !== number || second.number !== number || first.hash !== second.hash ||
+        heads.some(head => head.number === number && head.hash !== first.hash)) {
+      throw new Error('independent finalized RPC views disagree');
+    }
+    return { number, hash: first.hash, block: blocks[0] };
+  }
+
+  async function recheckAnchor(chain, anchor) {
+    const current = await finalizedAnchor(chain);
+    if (current.number < anchor.number) throw new Error('finality head regressed');
+    const { provider, peer } = client(chain);
+    const blocks = await Promise.all([provider.getBlock(anchor.number), peer.getBlock(anchor.number)]);
+    if (blocks.some(block => !block?.hash || lower(block.hash) !== anchor.hash)) {
+      throw new Error('finalized anchor changed');
+    }
+  }
+
   async function confirmedBlock(chain, number, hash) {
     if (!Number.isSafeInteger(Number(number)) || Number(number) <= 0 || !bytes32(hash)) {
       throw new Error('explicit block number and hash are required');
     }
-    const { provider } = client(chain);
-    await assertNetwork(chain, provider);
+    const { provider, peer } = client(chain);
+    const anchor = await finalizedAnchor(chain);
     const tip = await provider.getBlockNumber();
-    const block = await provider.getBlock(Number(number));
-    if (!block?.hash || lower(block.hash) !== lower(hash)) throw new Error('evidence block is not canonical');
+    if (Number(number) > anchor.number) throw new Error('evidence block is not finalized');
+    const [block, peerBlock] = await Promise.all([provider.getBlock(Number(number)), peer.getBlock(Number(number))]);
+    if (!block?.hash || lower(block.hash) !== lower(hash) ||
+        !peerBlock?.hash || lower(peerBlock.hash) !== lower(hash)) {
+      throw new Error('evidence block is not canonical on both RPCs');
+    }
     if (tip - Number(number) + 1 < chain.confirmations) throw new Error('evidence has insufficient confirmations');
+    await recheckAnchor(chain, anchor);
     return block;
   }
 
   async function stableFinalizedState(chain, read) {
-    const { provider, contract } = client(chain);
-    await assertNetwork(chain, provider);
-    const tip = await provider.getBlockNumber();
-    const blockTag = tip - chain.confirmations + 1;
-    if (blockTag <= 0) throw new Error('chain has no finalized policy block');
-    const before = await provider.getBlock(blockTag);
-    if (!before?.hash) throw new Error('finalized policy block unavailable');
-    const value = await read(contract, blockTag, before);
-    const after = await provider.getBlock(blockTag);
-    if (!after?.hash || lower(after.hash) !== lower(before.hash)) throw new Error('finalized policy block changed');
-    return { value, block: after };
+    const { contract } = client(chain);
+    const anchor = await finalizedAnchor(chain);
+    const value = await read(contract, anchor.number, anchor.block);
+    await recheckAnchor(chain, anchor);
+    return { value, block: anchor.block };
   }
 
   async function sourceDeposit(operation, destination, evidence, requireQuote = true) {

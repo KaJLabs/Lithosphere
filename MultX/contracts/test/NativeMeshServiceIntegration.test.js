@@ -105,13 +105,15 @@ describe('Native mesh service on two disposable EVM nodes', function () {
 
       const quoteAuthority = wallet(9);
       const nativeModule = await import(quoteModule);
+      // Loopback aliases exercise the two-RPC interface in this disposable test;
+      // production requires separately operated providers.
       const policy = {
         quoteSigner: quoteAuthority.address, authorityEpoch: ethers.utils.id('local-test-epoch'),
         chains: [
           { chainId: 101, rpcUrl: `http://127.0.0.1:${sourcePort}`, vault: sourceVault.address,
-            confirmations: 3, finalityDelaySeconds: 1 },
+            finalityRpcUrl: `http://localhost:${sourcePort}`, confirmations: 3, finalityDelaySeconds: 1 },
           { chainId: 202, rpcUrl: `http://127.0.0.1:${targetPort}`, vault: targetVault.address,
-            confirmations: 3, finalityDelaySeconds: 1 },
+            finalityRpcUrl: `http://localhost:${targetPort}`, confirmations: 3, finalityDelaySeconds: 1 },
         ],
       };
       const token = crypto.randomBytes(32).toString('hex');

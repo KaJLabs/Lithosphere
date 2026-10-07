@@ -103,6 +103,11 @@ node scripts/initialize-state.js /run/config/state-identity.json /var/lib/multx-
 ```
 
 Use a separate reviewed Compose override to mount the native policy read-only.
+For each chain, the native policy must name an approved primary `rpcUrl` and a
+separate-provider `finalityRpcUrl`. Both endpoints must support the chain's
+`finalized` block tag. No confirmation-depth fallback is configured. A missing,
+disagreeing or regressing finalized view blocks native signing. Keep the two
+provider references private and verify their independence before acceptance.
 An existing native journal must be restored from the latest approved backup;
 first-use initialization is never a recovery/reset operation. Keep
 `SIGNER_NATIVE_SIGNING_ENABLED=false` until native settlement acceptance and

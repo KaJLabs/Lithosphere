@@ -34,9 +34,15 @@ export function parseNativeSignerPolicy(input) {
     const chainId = positiveInteger(item?.chainId, `${label}.chainId`);
     if (seen.has(chainId)) throw new Error(`${label}.chainId duplicates another chain`);
     seen.add(chainId);
+    const primaryRpcUrl = rpcUrl(item?.rpcUrl, `${label}.rpcUrl`);
+    const finalityRpcUrl = rpcUrl(item?.finalityRpcUrl, `${label}.finalityRpcUrl`);
+    if (new URL(primaryRpcUrl).origin === new URL(finalityRpcUrl).origin) {
+      throw new Error(`${label}.finalityRpcUrl must use an independent RPC origin`);
+    }
     return {
       chainId,
-      rpcUrl: rpcUrl(item?.rpcUrl, `${label}.rpcUrl`),
+      rpcUrl: primaryRpcUrl,
+      finalityRpcUrl,
       vault: address(item?.vault, `${label}.vault`),
       confirmations: positiveInteger(item?.confirmations, `${label}.confirmations`),
       finalityDelaySeconds: positiveInteger(item?.finalityDelaySeconds, `${label}.finalityDelaySeconds`),
