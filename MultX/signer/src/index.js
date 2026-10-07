@@ -5,6 +5,7 @@ import { getAddress, getBytes, verifyMessage } from 'ethers';
 import { hasValidBearerToken, loadBearerToken } from './auth.js';
 import { validateDeploymentMode } from './deploymentMode.js';
 import { createDecisionJournal } from './journal.js';
+import { createNativeFinalityGuard } from './nativeFinalityGuard.js';
 import { createNativeEvidenceVerifier } from './nativeEvidence.js';
 import { resolveNativeChain } from './nativePolicy.js';
 import { createNativeSettlementDecision } from './nativeSettlementPolicy.js';
@@ -79,9 +80,15 @@ const verifyAndSign = async (input) => {
   return decideRelease(source, attestation, sourceContract(source));
 };
 
-const nativeEvidence = nativePolicy ? createNativeEvidenceVerifier(nativePolicy) : null;
+const nativeFinalityGuard = nativeSigningEnabled ? createNativeFinalityGuard(
+  createNativeEvidenceVerifier(nativePolicy),
+  `${process.env.SIGNER_NATIVE_STATE_FILE || '/var/lib/multx-signer/native-settlement.jsonl'}.finality-hold`,
+) : null;
+const nativeEvidence = nativeFinalityGuard?.verifier;
 const nativeDecision = nativeSigningEnabled
-  ? createNativeSettlementDecision({ journal: nativeJournal, signer }) : null;
+  ? createNativeSettlementDecision({ journal: nativeJournal, signer: {
+    signMessage: message => { nativeFinalityGuard.assertClear(); return signer.signMessage(message); },
+  } }) : null;
 const nativeDestination = input => ({
   ...resolveNativeChain(nativePolicy, input?.destinationChain, input?.destinationVault),
   authorityEpoch: nativePolicy.authorityEpoch,

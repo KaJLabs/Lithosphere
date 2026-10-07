@@ -124,3 +124,81 @@ journal, or run two instances sharing the key. A valid stale backup cannot be
 distinguished using local metadata alone: independent backup freshness evidence
 and reconciliation against recent decisions are still required. Existing journals
 need a separately reviewed offline migration, not automatic header insertion.
+
+
+## FC-H01 canary relay and persistent finality hold
+
+This candidate adds an operator-driven native-vault relay. It is not wired into
+legacy bridge release relaying or the public swap API. It does not authorize a
+canary, unpause a vault, collect certificates, or enable either signer flag.
+
+The signer creates `<SIGNER_NATIVE_STATE_FILE>.finality-hold` on **any** native
+evidence verification failure. This deliberately conservative canary rule blocks
+all native signing on that host, including refunds, and survives restart. Preserve
+the hold file with the journal in backups/restores. Never delete it to retry, roll
+back to a binary that ignores it, or automatically issue a source refund following
+a payout/finality anomaly. Disable affected signing/relay, have the pause guardian
+pause affected routes/vaults if necessary, and obtain a reviewed reconciliation
+and recovery procedure. A successful later RPC response does not clear a hold.
+
+### One approved relay attempt
+
+Use the accepted build on the coordinator with a separately operated primary and
+finality provider for each chain. Both must support genuine protocol `finalized`.
+The relay independently runs the same evidence checks; it does not trust an earlier
+signer's successful response. There is no confirmation-depth fallback.
+
+Privately prepare these inputs for one exact approved action:
+
+- Native policy JSON: the accepted quote signer, authority epoch, vaults and dual
+  RPC configuration (same schema as the signer; no signing key).
+- Packet JSON: `action` (`release`, `finalize`, `cancel` or `refund`), immutable
+  `operation`, `destination` (`chainId`, `vault`), three ordered `signatures`, and
+  `evidence` in the existing native signer request format. Cancellation/refund
+  also include `request`; finalization includes `destinationTxHash`.
+- An externally signed zero-value EIP-155 legacy or EIP-1559 transaction calling
+  the exact vault method directly. Do not put private keys on the coordinator.
+  Keep raw transactions/certificates private: they can confer broadcast authority.
+- An authenticated operator-approved approval JSON and independently confirmed
+  SHA-256. Required fields: `action`, `operationId`, `transactionHash`, `relayer`,
+  `quoteSigner`, `authorityEpoch`, `runtimeHash` (keccak256 of reviewed vault runtime),
+  `start`/`end` (integer UTC Unix seconds), `policySha256` (exact private policy bytes),
+  and `journalDirectory` (absolute private path for this approved attempt). Release
+  also requires `maxOutputWei` as a positive integer string. Approval hash binding
+  checks integrity, not identity: retain the actual authorized approval separately.
+
+Release is bounded by the lowest of the approved ceiling, 10% of freshly read
+available destination liquidity, and 10% of its daily payout cap. The signed quote
+must bind the same operation/output/recipient; its expiry and certificate expiry
+must still be valid after protocol finality checks. Do not substitute historical
+reserve values or shorten finality to fit a quote.
+
+From `MultX/signer`, only inside the separately approved action window:
+
+```sh
+MULTX_NATIVE_RELAY_ENABLED=true node src/relayNativeOnce.js \
+  /private/approval.json EXPECTED_APPROVAL_SHA256 \
+  /private/native-policy.json /private/packet.json \
+  /private/signed-transaction.txt /private/relay-journals/APPROVED_ATTEMPT
+```
+
+The last path must exactly match `approval.journalDirectory`. Its parent must
+already exist and be owner-only on Linux. The attempt directory must not exist.
+The command exclusively claims it **before** RPC work. Any existing directory
+blocks execution, including after a crash; never remove it or choose another path
+as a retry. A separate attempt/action requires reviewed evidence and authorization.
+
+The relay verifies the chain/runtime, revalidates finalized evidence, simulates the
+exact transaction against current contract rules, applies the payout ceiling,
+and revalidates finality again immediately before broadcasting. It never changes
+calldata, gas, signatures, operation IDs or transaction hashes. All errors after
+claim record HOLD; an ambiguous send is not retried or automatically refunded.
+Success means SUBMITTED only, not mined/finalized/accepted. Return sanitized
+transaction/hash and journal evidence references; verify finalized receipt/state
+before requesting any next action. One canary operation at a time, no background
+retry or second release until post-canary review.
+
+Raw transactions remain externally executable and certificates cannot be revoked
+by this CLI. Keep custody restricted and vaults paused until the exact bounded
+canary is authorized. A detected finality anomaly after payout requires quarantine,
+route/signing suspension and manual reconciliation, never automatic refund.

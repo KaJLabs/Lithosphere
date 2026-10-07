@@ -90,7 +90,6 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         return result;
       };
       const sourceForwarder = await deployForwarder(sourceProvider);
-      const targetForwarder = await deployForwarder(targetProvider);
       const setup = async (vault, remoteChain, remoteVault) => {
         await (await vault.setRoute(remoteChain, remoteVault, 1)).wait();
         await (await vault.setDailyCaps(ethers.utils.parseEther('10'), ethers.utils.parseEther('10'))).wait();
@@ -142,6 +141,33 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         signature: (await post(port, token, pathName, input)).signature,
       }))));
       const destination = { chainId: 202, vault: targetVault.address };
+      const { relayNativeOnce } = await import(pathToFileURL(path.join(signerRoot, 'src', 'nativeRelay.js')).href);
+      const { createNativeRelayJournal } = await import(pathToFileURL(path.join(signerRoot, 'src', 'nativeRelayJournal.js')).href);
+      const evidenceVerifier = nativeModule.createNativeEvidenceVerifier(policy, {
+        providerFactory: chain => chain.chainId === 101 ? sourceProvider : targetProvider,
+        finalityProviderFactory: chain => chain.chainId === 101 ? sourceProvider : targetProvider,
+        contractFactory: (chain, provider) => new ethers.Contract(chain.vault, artifact.abi, provider),
+      });
+      let relayAttempt = 0;
+      const relay = async (packet, vault, provider, method, args) => {
+        const sender = wallet(0).connect(provider);
+        const tx = await sender.populateTransaction({ to: vault.address,
+          data: vault.interface.encodeFunctionData(method, args), value: 0, gasLimit: 1000000 });
+        const rawTransaction = await sender.signTransaction(tx);
+        const start = Math.floor(Date.now() / 1000);
+        const approval = { action: packet.action, operationId: packet.operation.operationId,
+          transactionHash: ethers.utils.keccak256(rawTransaction), relayer: sender.address,
+          quoteSigner: policy.quoteSigner, authorityEpoch: policy.authorityEpoch,
+          start, end: start + 120, maxOutputWei: ethers.utils.parseEther('0.08').toString(),
+          runtimeHash: ethers.utils.keccak256(await provider.getCode(vault.address)) };
+        const result = await relayNativeOnce({ policy, packet: { destination, ...packet }, approval,
+          rawTransaction, enabled: true, verifier: evidenceVerifier,
+          journal: createNativeRelayJournal(path.join(directory, `relay-${++relayAttempt}`)),
+          provider: { send: (...args) => provider.send(...args), getCode: (...args) => provider.getCode(...args),
+            call: (...args) => provider.call(...args), broadcastTransaction: raw => provider.sendTransaction(raw) },
+          contractFactory: address => new ethers.Contract(address, artifact.abi, provider) });
+        return provider.waitForTransaction(result.transactionHash);
+      };
       const depositor = wallet(2).connect(sourceProvider), recipient = wallet(8).address;
       const makeDeposit = async (name, lifetime, signedQuote = true) => {
         const clientReference = ethers.utils.id(name);
@@ -176,8 +202,8 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         evidence: first.evidence,
       });
       const beforeBalance = await targetProvider.getBalance(recipient);
-      const paidCall = targetVault.interface.encodeFunctionData('releaseNative', [first.request, release]);
-      const paidReceipt = await (await targetForwarder.forward(targetVault.address, paidCall)).wait();
+      const paidReceipt = await relay({ action: 'release', operation: first.request, evidence: first.evidence,
+        signatures: release }, targetVault, targetProvider, 'releaseNative', [first.request, release]);
       assert.equal((await targetProvider.getBalance(recipient)).sub(beforeBalance).toString(),
         ethers.utils.parseEther('0.08').toString());
       await mine(targetProvider);
@@ -188,8 +214,10 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         evidence: { destinationTxHash: paidReceipt.transactionHash,
           destinationBlockNumber: paidReceipt.blockNumber, destinationBlockHash: paidReceipt.blockHash },
       });
-      await (await sourceVault.finalizeDeposit(first.request.operationId,
-        paidReceipt.transactionHash, finalization)).wait();
+      await relay({ action: 'finalize', operation: first.request, signatures: finalization,
+        destinationTxHash: paidReceipt.transactionHash, evidence: { destinationTxHash: paidReceipt.transactionHash,
+          destinationBlockNumber: paidReceipt.blockNumber, destinationBlockHash: paidReceipt.blockHash } },
+      sourceVault, sourceProvider, 'finalizeDeposit', [first.request.operationId, paidReceipt.transactionHash, finalization]);
       assert.equal(Number((await sourceVault.deposits(first.request.operationId)).state), 2);
 
       const second = await makeDeposit('expired-unpaid', 15);
@@ -219,8 +247,9 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         request: renewedCancel, operation: second.request,
         destinationChain: 202, destinationVault: targetVault.address, evidence: second.evidence,
       });
-      const cancelCall = targetVault.interface.encodeFunctionData('cancelRelease', [renewedCancel, cancellation]);
-      const cancelledReceipt = await (await targetForwarder.forward(targetVault.address, cancelCall)).wait();
+      const cancelledReceipt = await relay({ action: 'cancel', operation: second.request, request: renewedCancel,
+        evidence: second.evidence, signatures: cancellation }, targetVault, targetProvider,
+      'cancelRelease', [renewedCancel, cancellation]);
       await targetProvider.send('evm_increaseTime', [2]);
       await mine(targetProvider, 3);
       await sourceProvider.send('evm_setNextBlockTimestamp', [second.request.releaseDeadline + 2]);
@@ -244,7 +273,8 @@ describe('Native mesh service on two disposable EVM nodes', function () {
         sourceChain: 101, sourceVault: sourceVault.address,
         destinationChain: 202, destinationVault: targetVault.address, evidence: {},
       });
-      await (await sourceVault.refundDeposit(renewedRefund, refunds)).wait();
+      await relay({ action: 'refund', operation: second.request, request: renewedRefund, evidence: {},
+        signatures: refunds }, sourceVault, sourceProvider, 'refundDeposit', [renewedRefund, refunds]);
       assert.equal(Number((await sourceVault.deposits(second.request.operationId)).state), 3);
       assert.equal(Number(await targetVault.releaseStates(second.request.operationId)), 2);
 
