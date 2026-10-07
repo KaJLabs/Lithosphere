@@ -1,5 +1,65 @@
 # Changelog
 
+## [1.30.0](https://github.com/KaJLabs/Lithosphere/compare/v1.29.0...v1.30.0) (2026-10-07)
+
+
+### Features
+
+* add validator explorer details ([b60df4a](https://github.com/KaJLabs/Lithosphere/commit/b60df4a0deae773cb45764d10313a5d4d26f3c04))
+* **explorer:** associate mainnet validators and gate rollout badges ([57a7170](https://github.com/KaJLabs/Lithosphere/commit/57a71704b3922c059c555691062bd5ae25d41669))
+* **explorer:** ship validator explorer and LithoScan branding ([acb3ff6](https://github.com/KaJLabs/Lithosphere/commit/acb3ff6a4ade6372e8959ce4bd2a3a5ec5fab9c6))
+* **multx:** add explicit EVM-first escrow rollout profile ([f82f660](https://github.com/KaJLabs/Lithosphere/commit/f82f660f324e1d835f43e85f0ef0ff70042f5929))
+* **multx:** add paused native liquidity vault candidate ([1e7cf26](https://github.com/KaJLabs/Lithosphere/commit/1e7cf2622aa423f894a99f17405853a4b471af28))
+* **multx:** enforce disabled production runtime ([649ae6c](https://github.com/KaJLabs/Lithosphere/commit/649ae6c3ffac98520e7f22b62ecd5f120ecb3e61))
+* **multx:** enforce disabled production runtime ([fac8905](https://github.com/KaJLabs/Lithosphere/commit/fac89057969b85d551d712dc4f1d93fbbc3f4bd7))
+* **multx:** publish native settlement review candidate ([d77bd42](https://github.com/KaJLabs/Lithosphere/commit/d77bd4214dbbbbcabe99df373a2d86ad572e7819))
+* **multx:** publish reviewed native settlement candidate ([35b731f](https://github.com/KaJLabs/Lithosphere/commit/35b731f67bdbed09bf9ecac5afbd260d085d5320))
+* **multx:** validate offline native swap route proposals ([611fe1f](https://github.com/KaJLabs/Lithosphere/commit/611fe1f7a37a43e1599428e7e32983f349686097))
+
+
+### Bug Fixes
+
+* **explorer:** harden validator metrics and branding ([7571e70](https://github.com/KaJLabs/Lithosphere/commit/7571e709c6c5d7743f7a3476a648bea0208ad6e1))
+* **explorer:** improve mobile readability and address actions ([#224](https://github.com/KaJLabs/Lithosphere/issues/224)) ([273ede6](https://github.com/KaJLabs/Lithosphere/commit/273ede65c7b8f9301104f149d1917a9e32da673c))
+* **explorer:** restore validator detail profiles ([25d93fe](https://github.com/KaJLabs/Lithosphere/commit/25d93febbffd8aaf6b54e01b24417cad567c0fd3))
+* **explorer:** restore validator detail profiles ([f9dc701](https://github.com/KaJLabs/Lithosphere/commit/f9dc701a555a8c0d9c5d98d745fb9f36b9ec49f5))
+* **explorer:** unblock validator deployment ([f80f8be](https://github.com/KaJLabs/Lithosphere/commit/f80f8be950c7128c75eec2c74149a14ac3451087))
+* **multx:** bind native deployment to approved bytecode evidence ([9d936d1](https://github.com/KaJLabs/Lithosphere/commit/9d936d13721e493929b639bfadd1fd8df619292d))
+* **multx:** bind retained CI evidence to equivalent PR merge tree ([22e4a33](https://github.com/KaJLabs/Lithosphere/commit/22e4a335f5cc660aa30dc25d5191f6de2583307d))
+* **multx:** bound native quote expiry for direct-deposit recovery ([f21c706](https://github.com/KaJLabs/Lithosphere/commit/f21c7062e659faede865fee4fd8411add38cb75c))
+* **multx:** close disabled-runtime evidence gaps ([6aabaf1](https://github.com/KaJLabs/Lithosphere/commit/6aabaf171940acf25354911155a1982d40011596))
+* **multx:** close disabled-runtime evidence gaps ([108db8a](https://github.com/KaJLabs/Lithosphere/commit/108db8a7b80e294fc6c44daecf97683440983847))
+* **multx:** close native candidate review findings ([6e9ed15](https://github.com/KaJLabs/Lithosphere/commit/6e9ed15e483fd518adb448bf7909b1463aa65a14))
+* **multx:** close native candidate review findings ([9af7ccc](https://github.com/KaJLabs/Lithosphere/commit/9af7cccc7aac7392633ef974fecfdc59d48e100d))
+* **multx:** close native mesh and payout review findings ([e0f713f](https://github.com/KaJLabs/Lithosphere/commit/e0f713f41cfab11a2ce93689a8e67f7e43ce6657))
+* **multx:** close native mesh R2 signer and verifier gaps ([9a83b99](https://github.com/KaJLabs/Lithosphere/commit/9a83b998d950a344174360c981bddaf4b14ef3d5))
+* **multx:** compile review artifacts before API rehearsal ([e0ce199](https://github.com/KaJLabs/Lithosphere/commit/e0ce199b20f9354d0123fd1b59256d8916867181))
+* **multx:** disclose omitted disposable node logs in review archive ([ade3e18](https://github.com/KaJLabs/Lithosphere/commit/ade3e18662afd93d524d0fcecffdb553ec35aba4))
+* **multx:** enforce finalized evidence before signing and relay ([00af2b0](https://github.com/KaJLabs/Lithosphere/commit/00af2b01e573f30ad4ecf0384ad08e7ff4442dd6))
+* **multx:** expose disabled API on loopback network ([369b15a](https://github.com/KaJLabs/Lithosphere/commit/369b15a972e41fb499ff47f1c098fe21b98853bc))
+* **multx:** gate native relay on fresh finality and durable holds ([2324892](https://github.com/KaJLabs/Lithosphere/commit/232489277ad8d0876897076c54b54b02d3594b47))
+* **multx:** harden contract toolchain dependencies ([8d7b403](https://github.com/KaJLabs/Lithosphere/commit/8d7b40355714dad3de29afecf0cdc600c2a31037))
+* **multx:** harden contract toolchain dependencies ([2fed638](https://github.com/KaJLabs/Lithosphere/commit/2fed638c9f3bff26d19c1c46c8f4b9a61011bf29))
+* **multx:** harden reviewed API runtime image ([d2e4b39](https://github.com/KaJLabs/Lithosphere/commit/d2e4b39ade7971f4c3d94dd971e5125d2eb3073e))
+* **multx:** harden reviewed API runtime image ([c9cd3d8](https://github.com/KaJLabs/Lithosphere/commit/c9cd3d8fcf6d029c7993d9e50c4e6cd21eac5937))
+* **multx:** make disabled staging loopback verification reachable ([7fdb6b9](https://github.com/KaJLabs/Lithosphere/commit/7fdb6b9224674c6bc9e1ad041f0759803ca1ec30))
+* **multx:** parse retained CI result array correctly ([b1dd30f](https://github.com/KaJLabs/Lithosphere/commit/b1dd30f8c10d91aaae1089e3affd45fa0ac76239))
+* **multx:** pin patched API and web dependencies ([00bd13b](https://github.com/KaJLabs/Lithosphere/commit/00bd13b8e112832e94037bb03fff2de6b972b3f1))
+* **multx:** pin reviewed fallback identity and verify runtime ([465f686](https://github.com/KaJLabs/Lithosphere/commit/465f6868555ba528d1d9417885a791ae573bbd5a))
+* **multx:** pin runtime publisher to reviewed finality closure ([1bed668](https://github.com/KaJLabs/Lithosphere/commit/1bed668e108a03c4cbd950313427894a80606871))
+* **multx:** prepare exact three-of-five bridge policy candidate ([1fe3499](https://github.com/KaJLabs/Lithosphere/commit/1fe3499a9c76b8d453f04ee4f44ce7d82f59031e))
+* **multx:** preserve evidence markdown values ([f02a9fe](https://github.com/KaJLabs/Lithosphere/commit/f02a9fe3e970fc48e439c7cc118079cd0a5e17d2))
+* **multx:** prove direct payouts and package full review source ([c8a23bf](https://github.com/KaJLabs/Lithosphere/commit/c8a23bf48476871e4362ac34f15c7cff115c06b6))
+* **multx:** publish reviewed finality runtime ([193fbc8](https://github.com/KaJLabs/Lithosphere/commit/193fbc88254c4ba4430afb9edfa3252f1bd8f123))
+* **multx:** recover expired native certificates and recheck terminal proofs ([f03b823](https://github.com/KaJLabs/Lithosphere/commit/f03b823beb2f0836359aca078906429fc71ac178))
+* **multx:** refresh audited dependency locks ([bbbeee8](https://github.com/KaJLabs/Lithosphere/commit/bbbeee85fdae86529b76e7c35600c1827771acfb))
+* **multx:** refresh audited dependency locks ([4be90db](https://github.com/KaJLabs/Lithosphere/commit/4be90db971d20a94dcf5dd558024c9020c491e89))
+* **multx:** remediate native mesh review findings ([5cfdc80](https://github.com/KaJLabs/Lithosphere/commit/5cfdc8061e38f2bab16c4f43ce69c74b73bad722))
+* **multx:** require finalized RPC evidence before native signing ([554dbf8](https://github.com/KaJLabs/Lithosphere/commit/554dbf8d3cfcb84b3454d9fe3abc9c69d71b2205))
+* **multx:** suppress native signatures completed after finality hold ([c46878a](https://github.com/KaJLabs/Lithosphere/commit/c46878a2c36c419e6e5176d7ad1fbcd845a87ea9))
+* **quantt:** use approved quantts.ai hostname ([bd21503](https://github.com/KaJLabs/Lithosphere/commit/bd21503968e85b949bfd26c7cb7023a1815c66e0))
+* use approved quantts.ai hostname ([222ac1f](https://github.com/KaJLabs/Lithosphere/commit/222ac1f9933081fcf75a5d2bd08519df01ca4cf5))
+
 ## [1.29.0](https://github.com/KaJLabs/Lithosphere/compare/v1.28.2...v1.29.0) (2026-09-09)
 
 
