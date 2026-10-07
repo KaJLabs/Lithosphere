@@ -87,7 +87,7 @@ const nativeFinalityGuard = nativeSigningEnabled ? createNativeFinalityGuard(
 const nativeEvidence = nativeFinalityGuard?.verifier;
 const nativeDecision = nativeSigningEnabled
   ? createNativeSettlementDecision({ journal: nativeJournal, signer: {
-    signMessage: message => { nativeFinalityGuard.assertClear(); return signer.signMessage(message); },
+    signMessage: message => nativeFinalityGuard.signMessage(signer, message),
   } }) : null;
 const nativeDestination = input => ({
   ...resolveNativeChain(nativePolicy, input?.destinationChain, input?.destinationVault),

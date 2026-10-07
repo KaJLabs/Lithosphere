@@ -32,5 +32,16 @@ export function createNativeFinalityGuard(verifier, holdFile) {
       }
     };
   }
-  return { verifier: guarded, assertClear };
+  return {
+    verifier: guarded,
+    assertClear,
+    async signMessage(signer, message) {
+      assertClear();
+      const signature = await signer.signMessage(message);
+      // Evidence can fail while local/KMS signing is awaiting completion.
+      // Suppress the resulting certificate if HOLD was set in that interval.
+      assertClear();
+      return signature;
+    },
+  };
 }

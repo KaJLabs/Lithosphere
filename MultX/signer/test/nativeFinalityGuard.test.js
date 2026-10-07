@@ -35,3 +35,11 @@ test('another in-flight check cannot succeed after a hold', async () => {
     resume(); await assert.rejects(pending, /HOLD/);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('guarded signing returns its signature when no hold occurs', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'multx-sign-clear-'));
+  try {
+    const guard = createNativeFinalityGuard({}, path.join(dir, 'hold'));
+    assert.equal(await guard.signMessage({ signMessage: async message => `signed:${message}` }, 'message'), 'signed:message');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
