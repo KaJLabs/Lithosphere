@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { Wallet, verifyMessage, getBytes, AbiCoder, keccak256 } from 'ethers';
+import { createNativeFinalityGuard } from '../src/nativeFinalityGuard.js';
 import { createNativeStateJournal } from '../src/nativeStateJournal.js';
 import {
   cancelDigest,
@@ -220,3 +221,45 @@ test('rejects cancellation evidence failure, insufficient finality and immutable
       source, destination, cancellation }, async () => {}), /operation\/epoch drift/);
   } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
 });
+
+for (const action of ['release', 'cancel', 'finalize', 'refund']) {
+  test(`${action}: suppresses an in-flight signature after concurrent persistent HOLD`, async () => {
+    const f = fixture(action === 'release' ? 1800 : 2201);
+    try {
+      let resume, entered;
+      const started = new Promise(resolve => { entered = resolve; });
+      const holdFile = path.join(f.directory, 'native.finality-hold');
+      const guard = createNativeFinalityGuard({
+        verifyRefund: async () => { throw new Error('independent finality failure'); },
+      }, holdFile);
+      const delayedSigner = { signMessage: async message => {
+        entered();
+        await new Promise(resolve => { resume = resolve; });
+        return f.signer.signMessage(message);
+      } };
+      const policy = createNativeSettlementDecision({ journal: f.journal,
+        signer: { signMessage: message => guard.signMessage(delayedSigner, message) },
+        now: () => action === 'release' ? 1800 : 2201 });
+      const operations = {
+        release: () => policy.signRelease(release, destination, async () => {}),
+        cancel: () => policy.signCancellation(cancel, release, destination, async () => {}),
+        finalize: () => policy.signFinalization({ operation: release, destinationTxHash: hash(10),
+          source, destination }, async () => {}),
+        refund: () => policy.signRefund({ request: refund, deposit, identity, source, destination,
+          cancellation }, async () => {}),
+      };
+      const pending = operations[action]();
+      const rejected = assert.rejects(pending, /HOLD/);
+      await started;
+      await assert.rejects(guard.verifier.verifyRefund(), /HOLD/);
+      assert.equal(fs.existsSync(holdFile), true);
+      resume();
+      await rejected;
+      // Restart does not clear the hold or invoke the signing backend.
+      const restored = createNativeFinalityGuard({}, holdFile);
+      let called = false;
+      await assert.rejects(restored.signMessage({ signMessage: async () => { called = true; } }, 'message'), /HOLD/);
+      assert.equal(called, false);
+    } finally { fs.rmSync(f.directory, { recursive: true, force: true }); }
+  });
+}

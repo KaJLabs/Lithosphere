@@ -61,4 +61,7 @@ signature, canonical source/destination evidence and an append-only native
 decision journal. `SIGNER_NATIVE_SIGNING_ENABLED` defaults to false and is
 independent of the legacy release flag. See the native policy and first-use
 journal instructions in `OPERATOR_RUNBOOK.md`; native activation needs its own
-review and approval.
+review. Each native chain policy now requires `rpcUrl` and an independent
+`finalityRpcUrl`. Both RPCs must expose a genuine `finalized` block tag; the
+signer refuses native signatures if they disagree or finality is unavailable.
+Native activation still requires separate review and approval.
