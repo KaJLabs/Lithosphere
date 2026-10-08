@@ -63,3 +63,6 @@ export type { NativeQuote, NativeQuoteRequest, NativeQuoteHttpBackend } from './
 
 export { createNativeDestinationWalletBackend, submitInjectedNativeDestinationStep } from './nativeDestination.js';
 export type { NativeDestinationStep, NativeDestinationProgress, NativeDestinationWalletBackend } from './nativeDestination.js';
+
+export { createNativeVaultStatusBackend } from './nativeVaultStatus.js';
+export type { NativeVaultStatus, NativeVaultStatusRoute, NativeVaultOperationStatus } from './nativeVaultStatus.js';
