@@ -1,0 +1,373 @@
+diff --git a/x/evm/keeper/call_evm_test.go b/x/evm/keeper/call_evm_test.go
+index 372e5c2..f889807 100644
+--- a/x/evm/keeper/call_evm_test.go
++++ b/x/evm/keeper/call_evm_test.go
+@@ -46,16 +46,19 @@ func (suite *KeeperTestSuite) TestCallEVM() {
+ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 	erc20 := contracts.ERC20MinterBurnerDecimalsContract.ABI
+ 	wevmosContract := common.HexToAddress(types.WEVMOSContractMainnet)
++	moduleSender := func() common.Address { return types.ModuleAddress }
++	emptySender := func() common.Address { return common.Address{} }
++	walletSender := func() common.Address { return suite.keyring.GetAddr(0) }
+ 	testCases := []struct {
+ 		name     string
+-		from     common.Address
++		from     func() common.Address
+ 		malleate func() []byte
+ 		deploy   bool
+ 		expPass  bool
+ 	}{
+ 		{
+ 			"unknown method",
+-			types.ModuleAddress,
++			moduleSender,
+ 			func() []byte {
+ 				account := utiltx.GenerateAddress()
+ 				data, _ := erc20.Pack("", account)
+@@ -66,7 +69,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 		},
+ 		{
+ 			"pass",
+-			types.ModuleAddress,
++			moduleSender,
+ 			func() []byte {
+ 				account := utiltx.GenerateAddress()
+ 				data, _ := erc20.Pack("balanceOf", account)
+@@ -77,7 +80,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 		},
+ 		{
+ 			"fail empty data",
+-			types.ModuleAddress,
++			moduleSender,
+ 			func() []byte {
+ 				return []byte{}
+ 			},
+@@ -87,7 +90,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 
+ 		{
+ 			"fail empty sender",
+-			common.Address{},
++			emptySender,
+ 			func() []byte {
+ 				return []byte{}
+ 			},
+@@ -96,7 +99,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 		},
+ 		{
+ 			"deploy",
+-			types.ModuleAddress,
++			walletSender,
+ 			func() []byte {
+ 				ctorArgs, _ := contracts.ERC20MinterBurnerDecimalsContract.ABI.Pack("", "test", "test", uint8(18))
+ 				data := append(contracts.ERC20MinterBurnerDecimalsContract.Bin, ctorArgs...) //nolint:gocritic
+@@ -107,7 +110,7 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 		},
+ 		{
+ 			"fail deploy",
+-			types.ModuleAddress,
++			walletSender,
+ 			func() []byte {
+ 				params := suite.network.App.EvmKeeper.GetParams(suite.network.GetContext())
+ 				params.AccessControl.Create = evmtypes.AccessControlType{
+@@ -132,9 +135,9 @@ func (suite *KeeperTestSuite) TestCallEVMWithData() {
+ 			var err error
+ 
+ 			if tc.deploy {
+-				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from, nil, data, true)
++				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from(), nil, data, true)
+ 			} else {
+-				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from, &wevmosContract, data, false)
++				res, err = suite.network.App.EvmKeeper.CallEVMWithData(suite.network.GetContext(), tc.from(), &wevmosContract, data, false)
+ 			}
+ 
+ 			if tc.expPass {
+diff --git a/x/evm/keeper/lithovm_candidate_apply_test.go b/x/evm/keeper/lithovm_candidate_apply_test.go
+new file mode 100644
+index 0000000..d398b1c
+--- /dev/null
++++ b/x/evm/keeper/lithovm_candidate_apply_test.go
+@@ -0,0 +1,107 @@
++//go:build lithovm_chain_lab
++
++package keeper_test
++
++import (
++	"bytes"
++	"encoding/hex"
++	"fmt"
++	"math/big"
++
++	"github.com/ethereum/go-ethereum/common"
++	"github.com/ethereum/go-ethereum/crypto"
++	evmostypes "github.com/evmos/evmos/v20/x/evm/types"
++	nativechain "lithic.local/native-chain-lab"
++)
++
++// Compiled from integration/native-chain/testdata/counter.lithic at Lithic
++// 4de97ab806ebec5b05c4eeab238281320b973f65. Keeping the artifact in this
++// test makes the signed-message fixture independent of a sibling checkout.
++// Compiler sourceHash (Keccak-256): ac549823aa139c6df36515d31a9e35a2959187998997f060d9a57e18f57c5c28.
++const candidateCounterBytecode = "4c4954484f564d0c000200066e756d6265720100046e616d65060001000862616c616e63657300010402000100074368616e676564000100066e756d626572010003000a696e697469616c697a6500010103040002040000000102000002000101030000000000000000000000000000000000000000000000000000000000000001000373657400020103010400040400000001020000050000000100010200000b00010200010200010a000000036765740000010300010a0000"
++
++// The regular Evmos transition reaches the tagged gateway call hook. A call
++// to an unregistered empty account would succeed instead of failing decode.
++func (suite *KeeperTestSuite) TestLithoVMCandidateApplyMessageHook() {
++	suite.enableFeemarket = true
++	defer func() { suite.enableFeemarket = false }()
++	suite.SetupTest()
++	ctx := suite.network.GetContext()
++	sender := suite.keyring.GetKey(0)
++	msg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, evmostypes.EvmTxArgs{
++		To: &nativechain.LabAddress, Amount: big.NewInt(0),
++		Input: []byte{1, 2, 3, 4}, GasLimit: 1000000,
++	})
++	suite.Require().NoError(err)
++	cfg, err := suite.network.App.EvmKeeper.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress, suite.network.GetEIP155ChainID())
++	suite.Require().NoError(err)
++	txConfig := suite.network.App.EvmKeeper.TxConfig(ctx, common.Hash{})
++	result, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
++	suite.Require().NoError(err)
++	suite.Require().NotNil(result)
++	suite.Require().True(result.Failed())
++	suite.Require().Contains(result.VmError, "invalid lab payload")
++}
++
++func (suite *KeeperTestSuite) TestLithoVMCandidateSignedDeploySimulationAndCommit() {
++	suite.enableFeemarket = true
++	defer func() { suite.enableFeemarket = false }()
++	suite.SetupTest()
++	code, err := hex.DecodeString(candidateCounterBytecode)
++	suite.Require().NoError(err)
++	arguments, err := hex.DecodeString(fmt.Sprintf("4c56414c01000101%064x", 7))
++	suite.Require().NoError(err)
++	selector := crypto.Keccak256Hash([]byte("initialize(u64)"))
++	payload, err := nativechain.EncodeGatewayDeploy(code, selector, arguments)
++	suite.Require().NoError(err)
++	ctx := suite.network.GetContext()
++	sender := suite.keyring.GetKey(0)
++	msg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, evmostypes.EvmTxArgs{
++		To: &nativechain.LabAddress, Amount: big.NewInt(0), Input: payload, GasLimit: 1000000,
++	})
++	suite.Require().NoError(err)
++	cfg, err := suite.network.App.EvmKeeper.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress, suite.network.GetEIP155ChainID())
++	suite.Require().NoError(err)
++	txConfig := suite.network.App.EvmKeeper.TxConfig(ctx, common.Hash{})
++	simulated, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
++	suite.Require().NoError(err)
++	suite.Require().False(simulated.Failed(), simulated.VmError)
++	nativeResult, err := nativechain.DecodeGatewayResult(simulated.Ret)
++	suite.Require().NoError(err)
++	suite.Require().Len(nativeResult, 40)
++	address := hex.EncodeToString(nativeResult[20:])
++	stateKey := []byte("lithovm/v1/contracts/" + address)
++	key := suite.network.App.GetKey(evmostypes.StoreKey)
++	suite.Require().False(ctx.KVStore(key).Has(stateKey), "simulation persisted native contract")
++	committed, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, true, cfg, txConfig)
++	suite.Require().NoError(err)
++	suite.Require().False(committed.Failed(), committed.VmError)
++	suite.Require().NotEmpty(committed.Logs)
++	suite.Require().True(ctx.KVStore(key).Has(stateKey), "committed native contract missing")
++	before := append([]byte(nil), ctx.KVStore(key).Get(stateKey)...)
++	contract := common.HexToAddress("0x" + address)
++	setSelector := crypto.Keccak256Hash([]byte("set(u64,bool)"))
++	for _, profile := range []struct{ accepted bool }{{false}, {true}} {
++		flag := 0
++		if profile.accepted {
++			flag = 1
++		}
++		setArgs, err := hex.DecodeString(fmt.Sprintf("4c56414c01000201%064x03%064x", 42, flag))
++		suite.Require().NoError(err)
++		setPayload, err := nativechain.EncodeGatewayCall(contract, setSelector, setArgs)
++		suite.Require().NoError(err)
++		setMsg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, evmostypes.EvmTxArgs{
++			To: &nativechain.LabAddress, Amount: big.NewInt(0), Input: setPayload, GasLimit: 1000000,
++		})
++		suite.Require().NoError(err)
++		setResult, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, setMsg, nil, true, cfg, txConfig)
++		suite.Require().NoError(err)
++		if !profile.accepted {
++			suite.Require().True(setResult.Failed(), "native require failure was accepted")
++			suite.Require().True(bytes.Equal(before, ctx.KVStore(key).Get(stateKey)), "failed call changed native state")
++		} else {
++			suite.Require().False(setResult.Failed(), setResult.VmError)
++			suite.Require().False(bytes.Equal(before, ctx.KVStore(key).Get(stateKey)), "recovery did not commit")
++		}
++	}
++}
+diff --git a/x/evm/keeper/lithovm_candidate_disabled.go b/x/evm/keeper/lithovm_candidate_disabled.go
+new file mode 100644
+index 0000000..ca8c96d
+--- /dev/null
++++ b/x/evm/keeper/lithovm_candidate_disabled.go
+@@ -0,0 +1,14 @@
++//go:build !lithovm_chain_lab
++
++package keeper
++
++import (
++	"github.com/evmos/evmos/v20/x/evm/core/core"
++	"github.com/evmos/evmos/v20/x/evm/statedb"
++	"github.com/evmos/evmos/v20/x/evm/types"
++)
++
++// Ordinary chain builds do not install any LithoVM gateway.
++func (*Keeper) lithovmCandidateHook(core.Message, *statedb.EVMConfig, bool) types.CallHook {
++	return nil
++}
+diff --git a/x/evm/keeper/lithovm_candidate_disabled_test.go b/x/evm/keeper/lithovm_candidate_disabled_test.go
+new file mode 100644
+index 0000000..c280b1f
+--- /dev/null
++++ b/x/evm/keeper/lithovm_candidate_disabled_test.go
+@@ -0,0 +1,11 @@
++//go:build !lithovm_chain_lab
++
++package keeper
++
++import "testing"
++
++func TestLithoVMCandidateNotRegisteredByDefault(t *testing.T) {
++	if hook := (&Keeper{}).lithovmCandidateHook(nil, nil, false); hook != nil {
++		t.Fatal("ordinary build installed native gateway hook")
++	}
++}
+diff --git a/x/evm/keeper/lithovm_candidate_lab.go b/x/evm/keeper/lithovm_candidate_lab.go
+new file mode 100644
+index 0000000..843c4b4
+--- /dev/null
++++ b/x/evm/keeper/lithovm_candidate_lab.go
+@@ -0,0 +1,24 @@
++//go:build lithovm_chain_lab
++
++package keeper
++
++import (
++	"github.com/ethereum/go-ethereum/common"
++	"github.com/evmos/evmos/v20/x/evm/core/core"
++	"github.com/evmos/evmos/v20/x/evm/core/vm"
++	"github.com/evmos/evmos/v20/x/evm/statedb"
++	"github.com/evmos/evmos/v20/x/evm/types"
++	nativechain "lithic.local/native-chain-lab"
++)
++
++// The candidate is visible only with the lab build tag. Re-register on every
++// gateway call because Evmos can replace its active precompile map in the
++// ordinary precompile hook after an intervening call.
++func (k *Keeper) lithovmCandidateHook(msg core.Message, cfg *statedb.EVMConfig, commit bool) types.CallHook {
++	return func(evm *vm.EVM, _ common.Address, recipient common.Address) error {
++		if recipient != nativechain.LabAddress {
++			return nil
++		}
++		return nativechain.RegisterLabForMessage(evm, k.storeKey, msg, cfg.ChainConfig.ChainID, commit)
++	}
++}
+diff --git a/x/evm/keeper/lithovm_candidate_lab_test.go b/x/evm/keeper/lithovm_candidate_lab_test.go
+new file mode 100644
+index 0000000..42f1ca6
+--- /dev/null
++++ b/x/evm/keeper/lithovm_candidate_lab_test.go
+@@ -0,0 +1,60 @@
++//go:build lithovm_chain_lab
++
++package keeper
++
++import (
++	"math/big"
++	"testing"
++
++	"github.com/ethereum/go-ethereum/common"
++	ethtypes "github.com/ethereum/go-ethereum/core/types"
++	"github.com/ethereum/go-ethereum/params"
++	"github.com/evmos/evmos/v20/x/evm/core/vm"
++	"github.com/evmos/evmos/v20/x/evm/statedb"
++	nativechain "lithic.local/native-chain-lab"
++)
++
++func TestLithoVMCandidateHookIsTaggedAndReregisters(t *testing.T) {
++	config := *params.AllEthashProtocolChanges
++	config.ChainID = big.NewInt(700777)
++	sender := common.HexToAddress("0x09")
++	evm := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1), Time: big.NewInt(2)}, vm.TxContext{Origin: sender}, nil, &config, vm.Config{})
++	message := ethtypes.NewMessage(sender, &nativechain.LabAddress, 7, big.NewInt(0), 1000000, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, false)
++	keeper := &Keeper{}
++	cfg := &statedb.EVMConfig{ChainConfig: &config}
++	hook := keeper.lithovmCandidateHook(message, cfg, true)
++	if hook == nil {
++		t.Fatal("lab hook was not installed")
++	}
++	if err := hook(evm, sender, common.HexToAddress("0x01")); err != nil {
++		t.Fatal(err)
++	}
++	if _, ok := evm.Precompile(nativechain.LabAddress); ok {
++		t.Fatal("gateway registered for another recipient")
++	}
++	if err := hook(evm, sender, nativechain.LabAddress); err != nil {
++		t.Fatal(err)
++	}
++	p, ok := evm.Precompile(nativechain.LabAddress)
++	if !ok || p.(nativechain.LabPrecompile).Transaction.Nonce != 7 {
++		t.Fatal("message nonce did not reach gateway")
++	}
++	evm.WithPrecompiles(nil, nil)
++	if err := hook(evm, sender, nativechain.LabAddress); err != nil {
++		t.Fatal(err)
++	}
++	if _, ok := evm.Precompile(nativechain.LabAddress); !ok {
++		t.Fatal("gateway was not re-registered")
++	}
++	fake := ethtypes.NewMessage(sender, &nativechain.LabAddress, 7, big.NewInt(0), 1000000, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, true)
++	if err := keeper.lithovmCandidateHook(fake, cfg, true)(evm, sender, nativechain.LabAddress); err == nil {
++		t.Fatal("fake message could commit")
++	}
++	if err := keeper.lithovmCandidateHook(fake, cfg, false)(evm, sender, nativechain.LabAddress); err != nil {
++		t.Fatal(err)
++	}
++	p, ok = evm.Precompile(nativechain.LabAddress)
++	if !ok || !p.(nativechain.LabPrecompile).Transaction.Simulated {
++		t.Fatal("simulation mode missing")
++	}
++}
+diff --git a/x/evm/keeper/state_transition.go b/x/evm/keeper/state_transition.go
+index 7f60dbf..1773eb9 100644
+--- a/x/evm/keeper/state_transition.go
++++ b/x/evm/keeper/state_transition.go
+@@ -38,6 +38,18 @@ func (k *Keeper) NewEVM(
+ 	cfg *statedb.EVMConfig,
+ 	tracer vm.EVMLogger,
+ 	stateDB vm.StateDB,
++) *vm.EVM {
++	return k.newEVMWithCandidate(ctx, msg, cfg, tracer, stateDB, false, false)
++}
++
++func (k *Keeper) newEVMWithCandidate(
++	ctx sdk.Context,
++	msg core.Message,
++	cfg *statedb.EVMConfig,
++	tracer vm.EVMLogger,
++	stateDB vm.StateDB,
++	installCandidate bool,
++	commit bool,
+ ) *vm.EVM {
+ 	blockCtx := vm.BlockContext{
+ 		CanTransfer: evmoscore.CanTransfer,
+@@ -70,6 +82,11 @@ func (k *Keeper) NewEVM(
+ 		accessControl.GetCallHook(signer),
+ 		k.GetPrecompilesCallHook(ctx),
+ 	)
++	if installCandidate {
++		if hook := k.lithovmCandidateHook(msg, cfg, commit); hook != nil {
++			evmHooks.AddCallHooks(hook)
++		}
++	}
+ 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, cfg.ChainConfig, vmConfig)
+ }
+ 
+@@ -274,7 +291,7 @@ func (k *Keeper) ApplyMessageWithConfig(
+ 	)
+ 
+ 	stateDB := statedb.New(ctx, k, txConfig)
+-	evm := k.NewEVM(ctx, msg, cfg, tracer, stateDB)
++	evm := k.newEVMWithCandidate(ctx, msg, cfg, tracer, stateDB, true, commit)
+ 
+ 	leftoverGas := msg.Gas()
+ 

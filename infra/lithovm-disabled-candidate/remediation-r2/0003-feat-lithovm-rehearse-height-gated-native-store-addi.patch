@@ -1,0 +1,194 @@
+From badff8be1a3bb565923ae63fd4f19599da4394d6 Mon Sep 17 00:00:00 2001
+From: bachal-abro <mbachalabro1@gmail.com>
+Date: Thu, 1 Oct 2026 00:03:31 +0500
+Subject: [PATCH 3/4] feat(lithovm): rehearse height-gated native store
+ addition in lab
+
+---
+ app/app.go                      |  2 +
+ app/lithovm_upgrade_disabled.go |  9 ++++
+ app/lithovm_upgrade_lab.go      | 37 +++++++++++++
+ app/lithovm_upgrade_lab_test.go | 96 +++++++++++++++++++++++++++++++++
+ 4 files changed, 144 insertions(+)
+ create mode 100644 app/lithovm_upgrade_disabled.go
+ create mode 100644 app/lithovm_upgrade_lab.go
+ create mode 100644 app/lithovm_upgrade_lab_test.go
+
+diff --git a/app/app.go b/app/app.go
+index 1cbd13e..8d3d20b 100644
+--- a/app/app.go
++++ b/app/app.go
+@@ -1197,6 +1197,7 @@ func initParamsKeeper(
+ }
+ 
+ func (app *Evmos) setupUpgradeHandlers() {
++	app.registerLithoVMStoreUpgrade()
+ 	// v20 upgrade handler
+ 	app.UpgradeKeeper.SetUpgradeHandler(
+ 		v20.UpgradeName,
+@@ -1218,4 +1219,5 @@ func (app *Evmos) setupUpgradeHandlers() {
+ 	if app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+ 		return
+ 	}
++	app.configureLithoVMStoreLoader(upgradeInfo)
+ }
+diff --git a/app/lithovm_upgrade_disabled.go b/app/lithovm_upgrade_disabled.go
+new file mode 100644
+index 0000000..d6e52be
+--- /dev/null
++++ b/app/lithovm_upgrade_disabled.go
+@@ -0,0 +1,9 @@
++//go:build !lithovm_chain_lab
++
++package app
++
++import upgradetypes "cosmossdk.io/x/upgrade/types"
++
++func (*Evmos) registerLithoVMStoreUpgrade() {}
++
++func (*Evmos) configureLithoVMStoreLoader(_ upgradetypes.Plan) {}
+diff --git a/app/lithovm_upgrade_lab.go b/app/lithovm_upgrade_lab.go
+new file mode 100644
+index 0000000..14e0b39
+--- /dev/null
++++ b/app/lithovm_upgrade_lab.go
+@@ -0,0 +1,37 @@
++//go:build lithovm_chain_lab
++
++package app
++
++import (
++	"context"
++
++	storetypes "cosmossdk.io/store/types"
++	upgradetypes "cosmossdk.io/x/upgrade/types"
++	"github.com/cosmos/cosmos-sdk/baseapp"
++	"github.com/cosmos/cosmos-sdk/types/module"
++)
++
++// This name is deliberately lab-specific. It is not a Makalu upgrade plan.
++const lithovmStoreLabUpgradeName = "lithovm-native-store-lab-v1"
++
++func nativeStoreLoaderForPlan(plan upgradetypes.Plan) (baseapp.StoreLoader, bool) {
++	if plan.Name != lithovmStoreLabUpgradeName || plan.Height <= 0 {
++		return nil, false
++	}
++	return upgradetypes.UpgradeStoreLoader(plan.Height, &storetypes.StoreUpgrades{
++		Added: []string{"lithovm"},
++	}), true
++}
++
++func (app *Evmos) registerLithoVMStoreUpgrade() {
++	app.UpgradeKeeper.SetUpgradeHandler(lithovmStoreLabUpgradeName,
++		func(ctx context.Context, _ upgradetypes.Plan, versions module.VersionMap) (module.VersionMap, error) {
++			return app.mm.RunMigrations(ctx, app.configurator, versions)
++		})
++}
++
++func (app *Evmos) configureLithoVMStoreLoader(plan upgradetypes.Plan) {
++	if loader, ok := nativeStoreLoaderForPlan(plan); ok {
++		app.SetStoreLoader(loader)
++	}
++}
+diff --git a/app/lithovm_upgrade_lab_test.go b/app/lithovm_upgrade_lab_test.go
+new file mode 100644
+index 0000000..7f53805
+--- /dev/null
++++ b/app/lithovm_upgrade_lab_test.go
+@@ -0,0 +1,96 @@
++//go:build lithovm_chain_lab
++
++package app
++
++import (
++	"testing"
++
++	"cosmossdk.io/log"
++	"cosmossdk.io/store/metrics"
++	"cosmossdk.io/store/rootmulti"
++	storetypes "cosmossdk.io/store/types"
++	upgradetypes "cosmossdk.io/x/upgrade/types"
++	"github.com/cosmos/cosmos-sdk/baseapp"
++	dbm "github.com/cosmos/cosmos-db"
++)
++
++func TestLithoVMStoreUpgradeIsHeightAndPlanGated(t *testing.T) {
++	db := dbm.NewMemDB()
++	open := func(withNative bool) (storetypes.CommitMultiStore, *storetypes.KVStoreKey, *storetypes.KVStoreKey) {
++		ms := rootmulti.NewStore(db, log.NewNopLogger(), metrics.NewNoOpMetrics())
++		evm := storetypes.NewKVStoreKey("evm")
++		ms.MountStoreWithDB(evm, storetypes.StoreTypeIAVL, nil)
++		var native *storetypes.KVStoreKey
++		if withNative {
++			native = storetypes.NewKVStoreKey("lithovm")
++			ms.MountStoreWithDB(native, storetypes.StoreTypeIAVL, nil)
++		}
++		return ms, evm, native
++	}
++
++	old, evm, _ := open(false)
++	if err := old.LoadLatestVersion(); err != nil {
++		t.Fatal(err)
++	}
++	old.GetKVStore(evm).Set([]byte("existing"), []byte("evm-state"))
++	if version := old.Commit().Version; version != 1 {
++		t.Fatalf("old state version = %d", version)
++	}
++
++	for _, plan := range []upgradetypes.Plan{
++		{Name: "unrelated-upgrade", Height: 2},
++		{Name: lithovmStoreLabUpgradeName, Height: 0},
++	} {
++		if _, ok := nativeStoreLoaderForPlan(plan); ok {
++			t.Fatalf("accepted unrelated or unplanned upgrade: %+v", plan)
++		}
++	}
++	if loader, ok := nativeStoreLoaderForPlan(upgradetypes.Plan{Name: lithovmStoreLabUpgradeName, Height: 3}); !ok {
++		t.Fatal("missing test loader")
++	} else {
++		wrongHeight, _, _ := open(true)
++		if err := loader(wrongHeight); err == nil {
++			t.Fatal("wrong-height loader accepted a missing native store")
++		}
++	}
++	withoutPlan, _, _ := open(true)
++	if err := baseapp.DefaultStoreLoader(withoutPlan); err == nil {
++		t.Fatal("new store loaded without a scheduled upgrade")
++	}
++
++	loader, ok := nativeStoreLoaderForPlan(upgradetypes.Plan{Name: lithovmStoreLabUpgradeName, Height: 2})
++	if !ok {
++		t.Fatal("planned loader missing")
++	}
++	upgraded, upgradedEVM, native := open(true)
++	if err := loader(upgraded); err != nil {
++		t.Fatal(err)
++	}
++	if got := string(upgraded.GetKVStore(upgradedEVM).Get([]byte("existing"))); got != "evm-state" {
++		t.Fatalf("existing EVM state changed: %q", got)
++	}
++	if got := upgraded.GetKVStore(native).Get([]byte("native")); got != nil {
++		t.Fatalf("new native store was not empty: %x", got)
++	}
++	upgraded.GetKVStore(native).Set([]byte("native"), []byte("isolated"))
++	if version := upgraded.Commit().Version; version != 2 {
++		t.Fatalf("upgraded state version = %d", version)
++	}
++
++	reopened, reopenedEVM, reopenedNative := open(true)
++	if err := reopened.LoadLatestVersion(); err != nil {
++		t.Fatal(err)
++	}
++	if got := string(reopened.GetKVStore(reopenedEVM).Get([]byte("existing"))); got != "evm-state" {
++		t.Fatalf("reopened EVM state changed: %q", got)
++	}
++	if got := string(reopened.GetKVStore(reopenedNative).Get([]byte("native"))); got != "isolated" {
++		t.Fatalf("reopened native state changed: %q", got)
++	}
++	legacy, _, _ := open(false)
++	if err := legacy.LoadLatestVersion(); err == nil {
++		// The old binary can ignore the added store. Operational cutover must
++		// prevent mixed-version restart; the store loader cannot enforce it.
++		t.Log("legacy store set reopened post-upgrade DB without native state")
++	}
++}
