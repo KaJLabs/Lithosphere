@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { JsonRpcProvider } from 'ethers';
-import { createNativeEvidenceVerifier } from './nativeEvidence.js';
+import { createNativeEvidenceVerifier, createNativeRpcProvider } from './nativeEvidence.js';
+import { createFinalityCheckpoints, finalityCheckpointBinding } from './finalityCheckpoints.js';
 import { parseNativeSignerPolicy, resolveNativeChain } from './nativePolicy.js';
 import { createNativeRelayJournal } from './nativeRelayJournal.js';
 import { relayNativeOnce } from './nativeRelay.js';
@@ -29,10 +30,12 @@ try {
   const provider = new JsonRpcProvider(chain.rpcUrl, undefined, { cacheTimeout: -1 });
   const evidenceProviders = [];
   const makeProvider = url => {
-    const rpc = new JsonRpcProvider(url, undefined, { cacheTimeout: -1 });
+    const rpc = createNativeRpcProvider(url);
     evidenceProviders.push(rpc); return rpc;
   };
   const verifier = createNativeEvidenceVerifier(policy, {
+    checkpoints: createFinalityCheckpoints(approval.finalityCheckpointFile,
+      finalityCheckpointBinding(policy)),
     providerFactory: item => makeProvider(item.rpcUrl),
     finalityProviderFactory: item => makeProvider(item.finalityRpcUrl),
   });

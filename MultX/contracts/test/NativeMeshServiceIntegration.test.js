@@ -104,6 +104,8 @@ describe('Native mesh service on two disposable EVM nodes', function () {
 
       const quoteAuthority = wallet(9);
       const nativeModule = await import(quoteModule);
+      const checkpointModule = await import(pathToFileURL(path.join(signerRoot, 'src', 'finalityCheckpoints.js')).href);
+      const { parseNativeSignerPolicy } = await import(pathToFileURL(path.join(signerRoot, 'src', 'nativePolicy.js')).href);
       // Loopback aliases exercise the two-RPC interface in this disposable test;
       // production requires separately operated providers.
       const policy = {
@@ -117,6 +119,8 @@ describe('Native mesh service on two disposable EVM nodes', function () {
       };
       const token = crypto.randomBytes(32).toString('hex');
       for (let i = 0; i < 3; i++) {
+        checkpointModule.initializeFinalityCheckpoints(path.join(directory, `native-${i}.jsonl.finality-checkpoints`),
+          checkpointModule.finalityCheckpointBinding(parseNativeSignerPolicy({ ...policy, signerAddress: wallet(i + 3).address })));
         const file = path.join(directory, `key-${i}`);
         fs.writeFileSync(file, wallet(i + 3).privateKey, { mode: 0o600 });
         const child = spawn(process.execPath, [path.join(signerRoot, 'src', 'index.js')], {
@@ -143,10 +147,13 @@ describe('Native mesh service on two disposable EVM nodes', function () {
       const destination = { chainId: 202, vault: targetVault.address };
       const { relayNativeOnce } = await import(pathToFileURL(path.join(signerRoot, 'src', 'nativeRelay.js')).href);
       const { createNativeRelayJournal } = await import(pathToFileURL(path.join(signerRoot, 'src', 'nativeRelayJournal.js')).href);
+      const relayCheckpoints = path.join(directory, 'relay-finality-checkpoints');
+      const relayBinding = checkpointModule.finalityCheckpointBinding(policy);
+      checkpointModule.initializeFinalityCheckpoints(relayCheckpoints, relayBinding);
       const evidenceVerifier = nativeModule.createNativeEvidenceVerifier(policy, {
+        checkpoints: checkpointModule.createFinalityCheckpoints(relayCheckpoints, relayBinding),
         providerFactory: chain => chain.chainId === 101 ? sourceProvider : targetProvider,
         finalityProviderFactory: chain => chain.chainId === 101 ? sourceProvider : targetProvider,
-        contractFactory: (chain, provider) => new ethers.Contract(chain.vault, artifact.abi, provider),
       });
       let relayAttempt = 0;
       const relay = async (packet, vault, provider, method, args) => {

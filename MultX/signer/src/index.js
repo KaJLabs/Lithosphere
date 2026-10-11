@@ -7,6 +7,7 @@ import { validateDeploymentMode } from './deploymentMode.js';
 import { createDecisionJournal } from './journal.js';
 import { createNativeFinalityGuard } from './nativeFinalityGuard.js';
 import { createNativeEvidenceVerifier } from './nativeEvidence.js';
+import { createFinalityCheckpoints, finalityCheckpointBinding } from './finalityCheckpoints.js';
 import { resolveNativeChain } from './nativePolicy.js';
 import { createNativeSettlementDecision } from './nativeSettlementPolicy.js';
 import { createNativeStateJournal } from './nativeStateJournal.js';
@@ -81,7 +82,10 @@ const verifyAndSign = async (input) => {
 };
 
 const nativeFinalityGuard = nativeSigningEnabled ? createNativeFinalityGuard(
-  createNativeEvidenceVerifier(nativePolicy),
+  createNativeEvidenceVerifier(nativePolicy, { checkpoints: createFinalityCheckpoints(
+    `${process.env.SIGNER_NATIVE_STATE_FILE || '/var/lib/multx-signer/native-settlement.jsonl'}.finality-checkpoints`,
+    finalityCheckpointBinding(nativePolicy, stateIdentity),
+  ) }),
   `${process.env.SIGNER_NATIVE_STATE_FILE || '/var/lib/multx-signer/native-settlement.jsonl'}.finality-hold`,
 ) : null;
 const nativeEvidence = nativeFinalityGuard?.verifier;

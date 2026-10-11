@@ -19,6 +19,9 @@ export const validateDeploymentMode = (env = process.env) => {
     throw new Error('production signer requires direct mTLS transport');
   }
   if (production) {
+    if (env.SIGNER_RELEASE_SIGNING_ENABLED === 'true') {
+      throw new Error('native-only canary candidate excludes legacy release signing');
+    }
     for (const name of LEGACY_AWS_OR_PROXY_SETTINGS) {
       if (env[name]) throw new Error(`${name} is forbidden in non-AWS production`);
     }
