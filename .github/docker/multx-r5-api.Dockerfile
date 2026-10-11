@@ -12,6 +12,8 @@ RUN install -d -o node -g node /usr/local/lib /usr/local/share \
 
 FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
 
+ENV NODE_ENV=production
+
 # The pinned base contains vulnerable OpenSSL and npm CLI packages. npm is build-only.
 RUN apk upgrade --no-cache \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx

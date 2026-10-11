@@ -10,6 +10,8 @@ RUN mkdir -p /var/lib/multx-signer \
 
 FROM node:22-alpine@sha256:c610fcdfb1d5b4740dd70c284ed3cb16bb857e0f7166196e36a5501df7a3aa32
 
+ENV NODE_ENV=production
+
 # The pinned base contains vulnerable OpenSSL and npm CLI packages. npm is build-only.
 RUN apk upgrade --no-cache \
     && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
@@ -18,6 +20,8 @@ RUN apk upgrade --no-cache \
     && chmod 0700 /var/lib/multx-signer
 WORKDIR /app
 COPY --from=build --chown=node:node /app /app
+COPY --from=review /verify-runtime-source.mjs /usr/local/lib/verify-runtime-source.mjs
+COPY --from=review /runtime-source-manifest.json /usr/local/share/multx-runtime-source-manifest.json
 USER node
 
 EXPOSE 9443
