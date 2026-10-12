@@ -380,7 +380,7 @@ paths:
   /price:
     get:
       tags: [Stats]
-      summary: LITHO price from Ignite DEX with a fresh Magma reference fallback (cached).
+      summary: LITHO traded or launch price from Ignite DEX, with a fresh Magma reference fallback (cached).
       responses:
         '200':
           description: Nullable price with quote currency, source, kind, timestamp, and optional 24-hour change. Testnet retains its fixed simulation price.
@@ -469,7 +469,7 @@ paths:
   /quantt/insights:
     get:
       tags: [Quantt]
-      summary: Fetch a Quantt research insight through the server-side adapter.
+      summary: Fetch a QUANTTS market snapshot through the server-side partner adapter.
       parameters:
         - name: symbol
           in: query

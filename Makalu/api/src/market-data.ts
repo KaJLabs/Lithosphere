@@ -2,7 +2,7 @@ export interface LithoMarketPrice {
   price: string | null;
   currency: string;
   source: 'Ignite DEX' | 'Magma DEX' | null;
-  kind: 'last trade' | 'reference' | null;
+  kind: 'last trade' | 'launch price' | 'reference' | null;
   changePercent24h: number | null;
   updatedAt: string | null;
   tradeUrl: string;
@@ -39,6 +39,15 @@ export async function fetchLithoMarketPrice(): Promise<LithoMarketPrice> {
         };
       }
     }
+  } catch { /* Try Ignite's launch-phase quote. */ }
+
+  try {
+    const market = await json('https://api.ignite.trade/v1/markets/info?symbol=LITHO%2FUSDT');
+    const price = positiveDecimal(market.markPrice);
+    if (market.symbol === 'LITHO/USDT' && market.baseToken === 'LITHO' && price) return {
+      price, currency: 'USDT', source: 'Ignite DEX', kind: 'launch price',
+      changePercent24h: null, updatedAt: new Date().toISOString(), tradeUrl: 'https://ignite.trade',
+    };
   } catch { /* Try Magma's public ticker. */ }
 
   try {

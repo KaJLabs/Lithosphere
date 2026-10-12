@@ -32,12 +32,12 @@ export default function MarketOverview() {
   const supply = error ? null : data?.totalSupply;
   const items = [
     {
-      label: 'LITHO price',
-      value: price ? `${price} ${market.currency}` : unavailable,
-      detail: price ? `${market.source} · ${market.kind}` : 'Waiting for a fresh Ignite or Magma quote',
+      label: market?.kind === 'launch price' ? 'LITHO launch price' : 'LITHO price',
+      value: price ? `${market.kind === 'launch price' && /^\d+(?:\.\d{1,2})?$/.test(price) ? Number(price).toFixed(2) : price} ${market.currency}` : unavailable,
+      detail: price ? market.kind === 'launch price' ? 'Ignite DEX · Fixed launch price; open-market trading has not started' : `${market.source} · ${market.kind}` : 'Waiting for a fresh Ignite or Magma quote',
     },
     {
-      label: 'Market cap (total supply)',
+      label: market?.kind === 'launch price' ? 'Total supply valuation at launch price' : 'Market cap (total supply)',
       value: price && supply ? `${supplyValuation(supply, price)} ${market.currency}` : unavailable,
       detail: supply ? `${formatValue(supply)} total on-chain supply; not circulating supply` : 'Total on-chain supply unavailable',
     },

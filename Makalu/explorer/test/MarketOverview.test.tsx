@@ -18,6 +18,17 @@ describe('LITHO market overview', () => {
     expect(screen.getByText('8,700,000,000.00 USDT')).toBeInTheDocument();
     expect(screen.getByText('0.000000000000000001 LITHO')).toBeInTheDocument();
   });
+  it('labels a launch quote separately from a traded market price', () => {
+    useApi.mockReturnValue({ loading: false, error: null, data: {
+      market: { price: '8.7', currency: 'USDT', source: 'Ignite DEX', kind: 'launch price' },
+      totalSupply: '1000000000000000000000000000',
+    } });
+    render(<MarketOverview />);
+    expect(screen.getByText('LITHO launch price')).toBeInTheDocument();
+    expect(screen.getByText('8.70 USDT')).toBeInTheDocument();
+    expect(screen.getByText('Total supply valuation at launch price')).toBeInTheDocument();
+    expect(screen.getByText(/open-market trading has not started/)).toBeInTheDocument();
+  });
   it('never presents a stale cached quote after a request failure', () => {
     useApi.mockReturnValue({ loading: false, error: 'offline', data: { market: { price: '8.7', currency: 'USDT' } } });
     render(<MarketOverview />);

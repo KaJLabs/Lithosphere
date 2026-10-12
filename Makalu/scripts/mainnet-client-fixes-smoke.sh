@@ -23,5 +23,13 @@ assert int(summary['bondedTokens']) > 0, 'Bonded voting power unavailable'
 market = summary.get('market')
 assert market is not None, 'Mainnet market adapter is disabled'
 assert market['price'] is None or Decimal(market['price']) > 0, 'Invalid price'
+assert market['source'] == 'Ignite DEX' and market['kind'] in ('launch price', 'last trade'), 'Ignite price missing'
+assert Decimal(market['price']) > 0, 'Ignite price invalid'
+quantt_status = get('/api/quantt/status')
+assert quantt_status['configured'] and quantt_status['apiOrigin'] == 'https://api.quantts.ai', 'QUANTTS is not configured'
+snapshot = get('/api/quantt/insights?symbol=BTC')
+assert snapshot['data']['symbol'] == 'BTC' and snapshot['data']['price'] > 0, 'QUANTTS snapshot invalid'
+assert 'qk_partner_' not in json.dumps(snapshot), 'Credential exposed in snapshot'
+print('Provider integrations passed: Ignite quote and authenticated QUANTTS BTC snapshot')
 print('Client fixes passed: numeric stake/commission sorting, signed memo, original value, native supply, bonded power, market adapter')
 PY

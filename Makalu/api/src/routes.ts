@@ -24,6 +24,7 @@ import {
   buildQuanttInsightsUrl,
   loadQuanttConfig,
   quanttAuthHeaders,
+  parseQuanttSnapshot,
   QUANTT_DEVELOPER_URL,
   QUANTT_RESEARCH_URL,
 } from './quantt.js';
@@ -3247,6 +3248,7 @@ export function explorerRouter(): Router {
   // Credentials are held only by this API. The browser receives provider data,
   // never the upstream URL's credentials or authentication headers.
   const quanttConfig = loadQuanttConfig();
+  const quanttCache = new Map<string, { expires: number; data: NonNullable<ReturnType<typeof parseQuanttSnapshot>> }>();
 
   r.get('/quantt/status', (_req: Request, res: Response) => {
     res.json({
@@ -3273,8 +3275,15 @@ export function explorerRouter(): Router {
     }
 
     const symbol = rawSymbol.toUpperCase();
+    const cached = quanttCache.get(symbol);
+    if (cached && cached.expires > Date.now()) {
+      res.setHeader('Cache-Control', 'private, max-age=60');
+      res.json({ ok: true, provider: 'quantt', symbol, data: cached.data });
+      return;
+    }
     try {
       const upstream = await fetch(buildQuanttInsightsUrl(quanttConfig, symbol), {
+        redirect: 'error',
         headers: quanttAuthHeaders(quanttConfig),
         signal: AbortSignal.timeout(quanttConfig.timeoutMs),
       });
@@ -3282,7 +3291,13 @@ export function explorerRouter(): Router {
       let data: unknown = null;
       try { data = JSON.parse(body); } catch { /* handled below */ }
 
-      if (!upstream.ok || data === null) {
+      const detail = data && typeof data === 'object' && 'detail' in data ? (data as { detail: unknown }).detail : null;
+      if ((upstream.status === 400 || upstream.status === 404) && typeof detail === 'string' && detail.toLowerCase().startsWith('unknown symbol:')) {
+        res.status(404).json({ ok: false, message: `QUANTTS does not currently provide market data for ${symbol}. Try BTC or another supported asset.` });
+        return;
+      }
+      const snapshot = parseQuanttSnapshot(data, symbol);
+      if (!upstream.ok || !snapshot) {
         logger.warn({ status: upstream.status, symbol }, '[api] Quantt upstream request failed');
         res.status(upstream.ok ? 502 : upstream.status).json({
           ok: false,
@@ -3292,7 +3307,9 @@ export function explorerRouter(): Router {
       }
 
       res.setHeader('Cache-Control', 'private, max-age=60');
-      res.json({ ok: true, provider: 'quantt', symbol, data });
+      if (quanttCache.size >= 100) quanttCache.delete(quanttCache.keys().next().value!);
+      quanttCache.set(symbol, { expires: Date.now() + 60_000, data: snapshot });
+      res.json({ ok: true, provider: 'quantt', symbol, data: snapshot });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err), symbol }, '[api] Quantt proxy error');
       res.status(502).json({ ok: false, message: 'Quantt insights are temporarily unavailable.' });

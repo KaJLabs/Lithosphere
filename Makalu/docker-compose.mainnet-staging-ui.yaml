@@ -32,8 +32,10 @@ services:
       MULTX_ENABLED: "false"
       SWAP_ENABLED: "false"
       SWAP_ROUTER_ADDRESS: ""
-      QUANTT_API_BASE_URL: ""
-      QUANTT_API_KEY: ""
+      QUANTT_API_BASE_URL: https://api.quantts.ai
+      QUANTT_API_KEY: ${QUANTT_API_KEY:-}
+      QUANTT_API_AUTH_HEADER: X-Partner-Key
+      QUANTT_INSIGHTS_PATH: /v1/partner/market/snapshot
       GIT_SHA: ${GIT_SHA:?Set the exact release SHA}
       VERSION: ${VERSION:?Set the immutable release version}
     healthcheck:
