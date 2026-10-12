@@ -41,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Swap', href: '/swap' },
   { label: 'Faucet', href: '/faucet' },
   { label: 'Validators', href: '/validators' },
-  { label: 'Sign In', href: '/signin' },
+  { label: 'Ignite DEX', href: 'https://ignite.trade', external: true },
 ];
 
 const MORE_ITEMS: NavItem[] = [
@@ -632,7 +632,7 @@ function HeaderContent() {
 
       <div className="mx-auto mt-7 max-w-7xl space-y-5">
         <div className="md:hidden">
-          <SearchBar />
+          <SearchBar onNavigate={() => setMenuOpen(false)} />
         </div>
 
         <nav className="space-y-1">
@@ -640,6 +640,8 @@ function HeaderContent() {
             <Link
               key={item.href}
               href={item.href}
+              target={item.external ? '_blank' : undefined}
+              rel={item.external ? 'noopener noreferrer' : undefined}
               onClick={() => setMenuOpen(false)}
               className={`block rounded-xl px-4 py-3 text-base font-semibold ${
                 isActive(item.href)
@@ -723,7 +725,7 @@ function HeaderContent() {
   ) : null;
 
   return (
-    <header className="sticky top-0 z-50 overflow-x-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
@@ -735,6 +737,8 @@ function HeaderContent() {
               <Link
                 key={item.href}
                 href={item.href}
+                target={item.external ? '_blank' : undefined}
+                rel={item.external ? 'noopener noreferrer' : undefined}
                 className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                   isActive(item.href)
                     ? 'text-litho-400 bg-litho-400/10'
@@ -767,7 +771,7 @@ function HeaderContent() {
           <div className="flex min-w-0 items-center gap-2">
             <ThemeToggle />
             <div className="hidden min-w-0 shrink md:block">
-              <SearchBar />
+              <SearchBar onNavigate={() => setMenuOpen(false)} />
             </div>
 
             {/* Wallet button + menu */}
@@ -834,7 +838,7 @@ export default function Header() {
   useEffect(() => { setMounted(true); }, []);
   // Render a same-height placeholder on the server to prevent layout shift
   if (!mounted) return (
-    <header className="sticky top-0 z-50 overflow-x-hidden border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
+    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]/95 backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex h-16 items-center justify-between" />
       </div>

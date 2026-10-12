@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react';
 import ErrorState from '@/components/ErrorState';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber } from '@/lib/format';
+import { formatValue } from '@/lib/format';
 import type { ApiValidator } from '@/lib/types';
 
 type ValidatorStatus = 'all' | 'active' | 'inactive';
@@ -34,13 +34,18 @@ export default function ValidatorsPage() {
   const { data, loading, error, refetch } = useApi<ApiValidator[]>(`/validators?${params.toString()}`);
   const validators = data ?? [];
   const active = validators.filter(statusIsActive).length;
-  const totalStake = validators.reduce((sum, validator) => sum + tokenAmount(validator.tokens), 0);
+  const totalStakeRaw = validators.reduce((sum, validator) => sum + BigInt(validator.tokens || '0'), BigInt(0));
+  const totalStake = Number(totalStakeRaw) / 1e18;
   const avgUptime = useMemo(() => {
     const values = validators.map(uptime).filter((value): value is number => value != null);
     return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   }, [validators]);
   const stakeLeaders = useMemo(
-    () => [...validators].sort((a, b) => tokenAmount(b.tokens) - tokenAmount(a.tokens)).slice(0, 6),
+    () => [...validators].sort((a, b) => {
+      const left = BigInt(a.tokens || '0');
+      const right = BigInt(b.tokens || '0');
+      return left === right ? a.address.localeCompare(b.address) : left > right ? -1 : 1;
+    }).slice(0, 6),
     [validators]
   );
 
@@ -62,7 +67,7 @@ export default function ValidatorsPage() {
       <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Metric label="Validators" value={String(validators.length)} detail={`${active} active in this view`} />
         <Metric label="Active rate" value={validators.length ? `${((active / validators.length) * 100).toFixed(1)}%` : '—'} detail="bonded and not jailed" />
-        <Metric label="Voting power" value={`${formatNumber(Math.round(totalStake))} LITHO`} detail="stake in this view" />
+        <Metric label="Voting power" value={formatValue(totalStakeRaw.toString())} detail="stake in this view" />
         <Metric label="Average uptime" value={avgUptime == null ? '—' : `${avgUptime.toFixed(2)}%`} detail="current signing window" />
       </div>
 

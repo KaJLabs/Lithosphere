@@ -39,7 +39,8 @@ staging_max="$(docker exec "$STAGING_POSTGRES" psql -U "$STAGING_DB" -d "$STAGIN
 }
 
 production_max="$(docker exec "$PRODUCTION_POSTGRES" psql -U "$PRODUCTION_DB" -d "$PRODUCTION_DB" -Atc 'SELECT COALESCE(MAX(height), 0) FROM blocks')"
-if (( production_max < staging_max )); then
+# Seeding is a bootstrap operation, never a release-time replacement of live data.
+if (( production_max == 0 )); then
   echo "Seeding isolated production database from verified mainnet staging snapshot at height $staging_max"
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" stop explorer api indexer
   docker exec "$STAGING_POSTGRES" pg_dump -U "$STAGING_DB" -d "$STAGING_DB" --format=custom --no-owner --no-privileges \
@@ -57,5 +58,5 @@ production_max="$(docker exec "$PRODUCTION_POSTGRES" psql -U "$PRODUCTION_DB" -d
 [[ "$production_chain" == "$EXPECTED_CHAIN_ID" && "$production_genesis" == "$EXPECTED_GENESIS_HASH" && "$production_min" == "1" ]] || {
   echo "production database identity verification failed after seed" >&2; exit 1;
 }
-(( production_max >= staging_max )) || { echo "production database did not receive the complete staging snapshot" >&2; exit 1; }
+(( production_max > 0 )) || { echo "production database has no indexed blocks" >&2; exit 1; }
 echo "Isolated production database verified at height $production_max"

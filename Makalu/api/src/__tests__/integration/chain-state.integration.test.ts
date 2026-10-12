@@ -106,16 +106,11 @@ describe.skipIf(!RUN)('integration: api against fixture chain-state corpus', () 
       expect(list[4]?.status).toBe('Unbonded'); // status=1 in corpus
     });
 
-    it('converts voting power from ulitho to whole-LITHO formatted strings', async () => {
+    it('preserves fractional voting power from ulitho', async () => {
       const res = await request(app).get('/api/validators');
       const list = res.body as Array<{ moniker: string; votingPower: string; commission: string }>;
-      // 5_000_000_000_000 ulitho / 10^18 = 0 LITHO (the fixture is small on
-      // purpose — it exercises the integer division path).
-      // Compute expected from the corpus to keep the assertion accurate
-      // even if someone edits the fixture's token amounts later.
-      const top = corpus.validators[0];
-      const expectedTokens = BigInt(top.tokens) / BigInt('1000000000000000000');
-      expect(list[0]?.votingPower).toBe(expectedTokens.toLocaleString('en-US'));
+      // Five trillion base units must not be truncated to zero LITHO.
+      expect(list[0]?.votingPower).toBe('0.000005');
       expect(list[0]?.commission).toBe('5%');
     });
   });

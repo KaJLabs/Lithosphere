@@ -380,13 +380,30 @@ paths:
   /price:
     get:
       tags: [Stats]
-      summary: LITHO token price snapshot (external feed, cached).
+      summary: LITHO price from Ignite DEX with a fresh Magma reference fallback (cached).
       responses:
         '200':
-          description: Price + change-24h.
+          description: Nullable price with quote currency, source, kind, timestamp, and optional 24-hour change. Testnet retains its fixed simulation price.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/JsonObject' }
+  /market-summary:
+    get:
+      tags: [Stats]
+      summary: LITHO market quote, native supply, bonded voting power and recent transaction rate.
+      description: >-
+        Market prices are decimal strings. Supply and bondedTokens are raw ulitho strings
+        (18 decimals); transactionsPerSecond is a decimal string over the last 60 seconds.
+        Missing or stale provider data is null, never a synthetic live quote.
+        Market cap based on total supply is a total-supply valuation, not circulating market cap.
+      responses:
+        '200':
+          description: Market and chain metrics with independent unavailable states.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonObject' }
+        '503':
+          description: Market summary temporarily unavailable.
   /config:
     get:
       tags: [Meta]

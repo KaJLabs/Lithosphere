@@ -2,6 +2,7 @@ import 'dotenv/config';
 // Must come before any pg / http / fetch imports — see tracing.ts.
 import './tracing.js';
 import { createHash } from 'crypto';
+import { decodeTxMemo } from './tx-memo.js';
 import { bech32 } from 'bech32';
 import pkg, { type PoolClient } from 'pg';
 const { Pool } = pkg;
@@ -713,7 +714,7 @@ export async function indexBlock(height: number, options: IndexBlockOptions = {}
       const txHash  = createHash('sha256').update(txBytes).digest('hex').toUpperCase();
       const result  = txResults[i];
       if (result) {
-        await indexTx(client, txHash, height, i, blockData.block.header.time, result);
+        await indexTx(client, txHash, height, i, blockData.block.header.time, result, txBytes);
       }
     }
 
@@ -746,7 +747,8 @@ async function indexTx(
   height: number,
   index: number,
   blockTime: string,
-  result: TxResult
+  result: TxResult,
+  txBytes: Uint8Array
 ): Promise<void> {
   const evts    = result.events ?? [];
   const success = result.code === 0;
@@ -784,7 +786,11 @@ async function indexTx(
   const feeMatch = feeStr.match(/^(\d+)([a-zA-Z/]+)$/);
   const fee      = feeMatch?.[1] ?? '0';
   const feeDenom = feeMatch?.[2] ?? 'ulitho';
-  const memo     = attr(evts, 'tx', 'memo') || '';
+  let memo = '';
+  try { memo = decodeTxMemo(txBytes); } catch (error) {
+    // Rejected malformed transactions must not stall block indexing.
+    if (success) throw error;
+  }
 
   if (sender)                   await upsertAccount(client, sender,   height);
   if (receiver && receiver !== sender) await upsertAccount(client, receiver, height);
@@ -794,7 +800,7 @@ async function indexTx(
        (hash, block_height, tx_index, tx_type, sender, receiver, amount, denom,
         gas_used, gas_wanted, fee, fee_denom, success, memo, raw_log, timestamp)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-     ON CONFLICT (hash) DO NOTHING`,
+     ON CONFLICT (hash) DO UPDATE SET memo = EXCLUDED.memo`,
     [
       hash, height, index, txType,
       sender   || null,

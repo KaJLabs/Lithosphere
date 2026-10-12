@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 import SearchBar from '@/components/SearchBar';
+import MarketOverview from '@/components/MarketOverview';
 import SyncStatusBanner from '@/components/SyncStatusBanner';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
@@ -149,8 +150,8 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
       subtitle: 'all-time, incl. inactive',
     },
     {
-      label: 'Gas Tracker',
-      value: '< $0.01',
+      label: 'Gas Price',
+      value: stats?.gasPriceWei ? formatGasPrice(stats.gasPriceWei) : '—',
     },
   ];
 
@@ -233,6 +234,8 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
               ))}
             </div>
           </section>
+
+          <MarketOverview />
 
           {/* Network metrics (real data from chain) */}
           <section className="mt-6 grid w-full min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-5">

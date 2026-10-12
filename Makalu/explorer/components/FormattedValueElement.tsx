@@ -16,8 +16,8 @@ export function FormattedValueElement({ formattedStr, tokenAddress }: FormattedV
       ? `/address/${symbol}`
       : (tokenAddress ? `/token/${tokenAddress}` : '/token/native');
     return (
-      <span className="inline-flex items-baseline gap-x-1 whitespace-nowrap font-mono">
-        <span>{amount}</span>
+      <span className="inline-flex max-w-full flex-wrap items-baseline gap-x-1 font-mono">
+        <span className="min-w-0 [overflow-wrap:anywhere]">{amount}</span>
         <Link
           href={linkHref}
           className="shrink-0 text-emerald-400 hover:text-emerald-300 transition"

@@ -61,6 +61,33 @@ function stubRpc(responses: Record<string, unknown>) {
 const { indexBlock } = await import('../mappings.js');
 
 describe('indexBlock', () => {
+  it('continues indexing when a rejected transaction has malformed protobuf bytes', async () => {
+    stubRpc({
+      '/block?height=12050205': {
+        block_id: { hash: 'abc' },
+        block: { header: { proposer_address: 'abc', time: '2026-10-12T07:50:09Z' }, data: { txs: [Buffer.from([10, 5, 18]).toString('base64')] } },
+      },
+      '/block_results?height=12050205': { txs_results: [{ code: 2, gas_used: '0', gas_wanted: '0', events: [] }] },
+    });
+    await indexBlock(12050205);
+    expect(captured.some((c) => c.sql === 'COMMIT')).toBe(true);
+  });
+  it('stores the transaction body memo even when events contain no memo', async () => {
+    // TxRaw.body_bytes (field 1), containing TxBody.memo (field 2).
+    const memo = Buffer.from('123456');
+    const body = Buffer.concat([Buffer.from([18, memo.length]), memo]);
+    const raw = Buffer.concat([Buffer.from([10, body.length]), body]).toString('base64');
+    stubRpc({
+      '/block?height=12050204': {
+        block_id: { hash: 'abc' },
+        block: { header: { proposer_address: 'abc', time: '2026-10-12T07:50:08Z' }, data: { txs: [raw] } },
+      },
+      '/block_results?height=12050204': { txs_results: [{ code: 0, gas_used: '116180', gas_wanted: '150000', events: [] }] },
+    });
+    await indexBlock(12050204);
+    const insert = captured.find((c) => c.sql.trim().startsWith('INSERT INTO transactions'));
+    expect(insert?.params?.[13]).toBe('123456');
+  });
   it('issues BEGIN → INSERT blocks → COMMIT for an empty block', async () => {
     stubRpc({
       '/block?height=100': {

@@ -138,13 +138,19 @@ describe('formatNumber', () => {
 });
 
 describe('formatLitho / formatValue', () => {
+  it('preserves all 18 fractional digits, including a single base unit', () => {
+    for (const format of [formatLitho, formatValue]) {
+      expect(format('1')).toBe('0.000000000000000001 LITHO');
+      expect(format('1123456789012345678')).toBe('1.123456789012345678 LITHO');
+    }
+  });
   it('formats 1 LITHO (1e18 ulitho) as "1 LITHO"', () => {
     expect(formatLitho('1000000000000000000')).toBe('1 LITHO');
   });
 
-  it('formats fractional LITHO with up to 4 decimals', () => {
+  it('formats fractional LITHO without unnecessary trailing zeros', () => {
     // 1.5 LITHO
-    expect(formatLitho('1500000000000000000')).toBe('1.5000 LITHO');
+    expect(formatLitho('1500000000000000000')).toBe('1.5 LITHO');
   });
 
   it('formats zero / null', () => {

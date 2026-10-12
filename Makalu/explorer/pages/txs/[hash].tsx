@@ -509,7 +509,7 @@ export default function TransactionDetailPage() {
 
                   {/* Memo */}
                   <InfoRow label="Memo">
-                    {tx.memo && tx.memo.trim() !== '' ? (
+                    {tx.memo ? (
                       <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2">
                         <span className="font-mono text-sm text-white/85 break-words whitespace-pre-wrap">
                           {tx.memo}
@@ -517,7 +517,7 @@ export default function TransactionDetailPage() {
                         <CopyBtn text={tx.memo} />
                       </div>
                     ) : (
-                      <span className="text-sm italic text-white/30">(empty)</span>
+                      <span className="text-sm italic text-[var(--color-text-muted)]">{tx.memoUnavailable ? 'Memo lookup unavailable. Please retry.' : '(empty)'}</span>
                     )}
                   </InfoRow>
 

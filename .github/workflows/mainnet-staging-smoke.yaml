@@ -195,6 +195,7 @@ jobs:
             sleep 2
           done
           BASE_URL=http://127.0.0.1:13501 MAX_INDEXER_LAG="$MAX_INDEXER_LAG" bash Makalu/scripts/mainnet-smoke-test.sh
+          BASE_URL=http://127.0.0.1:13501 bash Makalu/scripts/mainnet-client-fixes-smoke.sh
 
       - name: Staging evidence summary
         run: |

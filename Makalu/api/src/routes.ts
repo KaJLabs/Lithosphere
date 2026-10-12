@@ -12,6 +12,8 @@ import { query, slowQuery } from './db.js';
 import { logger } from './lib/logger.js';
 import { audit } from './lib/audit.js';
 import { loadCachedShared } from './lib/shared-cache.js';
+import { recoverTxMemo } from './tx-memo.js';
+import { fetchLithoMarketPrice, fetchNativeSupply } from './market-data.js';
 import {
   isEvmTxHash,
   normalizeEvmTxHash,
@@ -1484,12 +1486,13 @@ function formatCommission(value: string | null | undefined) {
 }
 
 function mapValidator(r: ValidatorRow, includeMetrics = false) {
-  // votingPower is in ulitho (18 decimals) — convert to whole LITHO with commas
+  // Preserve all 18 decimal places; sub-LITHO stake is not zero voting power.
   let votingPower = '0';
   try {
     const tokens = BigInt(r.tokens ?? '0');
     const litho = tokens / BigInt('1000000000000000000');
-    votingPower = litho.toLocaleString('en-US');
+    const fraction = (tokens % BigInt('1000000000000000000')).toString().padStart(18, '0').replace(/0+$/, '');
+    votingPower = litho.toLocaleString('en-US') + (fraction ? `.${fraction}` : '');
   } catch { /* keep 0 */ }
 
   // commission_rate is a Cosmos decimal string like "0.100000000000000000" → "10%"
@@ -1759,7 +1762,7 @@ export function explorerRouter(): Router {
         if (rows[0].evm_hash) evmExtra = await enrichEvmFromRpc(rows[0].evm_hash, evmExtra);
         const fee = computeFeeUlitho(rows[0].evm_gas_used ?? rows[0].gas_used, evmExtra.gas_price);
         const base1 = { ...mapTx(rows[0], rows[0].evm_hash, evmExtra), ...(fee ? { feePaid: fee } : {}) };
-        res.json(await enrichTokenInfo(base1));
+        res.json(await enrichTokenInfo(await recoverTxMemo(base1, rows[0].hash)));
         return;
       }
 
@@ -1773,7 +1776,7 @@ export function explorerRouter(): Router {
         if (rows2[0].evm_hash) evmExtra = await enrichEvmFromRpc(rows2[0].evm_hash, evmExtra);
         const fee = computeFeeUlitho(rows2[0].evm_gas_used ?? rows2[0].gas_used, evmExtra.gas_price);
         const base2 = { ...mapTx(rows2[0], rows2[0].evm_hash, evmExtra), ...(fee ? { feePaid: fee } : {}) };
-        res.json(await enrichTokenInfo(base2));
+        res.json(await enrichTokenInfo(await recoverTxMemo(base2, rows2[0].hash)));
         return;
       }
 
@@ -1798,7 +1801,7 @@ export function explorerRouter(): Router {
         // Compute fee from gasUsed * gasPrice
         const fee = computeFeeUlitho(enrichedEvm.gas_used, enrichedEvm.gas_price);
         const base3 = fee ? { ...mapped, feePaid: fee } : mapped;
-        res.json(await enrichTokenInfo(base3));
+        res.json(await enrichTokenInfo(await recoverTxMemo(base3, evm.cosmos_tx_hash)));
         return;
       }
 
@@ -2365,12 +2368,12 @@ export function explorerRouter(): Router {
       const sector = typeof req.query.sector === 'string' ? req.query.sector : '';
       const sort = typeof req.query.sort === 'string' ? req.query.sort : 'tokens';
       const orderBy = sector === 'uptime' || sort === 'uptime'
-        ? 'uptime_percentage DESC NULLS LAST, tokens DESC'
+        ? 'uptime_percentage DESC NULLS LAST, tokens::numeric DESC NULLS LAST, operator_address ASC'
         : sort === 'commission'
-          ? 'commission_rate ASC NULLS LAST, tokens DESC'
+          ? 'commission_rate::numeric ASC NULLS LAST, tokens::numeric DESC NULLS LAST, operator_address ASC'
           : sort === 'missed'
-            ? 'missed_blocks_counter ASC NULLS LAST, tokens DESC'
-            : 'tokens DESC';
+            ? 'missed_blocks_counter ASC NULLS LAST, tokens::numeric DESC NULLS LAST, operator_address ASC'
+            : 'tokens::numeric DESC NULLS LAST, operator_address ASC';
       const where: string[] = [];
       const params: string[] = [];
       if (search) {
@@ -2977,8 +2980,25 @@ export function explorerRouter(): Router {
   const TESTNET_PRICE = 5; // $5 USD per LITHO (testnet only)
   const IS_MAINNET = process.env.NETWORK === 'mainnet';
 
-  let priceCache: { price: number; fetchedAt: number } | null = null;
-  const PRICE_TTL = 5 * 60 * 1000; // 5 minutes
+  const marketPrice = () => loadCachedShared('litho-dex-price-v1', 60_000, fetchLithoMarketPrice);
+
+  r.get('/market-summary', async (_req: Request, res: Response) => {
+    try {
+      const [market, totalSupply, stake, activity] = await Promise.all([
+        IS_MAINNET ? marketPrice() : Promise.resolve(null),
+        loadCachedShared(`native-supply:${RPC_URL}`, 60_000, fetchNativeSupply),
+        loadCachedShared(`bonded-stake:${RPC_URL}`, 15_000, () => query<{ total: string }>(
+          'SELECT COALESCE(SUM(tokens::numeric), 0)::text AS total FROM validators WHERE status = 3 AND jailed = FALSE'
+        )).catch(() => null),
+        loadCachedShared(`recent-tps:${RPC_URL}`, 15_000, () => query<{ tps: string }>(
+          "SELECT (COALESCE(SUM(num_txs), 0)::numeric / 60)::text AS tps FROM blocks WHERE block_time > NOW() - INTERVAL '60 seconds'"
+        )).catch(() => null),
+      ]);
+      res.json({ market, totalSupply, bondedTokens: stake?.[0]?.total ?? null, transactionsPerSecond: activity?.[0]?.tps ?? null });
+    } catch {
+      res.status(503).json({ message: 'Market summary unavailable' });
+    }
+  });
 
   r.get('/price', async (_req: Request, res: Response) => {
     try {
@@ -2988,42 +3008,8 @@ export function explorerRouter(): Router {
         return;
       }
 
-      // Mainnet: fetch live price from APIs
-      const now = Date.now();
-      if (priceCache && now - priceCache.fetchedAt < PRICE_TTL) {
-        res.json({ price: priceCache.price, symbol: 'LITHO', currency: 'USD' });
-        return;
-      }
-
-      let price: number | null = null;
-      try {
-        const resp = await fetch('https://api.freecryptoapi.com/v1/getData?symbol=LITHO', {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (resp.ok) {
-          const data = await resp.json() as Record<string, unknown>;
-          const lithoData = (data as { LITHO?: { price?: number } }).LITHO;
-          if (lithoData?.price) price = lithoData.price;
-        }
-      } catch { /* fallback below */ }
-
-      if (price == null) {
-        try {
-          const resp = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=lithosphere&vs_currencies=usd', {
-            signal: AbortSignal.timeout(5000),
-          });
-          if (resp.ok) {
-            const data = await resp.json() as { lithosphere?: { usd?: number } };
-            if (data.lithosphere?.usd) price = data.lithosphere.usd;
-          }
-        } catch { /* no price available */ }
-      }
-
-      if (price != null) {
-        priceCache = { price, fetchedAt: now };
-      }
-
-      res.json({ price: price ?? null, symbol: 'LITHO', currency: 'USD' });
+      const market = await marketPrice();
+      res.json({ ...market, price: market.price == null ? null : Number(market.price), symbol: 'LITHO' });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, '[api] /price error');
       res.json({ price: null, symbol: 'LITHO', currency: 'USD' });

@@ -7,14 +7,12 @@ import CopyButton from '@/components/CopyButton';
 import ErrorState from '@/components/ErrorState';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
+import { formatValue } from '@/lib/format';
 import type { ApiValidatorDetail } from '@/lib/types';
 
 function formatTokens(raw: string) {
-  const baseUnits = Number(raw);
-  if (!Number.isFinite(baseUnits)) return '0';
-  return (baseUnits / 1e18).toLocaleString('en-US', {
-    maximumFractionDigits: 4,
-  });
+  // SDK delegator shares can have a decimal suffix.
+  return formatValue(raw.split('.')[0]).replace(/ LITHO$/, '');
 }
 
 function finiteNumberOrNull(value: unknown): number | null {

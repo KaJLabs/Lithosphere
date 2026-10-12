@@ -43,20 +43,25 @@ export function useApi<T>(
   const [loading, setLoading] = useState(options?.initialData === undefined);
   const [error, setError] = useState<string | null>(null);
   const pathRef = useRef(path);
+  const requestId = useRef(0);
   pathRef.current = path;
   // Skip setting loading=true on the first fetch when SSR data is already present
   const skipFirstLoading = useRef(options?.initialData !== undefined);
 
   const doFetch = useCallback(async () => {
-    if (!pathRef.current) return;
+    const requestedPath = pathRef.current;
+    if (!requestedPath) return;
+    const id = ++requestId.current;
+    const isCurrent = () => id === requestId.current && requestedPath === pathRef.current;
     try {
-      const result = await apiFetch<T>(pathRef.current);
+      const result = await apiFetch<T>(requestedPath);
+      if (!isCurrent()) return;
       setData(result);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
+      if (isCurrent()) setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   }, []);
 
@@ -70,6 +75,7 @@ export function useApi<T>(
     }
     skipFirstLoading.current = false;
     doFetch();
+    return () => { requestId.current++; };
   }, [path, doFetch]);
 
   useEffect(() => {

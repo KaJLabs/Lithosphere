@@ -61,6 +61,7 @@ export interface ApiTx {
   tokenSymbol?: string;
   txType?: 'transfer' | 'call' | 'create';
   memo?: string;
+  memoUnavailable?: boolean;
   timestamp?: string;
   contractAddress?: string;
   nonce?: number;

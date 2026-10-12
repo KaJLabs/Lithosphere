@@ -23,7 +23,7 @@ export function formatLitho(amount: string | null | undefined): string {
   const divisor = BigInt('1' + '0'.repeat(DECIMALS));
   const whole = raw / divisor;
   const frac = raw % divisor;
-  const fracStr = frac.toString().padStart(DECIMALS, '0').slice(0, 4);
+  const fracStr = frac.toString().padStart(DECIMALS, '0').replace(/0+$/, '');
   const wholeFormatted = whole.toLocaleString('en-US');
   if (frac === BigInt(0)) return `${wholeFormatted} LITHO`;
   return `${wholeFormatted}.${fracStr} LITHO`;
@@ -38,8 +38,8 @@ export function formatValue(amount: string | null | undefined, denom?: string): 
     const divisor = BigInt('1' + '0'.repeat(d));
     const whole = raw / divisor;
     const frac = raw % divisor;
-    // Cap at 4 decimal places for readability, then strip trailing zeros
-    const fracStr = frac.toString().padStart(d, '0').slice(0, 4).replace(/0+$/, '');
+    // Keep every significant base unit; never convert a monetary value to Number.
+    const fracStr = frac.toString().padStart(d, '0').replace(/0+$/, '');
     const wholeFormatted = whole.toLocaleString('en-US');
     if (!fracStr) return `${wholeFormatted} LITHO`;
     return `${wholeFormatted}.${fracStr} LITHO`;
