@@ -46,6 +46,8 @@ services:
       NODE_ENV: production
       API_PORT: 4000
       API_HOST: 0.0.0.0
+      NETWORK: mainnet
+      LCD_URL: ${LITHO_LCD_URL:?Set the validated mainnet LCD}
       DATABASE_URL: ${DATABASE_URL:?Inject the isolated mainnet DATABASE_URL}
       REDIS_URL: ${REDIS_URL:?Inject the mainnet Redis URL}
       LITHO_RPC_URL: ${LITHO_RPC_URL:?Set the validated mainnet RPC}

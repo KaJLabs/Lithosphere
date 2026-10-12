@@ -155,6 +155,7 @@ jobs:
           CHAIN_ID=lithosphere_9005-1
           LITHO_CHAIN_ID=9005
           LITHO_RPC_URL=$RPC_URL
+          LITHO_LCD_URL=$LITHO_LCD_URL
           DATABASE_URL=postgresql://lithoscan_mainnet_staging:$POSTGRES_PASSWORD@postgres:5432/lithoscan_mainnet_staging?sslmode=disable
           REDIS_URL=redis://:$REDIS_PASSWORD@redis:6379
           AUTH_SESSION_SECRET=$auth_secret
