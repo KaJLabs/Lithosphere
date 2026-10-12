@@ -25,7 +25,7 @@ function directResult(q: string): Suggestion | null {
   return path ? { label: q, detail: 'Go to matching block, transaction, or address', href: path, group: 'All' } : null;
 }
 
-export default function SearchBar({ onNavigate }: { onNavigate?: () => void }) {
+export default function SearchBar({ onNavigate, fullWidth = false }: { onNavigate?: () => void; fullWidth?: boolean }) {
   const [query, setQuery] = useState('');
   const [resolving, setResolving] = useState(false);
   const [error, setError] = useState('');
@@ -34,8 +34,34 @@ export default function SearchBar({ onNavigate }: { onNavigate?: () => void }) {
   const [active, setActive] = useState(-1);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const formRef = useRef<HTMLFormElement>(null);
+  const [panelHeight, setPanelHeight] = useState(420);
   const listId = useId();
   const router = useRouter();
+
+  useEffect(() => {
+    if (!open) return;
+    const viewport = window.visualViewport;
+    const measure = () => {
+      const bottom = (viewport?.height ?? window.innerHeight) + (viewport?.offsetTop ?? 0);
+      const top = formRef.current?.getBoundingClientRect().bottom ?? 0;
+      setPanelHeight(Math.max(0, Math.min(420, bottom - top - 16)));
+    };
+    const fitKeyboard = () => {
+      if (window.innerWidth < 640) formRef.current?.scrollIntoView?.({ block: 'start' });
+      measure();
+    };
+    fitKeyboard();
+    viewport?.addEventListener('resize', fitKeyboard);
+    viewport?.addEventListener('scroll', measure);
+    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', measure);
+    return () => {
+      viewport?.removeEventListener('resize', fitKeyboard);
+      viewport?.removeEventListener('scroll', measure);
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -107,13 +133,15 @@ export default function SearchBar({ onNavigate }: { onNavigate?: () => void }) {
   };
 
   return (
-    <form ref={formRef} onSubmit={handleSearch} className="relative" onBlur={(event) => {
-      if (!event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
+    <form ref={formRef} onSubmit={handleSearch} className="relative scroll-mt-24" onBlur={(event) => {
+      // Safari touch blur can have no relatedTarget before the result receives its click.
+      // Outside pointer presses close separately; keyboard focus changes still close here.
+      if (event.relatedTarget && !event.currentTarget.contains(event.relatedTarget as Node)) setOpen(false);
     }}>
       <div className="relative flex items-center">
         <input type="text" role="combobox" aria-label="Search explorer" aria-autocomplete="list"
           aria-expanded={open} aria-controls={listId} aria-activedescendant={open && active >= 0 && results[active] ? `${listId}-${active}` : undefined}
-          autoComplete="off" value={query} onFocus={() => setOpen(true)}
+          autoComplete="off" autoCapitalize="none" spellCheck={false} enterKeyHint="search" value={query} onFocus={() => setOpen(true)}
           onChange={(event) => { setQuery(event.target.value); setActive(-1); setOpen(true); setError(''); }}
           onKeyDown={(event) => {
             if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setOpen(false); setActive(-1); }
@@ -124,26 +152,37 @@ export default function SearchBar({ onNavigate }: { onNavigate?: () => void }) {
             }
           }}
           placeholder="Search by block, tx, address, token, or name.litho..."
-          className="w-full sm:w-56 lg:w-64 xl:w-72 min-w-0 px-4 py-2 pr-10 text-sm rounded-lg bg-[var(--color-bg-primary)] border border-[var(--color-border)] text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-litho-400 focus:ring-1 focus:ring-litho-400"
+          className={`w-full ${fullWidth ? '' : 'sm:w-56 lg:w-64 xl:w-72'} min-w-0 px-4 py-3 pr-12 text-base sm:text-sm rounded-xl bg-[var(--color-bg-primary)] border border-[var(--color-border)] text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] focus:outline-none focus:border-litho-400 focus:ring-1 focus:ring-litho-400`}
         />
         <button type="submit" disabled={resolving} className="absolute right-2 p-1 text-[var(--color-text-muted)] hover:text-litho-400 disabled:opacity-50" aria-label="Search">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
         </button>
       </div>
-      {open && <div className="absolute right-0 top-full z-[200] mt-2 w-full min-w-[min(24rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] shadow-xl">
-        <div className="flex flex-wrap gap-1 border-b border-[var(--color-border)] p-3" aria-label="Suggestion filters">
+      {open && <div style={{ maxHeight: panelHeight }} className={`absolute right-0 top-full z-[200] mt-2 flex w-full ${fullWidth ? '' : 'sm:w-96'} max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-secondary)] shadow-xl`}>
+        <div className="flex shrink-0 items-center justify-between px-3 pt-2 text-xs font-medium text-[var(--color-text-secondary)]">
+          <span>Suggested searches</span>
+          <button type="button" aria-label="Close suggestions" onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-[var(--color-bg-tertiary)]">×</button>
+        </div>
+        <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--color-border)] px-2 pb-2" aria-label="Suggestion filters">
           {(['All', 'Tokens', 'Addresses', 'Pages'] as Group[]).map((tab) => <button key={tab} type="button" aria-pressed={group === tab} onClick={() => { setGroup(tab); setActive(-1); }} className={`rounded-full px-3 py-1 text-xs ${group === tab ? 'bg-litho-400 text-white' : 'text-[var(--color-text-secondary)]'}`}>{tab}</button>)}
         </div>
-        <ul id={listId} role="listbox" aria-label="Suggested searches" className="max-h-[min(24rem,50dvh)] overflow-y-auto overscroll-contain p-2">
+        <ul id={listId} role="listbox" aria-label="Suggested searches" className="min-h-0 overflow-y-auto overscroll-contain p-2">
           {results.map((item, index) => <li key={`${item.group}:${item.href}`} id={`${listId}-${index}`} role="option" aria-selected={active === index}>
-            <button type="button" onMouseEnter={() => setActive(index)} onClick={() => navigate(item.href)} className={`block w-full rounded-lg px-3 py-2 text-left ${active === index ? 'bg-[var(--color-bg-tertiary)]' : ''}`}>
+            <a href={item.href} onPointerEnter={(event) => { if (event.pointerType === 'mouse') setActive(index); }} onClick={(event) => {
+              if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+              event.preventDefault(); navigate(item.href);
+            }} className={`flex min-h-14 w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-[var(--color-bg-tertiary)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-litho-400 ${active === index ? 'bg-[var(--color-bg-tertiary)]' : ''}`}>
+              <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--color-bg-tertiary)] text-xs font-semibold text-litho-400">{item.group === 'Tokens' ? item.label.slice(0, 1) : item.group === 'Pages' ? '↗' : '#'}</span>
+              <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-[var(--color-text-primary)]">{item.label}</span>
               <span className="block truncate text-xs text-[var(--color-text-muted)]">{item.detail}</span>
-            </button>
+              </span>
+              <span aria-hidden="true" className="text-[var(--color-text-muted)]">›</span>
+            </a>
           </li>)}
           {!results.length && <li className="p-3 text-sm text-[var(--color-text-muted)]">{isDnnsName(q) ? 'Press Enter to resolve this .litho name' : 'No matching suggestions'}</li>}
         </ul>
-        <div className="border-t border-[var(--color-border)] px-4 py-2 text-xs text-[var(--color-text-muted)]">↑ ↓ Navigate · Enter Select · Esc Close</div>
+        <div className="hidden shrink-0 border-t border-[var(--color-border)] px-4 py-2 text-xs text-[var(--color-text-muted)] sm:block">↑ ↓ Navigate · Enter Select · Esc Close</div>
       </div>}
       {(resolving || error) && <div role="status" className={`mt-1 text-xs ${error ? 'text-red-400' : 'text-[var(--color-text-muted)]'}`}>{resolving ? 'Resolving name…' : error}</div>}
     </form>

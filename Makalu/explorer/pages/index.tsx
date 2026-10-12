@@ -214,7 +214,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
 
               <div className="mt-8 rounded-3xl border border-white/10 bg-white/5 p-4 shadow-2xl shadow-black/30">
                 <div className="mb-3 text-sm font-medium text-[var(--color-text-secondary)]">Global Search</div>
-                <SearchBar />
+                <SearchBar fullWidth />
               </div>
             </div>
 

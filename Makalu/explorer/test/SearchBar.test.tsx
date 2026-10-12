@@ -13,6 +13,15 @@ beforeEach(() => {
   });
 });
 describe('suggested searches', () => {
+  it('keeps a suggestion tappable when Safari blurs the input without a related target', async () => {
+    render(<SearchBar />);
+    const input = screen.getByRole('combobox');
+    fireEvent.focus(input);
+    await screen.findByText('Lithosphere (LITHO)');
+    fireEvent.blur(input, { relatedTarget: null });
+    fireEvent.click(screen.getByText('Lithosphere (LITHO)'));
+    expect(push).toHaveBeenCalledWith('/token/native');
+  });
   it('shows real token suggestions on focus and selects with the keyboard', async () => {
     const onNavigate = vi.fn();
     render(<SearchBar onNavigate={onNavigate} />);

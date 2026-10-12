@@ -1308,7 +1308,7 @@ function WalletLayout({
             <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-white/45">
               {altAddressLabel}
             </span>
-            <Link href={`/address/${altAddress}`} className="font-mono text-white/55 hover:text-emerald-300 transition">{altAddress}</Link>
+            <Link href={`/address/${altAddress}`} className="min-w-0 max-w-full break-all font-mono text-white/55 hover:text-emerald-300 transition">{altAddress}</Link>
             <CopyBtn text={altAddress} />
           </div>
         )}
@@ -1319,7 +1319,7 @@ function WalletLayout({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
           <div className="text-sm text-white/45 mb-1">Balance</div>
-          <div className="text-xl font-semibold">
+          <div className="text-xl font-semibold [overflow-wrap:anywhere]">
             {formatAddressBalance(account.balance, balanceSource)}
           </div>
           {showUsdValue && (
