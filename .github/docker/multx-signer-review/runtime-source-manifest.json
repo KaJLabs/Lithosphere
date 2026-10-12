@@ -1,0 +1,160 @@
+{
+  "sourceCommit": "f15bc5b2ed86cb3cc7d58f4dc3986841a222cc0c",
+  "files": [
+    {
+      "path": ".dockerignore",
+      "bytes": 45,
+      "sha256": "8655e8d313ed7c3ed807463c94852fa4f1afabdbb56f3dc66eb917f5890d6de7"
+    },
+    {
+      "path": "Dockerfile",
+      "bytes": 616,
+      "sha256": "b1364a324742a470554cc192e2324f97b331d040e80930ebe7b7b08c2b696aad"
+    },
+    {
+      "path": "OPERATOR_RUNBOOK.md",
+      "bytes": 11410,
+      "sha256": "082b2a61622c5d716375e75223fa9050923dc8db3585958e69e6404c92709473"
+    },
+    {
+      "path": "README.md",
+      "bytes": 3644,
+      "sha256": "1ee34f14ae6535ae7bed0a88bbb42b4a0a685bcb51bb57f95245046270b71497"
+    },
+    {
+      "path": "compose.example.yaml",
+      "bytes": 930,
+      "sha256": "1326e471b5c6fd4f1ba3d419dcbf16275db81a1ad6a60dda930c267317c06cc3"
+    },
+    {
+      "path": "compose.native.example.yaml",
+      "bytes": 261,
+      "sha256": "10ee507c010d3f3b88fe9641525efd86937ed93af890ce415b312eb5020ec542"
+    },
+    {
+      "path": "package-lock.json",
+      "bytes": 4085,
+      "sha256": "5466a8cd539d1cec91224e45ad3612aa7496bac1a35cf173cd3c88817835f5c3"
+    },
+    {
+      "path": "package.json",
+      "bytes": 226,
+      "sha256": "53862cc703af9023a1a13d63e88a321561bf6c93d6a46bc79f8bd2871a44f6f1"
+    },
+    {
+      "path": "policy.example.json",
+      "bytes": 556,
+      "sha256": "fb73596391f12f7abf456b2c4620691a5e01049a85cf5feee9c5dd9c60f9f579"
+    },
+    {
+      "path": "scripts/initialize-finality-checkpoints.mjs",
+      "bytes": 1845,
+      "sha256": "912cf6b63a85b2a19ef5fa2af9b16a6d552e9d33e3d2792b4d3f95255778914b"
+    },
+    {
+      "path": "scripts/initialize-state.js",
+      "bytes": 1188,
+      "sha256": "6530d29667167041f37e538713566f99ffca5daf275111b124005faed3ab76cf"
+    },
+    {
+      "path": "signer.env.example",
+      "bytes": 798,
+      "sha256": "42015dc6829c21e42587442fbdebc448f55eb4cf0431499c9717e76be55b324b"
+    },
+    {
+      "path": "src/auth.js",
+      "bytes": 1094,
+      "sha256": "89af267afe6ba7a08a3bf344b5314a9cea910ec66cc433e20ca8452a32cb97fb"
+    },
+    {
+      "path": "src/deploymentMode.js",
+      "bytes": 1044,
+      "sha256": "1ddc83889af4b133101ac2b9726e5a25b9dbc184b2b97d6a79599a730c440d30"
+    },
+    {
+      "path": "src/finalityCheckpoints.js",
+      "bytes": 4303,
+      "sha256": "6643026eb05e36f9047d87201be1da2585d3147e07ad78fe0d8373962a14cde3"
+    },
+    {
+      "path": "src/index.js",
+      "bytes": 10998,
+      "sha256": "a48dd34ed499b439c2cd473aae9bbb20c0ce28cfe62a209561615202e565f6b0"
+    },
+    {
+      "path": "src/journal.js",
+      "bytes": 5570,
+      "sha256": "51266275277b063a6692b9c9eb08c89fdfce196bec3588dd10c19b9a6c9c62ff"
+    },
+    {
+      "path": "src/nativeEvidence.js",
+      "bytes": 24503,
+      "sha256": "161071552d07202642d17b27baa4e799dfd43e28a5dd3d7448eea2f5abc394c7"
+    },
+    {
+      "path": "src/nativeFinalityGuard.js",
+      "bytes": 2008,
+      "sha256": "240999766ad94f98615bf23c0261a674efff80f2b8e33339cffa29888eb62e5a"
+    },
+    {
+      "path": "src/nativePolicy.js",
+      "bytes": 3031,
+      "sha256": "fad921b546fb97315a4b95364a53317df4943a4cc4e041fc047a0a0d82589a9b"
+    },
+    {
+      "path": "src/nativeRelay.js",
+      "bytes": 7423,
+      "sha256": "5c928fac5cf7a09bf21ea05b9bbabda842ee6e80c516742dfaca21dca115d9db"
+    },
+    {
+      "path": "src/nativeRelayJournal.js",
+      "bytes": 1721,
+      "sha256": "7151c28efc9e2514ae14c232180f7113e6742dc26181b6c52bfedc7ccaa8a052"
+    },
+    {
+      "path": "src/nativeSettlementPolicy.js",
+      "bytes": 15081,
+      "sha256": "533b7c0cf7347ad173051fc673ac17907eeb02b6652342281c0c4c93d0d9dc75"
+    },
+    {
+      "path": "src/nativeStateJournal.js",
+      "bytes": 8937,
+      "sha256": "547878c8f8391a3858c519d95279440f7ed7064e44f05624d9a6cc911d47ba52"
+    },
+    {
+      "path": "src/policy.js",
+      "bytes": 6606,
+      "sha256": "6475d077d5b5337859a8665e7bb215daa2a018be29058f8d807680d8eea78de4"
+    },
+    {
+      "path": "src/relayNativeOnce.js",
+      "bytes": 2921,
+      "sha256": "7908f11dcec17fa36fc20295ca1aa13000b92c724bd5c9ace65ef59180b32f3f"
+    },
+    {
+      "path": "src/runtimeConfig.js",
+      "bytes": 1991,
+      "sha256": "61697e0935417d973541f71cef40248da8dbe19ab9207ec01da5ea65b219eb3c"
+    },
+    {
+      "path": "src/signingDecision.js",
+      "bytes": 853,
+      "sha256": "2e55b3cc830e7506266fa9e10dc462318c170756d0b303e7217691ce8318fcd2"
+    },
+    {
+      "path": "src/signingKey.js",
+      "bytes": 1828,
+      "sha256": "ec61224152135ccb417aa82d6c77e47d0dd92ba4a7e911805ffe9b027b1ea626"
+    },
+    {
+      "path": "src/sourceEvidence.js",
+      "bytes": 3010,
+      "sha256": "f6035a63ae87f04e16a51dfa7c40fed6132dc3dacc3227f8addcd7eec9f76b27"
+    },
+    {
+      "path": "src/stateIdentity.js",
+      "bytes": 2661,
+      "sha256": "46a339de4b9f2bbf3bf33fb8bb748105626c0188a89af577f421c68b517c6704"
+    }
+  ]
+}

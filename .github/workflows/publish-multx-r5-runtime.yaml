@@ -6,7 +6,7 @@ on:
       source_commit:
         description: Exact independently reviewed R5 source commit
         required: true
-        default: c46878a2c36c419e6e5176d7ad1fbcd845a87ea9
+        default: f15bc5b2ed86cb3cc7d58f4dc3986841a222cc0c
       confirmation:
         description: Type PUBLISH_REVIEWED_R5_RUNTIME to publish images only
         required: true
@@ -15,6 +15,7 @@ on:
       - .github/workflows/publish-multx-r5-runtime.yaml
       - .github/docker/multx-r5-api.Dockerfile
       - .github/docker/multx-r5-signer.Dockerfile
+      - .github/docker/multx-signer-review/**
 
 permissions:
   contents: read
@@ -24,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ACCEPTED_COMMIT: c46878a2c36c419e6e5176d7ad1fbcd845a87ea9
+  ACCEPTED_COMMIT: f15bc5b2ed86cb3cc7d58f4dc3986841a222cc0c
   API_IMAGE: ghcr.io/kajlabs/lithosphere/multx-api
   SIGNER_IMAGE: ghcr.io/kajlabs/lithosphere/multx-signer
 
@@ -130,10 +131,18 @@ jobs:
         with:
           context: accepted-source/MultX/signer
           file: publication-control/.github/docker/multx-r5-signer.Dockerfile
+          build-contexts: review=publication-control/.github/docker/multx-signer-review
           platforms: linux/amd64
           load: true
           push: false
           tags: multx-r5-signer:scan
+
+      - name: Verify signer source manifest and production mode
+        run: |
+          docker run --rm --entrypoint node multx-r5-signer:scan /usr/local/lib/verify-runtime-source.mjs
+          for image in multx-r5-api:scan multx-r5-signer:scan; do
+            docker run --rm --entrypoint node "$image" -e 'if(process.env.NODE_ENV !== "production") process.exit(1)'
+          done
 
       - name: Scan signer candidate
         uses: aquasecurity/trivy-action@0.35.0
@@ -201,6 +210,7 @@ jobs:
         with:
           context: accepted-source/MultX/signer
           file: publication-control/.github/docker/multx-r5-signer.Dockerfile
+          build-contexts: review=publication-control/.github/docker/multx-signer-review
           platforms: linux/amd64
           load: true
           push: false
@@ -217,7 +227,11 @@ jobs:
           signer_tag="${SIGNER_IMAGE}:r5-${ACCEPTED_COMMIT}"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$api_tag")" = "$ACCEPTED_COMMIT"
           test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$signer_tag")" = "$ACCEPTED_COMMIT"
-          docker run --rm --entrypoint node "$api_tag" /usr/local/lib/verify-runtime-source.mjs
+          mkdir -p publication-evidence
+          for image in "$api_tag" "$signer_tag"; do
+            docker run --rm --entrypoint node "$image" -e 'if(process.env.NODE_ENV !== "production") process.exit(1)'
+            docker run --rm --entrypoint node "$image" /usr/local/lib/verify-runtime-source.mjs
+          done
 
       - name: Scan API image before publication
         uses: aquasecurity/trivy-action@0.35.0
@@ -267,10 +281,11 @@ jobs:
           SIGNER_DIGEST: ${{ steps.images.outputs.signer_digest }}
         run: |
           set -euo pipefail
-          cosign sign --yes "$API_IMAGE@$API_DIGEST"
-          cosign sign --yes "$SIGNER_IMAGE@$SIGNER_DIGEST"
+          cosign sign --yes --bundle publication-evidence/api-signature.sigstore.json "$API_IMAGE@$API_DIGEST"
+          cosign sign --yes --bundle publication-evidence/signer-signature.sigstore.json "$SIGNER_IMAGE@$SIGNER_DIGEST"
 
       - name: Attest API build provenance
+        id: api-provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.API_IMAGE }}
@@ -278,6 +293,7 @@ jobs:
           push-to-registry: true
 
       - name: Attest signer build provenance
+        id: signer-provenance
         uses: actions/attest-build-provenance@v2
         with:
           subject-name: ${{ env.SIGNER_IMAGE }}
@@ -285,6 +301,7 @@ jobs:
           push-to-registry: true
 
       - name: Verify signatures and provenance
+        id: verify-provenance
         env:
           API_DIGEST: ${{ steps.images.outputs.api_digest }}
           SIGNER_DIGEST: ${{ steps.images.outputs.signer_digest }}
@@ -293,10 +310,70 @@ jobs:
           set -euo pipefail
           for image in "$API_IMAGE@$API_DIGEST" "$SIGNER_IMAGE@$SIGNER_DIGEST"; do
             cosign verify "$image" \
-              --certificate-identity-regexp '^https://github.com/KaJLabs/Lithosphere/.github/workflows/publish-multx-r5-runtime.yaml@refs/heads/main$' \
+              --certificate-identity 'https://github.com/KaJLabs/Lithosphere/.github/workflows/publish-multx-r5-runtime.yaml@refs/heads/main' \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com
-            gh attestation verify "oci://$image" --repo KaJLabs/Lithosphere
+            gh attestation verify "oci://$image" --repo KaJLabs/Lithosphere \
+              --cert-oidc-issuer https://token.actions.githubusercontent.com \
+              --signer-workflow KaJLabs/Lithosphere/.github/workflows/publish-multx-r5-runtime.yaml \
+              --signer-digest "$GITHUB_SHA" --source-digest "$GITHUB_SHA" \
+              --source-ref refs/heads/main --deny-self-hosted-runners --format json \
+              > "publication-evidence/$(basename "${image%@*}").provenance-verification.json"
           done
+
+      - name: Retain independent verification materials
+        if: always()
+        env:
+          VERIFICATION_OUTCOME: ${{ steps.verify-provenance.outcome }}
+          API_BUNDLE: ${{ steps.api-provenance.outputs.bundle-path }}
+          SIGNER_BUNDLE: ${{ steps.signer-provenance.outputs.bundle-path }}
+          API_DIGEST: ${{ steps.images.outputs.api_digest }}
+          SIGNER_DIGEST: ${{ steps.images.outputs.signer_digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p publication-evidence/api publication-evidence/signer
+          missing=0
+          retain() {
+            if [ -n "$1" ] && [ -f "$1" ]; then
+              cp "$1" "$2"
+            else
+              printf 'missing=%s\n' "$2" >> publication-evidence/missing-materials.txt
+              missing=1
+            fi
+          }
+          retain "$API_BUNDLE" publication-evidence/api-provenance.sigstore.json
+          retain "$SIGNER_BUNDLE" publication-evidence/signer-provenance.sigstore.json
+          retain publication-control/.github/workflows/publish-multx-r5-runtime.yaml publication-evidence/publish-multx-r5-runtime.yaml
+          for kind in api signer; do
+            retain "publication-control/.github/docker/multx-r5-${kind}.Dockerfile" "publication-evidence/multx-r5-${kind}.Dockerfile"
+            retain "accepted-source/MultX/$kind/package-lock.json" "publication-evidence/$kind/package-lock.json"
+            for evidence in "$kind-signature.sigstore.json" "multx-$kind.provenance-verification.json"; do
+              if [ ! -s "publication-evidence/$evidence" ]; then
+                printf 'missing=%s\n' "$evidence" >> publication-evidence/missing-materials.txt
+                missing=1
+              fi
+            done
+          done
+          for file in runtime-source-manifest.json verify-runtime-source.mjs; do
+            retain "accepted-source/MultX/api/review/$file" "publication-evidence/api/$file"
+            retain "publication-control/.github/docker/multx-signer-review/$file" "publication-evidence/signer/$file"
+          done
+          printf '%s\n' "source=$ACCEPTED_COMMIT" "publication=$GITHUB_SHA" "run=$GITHUB_RUN_ID" "api=$API_IMAGE@$API_DIGEST" "signer=$SIGNER_IMAGE@$SIGNER_DIGEST" > publication-evidence/identities.txt
+          status=INCOMPLETE_DO_NOT_INSTALL
+          if [ "$VERIFICATION_OUTCOME" = success ] && [ "$missing" = 0 ] && [[ "$API_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] && [[ "$SIGNER_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            status=VERIFIED_PENDING_INDEPENDENT_ACCEPTANCE
+          fi
+          printf '%s\n' "$status" > publication-evidence/STATUS.txt
+          cd publication-evidence
+          find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          test "$status" = VERIFIED_PENDING_INDEPENDENT_ACCEPTANCE
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: multx-r5-publication-evidence-${{ github.run_id }}
+          path: publication-evidence/
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Record immutable outputs
         env:
