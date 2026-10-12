@@ -164,7 +164,7 @@ export default function SearchBar({ onNavigate, fullWidth = false }: { onNavigat
           <button type="button" aria-label="Close suggestions" onClick={() => setOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-lg text-lg hover:bg-[var(--color-bg-tertiary)]">×</button>
         </div>
         <div className="flex shrink-0 gap-1 overflow-x-auto border-b border-[var(--color-border)] px-2 pb-2" aria-label="Suggestion filters">
-          {(['All', 'Tokens', 'Addresses', 'Pages'] as Group[]).map((tab) => <button key={tab} type="button" aria-pressed={group === tab} onClick={() => { setGroup(tab); setActive(-1); }} className={`rounded-full px-3 py-1 text-xs ${group === tab ? 'bg-litho-400 text-white' : 'text-[var(--color-text-secondary)]'}`}>{tab}</button>)}
+          {(['All', 'Tokens', 'Addresses', 'Pages'] as Group[]).map((tab) => <button key={tab} type="button" aria-pressed={group === tab} onClick={() => { setGroup(tab); setActive(-1); }} className={`min-h-10 shrink-0 rounded-full px-2 py-1 text-xs sm:px-3 ${group === tab ? 'bg-litho-400 text-white' : 'text-[var(--color-text-secondary)]'}`}>{tab}</button>)}
         </div>
         <ul id={listId} role="listbox" aria-label="Suggested searches" className="min-h-0 overflow-y-auto overscroll-contain p-2">
           {results.map((item, index) => <li key={`${item.group}:${item.href}`} id={`${listId}-${index}`} role="option" aria-selected={active === index}>
