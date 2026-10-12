@@ -9,8 +9,8 @@ test('production runtime fails closed when MULTX_ENABLED is absent', () => {
   assert.equal(resolveMultxEnabled('production', 'false'), false);
 });
 
-test('production runtime requires an exact activation value', () => {
-  assert.equal(resolveMultxEnabled('production', 'true'), true);
+test('native canary candidate refuses production API execution activation', () => {
+  assert.throws(() => resolveMultxEnabled('production', 'true'), /excludes API execution paths/);
   assert.throws(
     () => resolveMultxEnabled('production', 'TRUE'),
     /MULTX_ENABLED must be exactly true or false/,

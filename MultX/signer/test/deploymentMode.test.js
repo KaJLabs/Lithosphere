@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateDeploymentMode } from '../src/deploymentMode.js';
 
+test('native canary production startup rejects the depth-only release path', () => {
+  assert.throws(() => validateDeploymentMode({ NODE_ENV: 'production',
+    SIGNER_RELEASE_SIGNING_ENABLED: 'true' }), /excludes legacy release signing/);
+});
+
 test('production accepts only direct mTLS with a file journal', () => {
   assert.deepEqual(validateDeploymentMode({ NODE_ENV: 'production' }), {
     journalBackend: 'file',

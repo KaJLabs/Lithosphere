@@ -19,6 +19,8 @@ export function createNativeFinalityGuard(verifier, holdFile) {
         return result;
       } catch {
         held = true;
+        process.stderr.write(JSON.stringify({ event: 'NATIVE_FINALITY_HOLD', method: name,
+          utc: new Date().toISOString() }) + '\n');
         // Directory is the already validated native-journal directory. No raw
         // RPC errors, credentials or attacker-supplied payloads are persisted.
         if (!fs.existsSync(holdFile)) {

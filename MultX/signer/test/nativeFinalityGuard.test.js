@@ -43,3 +43,23 @@ test('guarded signing returns its signature when no hold occurs', async () => {
     assert.equal(await guard.signMessage({ signMessage: async message => `signed:${message}` }, 'message'), 'signed:message');
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
+
+test('M01: a signature finishing after another request sets HOLD is never returned', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'multx-sign-race-'));
+  try {
+    const file = path.join(dir, 'hold');
+    const guard = createNativeFinalityGuard({ verifyRelease: async () => {
+      throw new Error('provider inconsistency');
+    } }, file);
+    let complete;
+    const pending = guard.signMessage({ signMessage: () => new Promise(resolve => { complete = resolve; }) }, 'message');
+    const rejected = assert.rejects(pending, /HOLD/);
+    await assert.rejects(guard.verifier.verifyRelease(), /HOLD/);
+    complete('signature-must-not-escape');
+    await rejected;
+    const restarted = createNativeFinalityGuard({}, file);
+    await assert.rejects(restarted.signMessage({ signMessage: async () => {
+      assert.fail('held signer must not be invoked');
+    } }, 'message'), /HOLD/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

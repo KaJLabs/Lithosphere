@@ -1,5 +1,4 @@
 import { Contract, Interface, Transaction, keccak256 } from 'ethers';
-import { createNativeEvidenceVerifier } from './nativeEvidence.js';
 import { resolveNativeChain } from './nativePolicy.js';
 import { settlementIdentity } from './nativeSettlementPolicy.js';
 
@@ -19,10 +18,11 @@ const same = (a, b) => String(a).toLowerCase() === String(b).toLowerCase();
 // signing takes place outside this process; it never receives a wallet private key.
 export async function relayNativeOnce({ policy, packet, approval, rawTransaction, provider,
   journal, enabled = false, now = () => Math.floor(Date.now() / 1000),
-  verifier = createNativeEvidenceVerifier(policy),
+  verifier,
   contractFactory = (address, rpc) => new Contract(address, NATIVE_RELAY_ABI, rpc),
 }) {
   if (enabled !== true) throw new Error('native relay is disabled');
+  if (!verifier) throw new Error('checkpoint-bound native verifier required');
   // Snapshot caller inputs before asynchronous checks.
   packet = JSON.parse(JSON.stringify(packet));
   approval = JSON.parse(JSON.stringify(approval));

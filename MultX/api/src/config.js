@@ -11,7 +11,8 @@ export function resolveMultxEnabled(nodeEnv, value) {
   if (value !== 'true' && value !== 'false') {
     throw new Error('MULTX_ENABLED must be exactly true or false in production');
   }
-  return value === 'true';
+  if (value === 'true') throw new Error('native-only canary candidate excludes API execution paths');
+  return false;
 }
 
 const multxEnabled = resolveMultxEnabled(process.env.NODE_ENV, process.env.MULTX_ENABLED);

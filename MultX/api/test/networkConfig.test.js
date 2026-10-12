@@ -138,7 +138,7 @@ test('rejects a duplicate token release route', () => {
 });
 
 
-test('production config refuses to load without a mounted mainnet manifest', async () => {
+test('native canary production config refuses execution before reading a network manifest', async () => {
   const previousNodeEnv = process.env.NODE_ENV;
   const previousFile = process.env.MULTX_NETWORK_CONFIG_FILE;
   const previousEnabled = process.env.MULTX_ENABLED;
@@ -148,7 +148,7 @@ test('production config refuses to load without a mounted mainnet manifest', asy
   try {
     await assert.rejects(
       import(`../src/config.js?missing-manifest=${Date.now()}`),
-      /MULTX_NETWORK_CONFIG_FILE is required in production/
+      /native-only canary candidate excludes API execution paths/
     );
   } finally {
     if (previousNodeEnv === undefined) delete process.env.NODE_ENV;

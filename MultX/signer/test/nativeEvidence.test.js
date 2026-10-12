@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { after } from 'node:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { createFinalityCheckpoints, initializeFinalityCheckpoints } from '../src/finalityCheckpoints.js';
 import { AbiCoder, Wallet, getBytes, keccak256 } from 'ethers';
 import { createNativeEvidenceVerifier, quoteDigest } from '../src/nativeEvidence.js';
 import { parseNativeSignerPolicy } from '../src/nativePolicy.js';
@@ -27,7 +31,15 @@ const operation = {
 };
 const destination = { chainId: 56, vault: TARGET_VAULT };
 
-function fixture() {
+const directories = [];
+after(() => { for (const dir of directories) fs.rmSync(dir, { recursive: true, force: true }); });
+function fixture(options = {}) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'multx-evidence-'));
+  directories.push(dir);
+  const checkpointFile = path.join(dir, 'checkpoints.json');
+  const binding = 'a'.repeat(64);
+  const reports = [];
+  initializeFinalityCheckpoints(checkpointFile, binding);
   const quoteWallet = Wallet.createRandom();
   const policy = parseNativeSignerPolicy({
     quoteSigner: quoteWallet.address, authorityEpoch: `0x${'ab'.repeat(32)}`,
@@ -45,28 +57,39 @@ function fixture() {
   const state = { targetReleaseState: 0, sourceDepositState: 1,
     outerRecipient: null, targetForkAt: null, targetForked: false,
     finalized: { 1: 18, 56: 18, 8453: 18 }, peerFinalized: { 1: 18, 56: 18, 8453: 18 },
-    peerForked: false, missingFinality: false };
-  const makeProvider = (chainId, peer = false) => ({
+    peerForked: false, missingFinality: false, headSequences: {}, latestSequences: {} };
+  const makeProvider = (chainId, peer = false) => {
+    let headReads = 0, latestReads = 0;
+    const key = `${chainId}:${peer ? 'peer' : 'primary'}`;
+    return ({
+    isPeer: peer,
     send: async method => {
       if (method === 'eth_chainId') return `0x${chainId.toString(16)}`;
       assert.equal(method, 'eth_getBlockByNumber');
       if (state.missingFinality) return null;
-      const number = (peer ? state.peerFinalized : state.finalized)[chainId];
-      return { number: `0x${number.toString(16)}`, hash: peer && state.peerForked ? hashFor(99) : hashFor(number) };
+      if (state.timeoutRole === key) return new Promise(() => {});
+      const sequence = state.headSequences[key];
+      const number = sequence ? sequence[Math.min(headReads++, sequence.length - 1)]
+        : (peer ? state.peerFinalized : state.finalized)[chainId];
+      return { number: `0x${number.toString(16)}`, hash: state.changedHead === key || (peer && state.peerForked) ? hashFor(99) : hashFor(number) };
     },
-    getBlockNumber: async () => 20,
+    getBlockNumber: async () => {
+      const sequence = state.latestSequences[key];
+      return sequence ? sequence[Math.min(latestReads++, sequence.length - 1)] : 20;
+    },
     getBlock: async number => ({ number: Number(number),
-      hash: peer && state.peerForked ? hashFor(99) :
+      hash: (state.brokenContinuity === key && Number(number) === 18) || (peer && state.peerForked) ? hashFor(99) :
         chainId === 56 && state.targetForked && [11, 12].includes(Number(number))
         ? hashFor(99) : hashFor(number),
-      timestamp: Number(number) === 12 ? 1100 : 1200 }),
+      timestamp: peer && state.peerContent === 'timestamp' ? 1500 : Number(number) === 12 ? 1100 : 1200 }),
     getTransactionReceipt: async hash => {
-      if (hash === SOURCE_TX) return { status: 1, blockNumber: 10, blockHash: hashFor(10), to: state.outerRecipient || SOURCE_VAULT };
+      if (hash === SOURCE_TX) return { status: peer && state.peerContent === 'receipt' ? 0 : 1, blockNumber: 10, blockHash: hashFor(10), to: state.outerRecipient || SOURCE_VAULT };
       if (hash === RELEASE_TX) return { status: 1, blockNumber: 11, blockHash: hashFor(11), to: state.outerRecipient || TARGET_VAULT };
       if (hash === CANCEL_TX) return { status: 1, blockNumber: 12, blockHash: hashFor(12), to: state.outerRecipient || TARGET_VAULT };
       return null;
     },
   });
+  };
   const providers = new Map([1, 56, 8453].map(chainId => [chainId, makeProvider(chainId)]));
   const peers = new Map([1, 56, 8453].map(chainId => [chainId, makeProvider(chainId, true)]));
   const contracts = new Map([
@@ -111,12 +134,24 @@ function fixture() {
     }],
   ]);
   contracts.set(8453, contracts.get(1));
-  const verifier = createNativeEvidenceVerifier(policy, {
+  const makeVerifier = () => createNativeEvidenceVerifier(policy, {
+    checkpoints: createFinalityCheckpoints(checkpointFile, binding),
+    report: record => reports.push(record),
     providerFactory: chain => providers.get(chain.chainId),
     finalityProviderFactory: chain => peers.get(chain.chainId),
-    contractFactory: chain => contracts.get(chain.chainId),
+    contractFactory: (chain, rpc) => {
+      const original = contracts.get(chain.chainId);
+      if (!rpc.isPeer) return original;
+      return { ...original,
+        deposits: async (...args) => { const value = await original.deposits(...args);
+          return state.peerContent === 'state' ? { ...value, amount: 999n } : value; },
+        queryFilter: async (...args) => state.peerContent === 'logs' ? [] : original.queryFilter(...args),
+      };
+    },
+    ...options,
   });
-  return { quoteWallet, verifier, state };
+  const verifier = makeVerifier();
+  return { quoteWallet, verifier, state, makeVerifier, checkpointFile, binding, reports };
 }
 
 async function releaseEvidence(quoteWallet) {
@@ -124,6 +159,87 @@ async function releaseEvidence(quoteWallet) {
     sourceBlockNumber: 10, sourceBlockHash: hashFor(10),
     quoteSignature: await quoteWallet.signMessage(getBytes(quoteDigest(operation, destination))),
   };
+}
+
+for (const chainId of [1, 8453]) {
+  for (const role of ['primary', 'peer']) {
+    test(`rejects ${role} finalized regression above shared minimum on ${chainId}`, async () => {
+      const { verifier, state } = fixture();
+      state.finalized[chainId] = 17;
+      state.peerFinalized[chainId] = 17;
+      state.headSequences[`${chainId}:${role}`] = [19, 18];
+      await assert.rejects(verifier.verifyCancellation({ ...operation, sourceChain: chainId }, destination,
+        { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }), /finality head regressed/);
+    });
+    test(`allows ${role} latest regression above finality on ${chainId}`, async () => {
+      const { verifier, state, reports } = fixture();
+      state.latestSequences[`${chainId}:${role}`] = [30, 29];
+      await verifier.verifyCancellation({ ...operation, sourceChain: chainId }, destination,
+        { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) });
+      assert.ok(reports.some(record => record.event === 'LATEST_HEAD_REGRESSION' && record.chainId === chainId &&
+        record.role === (role === 'peer' ? 'finality' : 'primary')));
+    });
+    test(`rejects ${role} latest below its finalized head on ${chainId}`, async () => {
+      const { verifier, state } = fixture();
+      state.latestSequences[`${chainId}:${role}`] = [17];
+      await assert.rejects(verifier.verifyCancellation({ ...operation, sourceChain: chainId }, destination,
+        { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }), /head ordering/);
+    });
+  }
+}
+
+for (const role of ['primary', 'peer']) {
+  test(`${role} finalized checkpoint rejects regression after verifier restart`, async () => {
+    const f = fixture();
+    await f.verifier.verifyCancellation(operation, destination, { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) });
+    f.state.headSequences[`1:${role}`] = [17];
+    await assert.rejects(f.makeVerifier().verifyCancellation(operation, destination,
+      { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }), /finality head regressed/);
+  });
+  for (const fault of ['changedHead', 'brokenContinuity']) {
+    test(`${role} rejects ${fault} against its persisted finalized checkpoint`, async () => {
+      const f = fixture();
+      const evidence = { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) };
+      await f.verifier.verifyCancellation(operation, destination, evidence);
+      f.state[fault] = `1:${role}`;
+      if (fault === 'brokenContinuity') f.state.headSequences[`1:${role}`] = [19];
+      await assert.rejects(f.makeVerifier().verifyCancellation(operation, destination, evidence),
+        /finality head hash changed|finality continuity broken/);
+    });
+  }
+  test(`${role} RPC timeout rejects within the configured deadline`, async () => {
+    const f = fixture({ rpcTimeoutMs: 30 });
+    f.state.timeoutRole = `1:${role}`;
+    await assert.rejects(f.verifier.verifyCancellation(operation, destination,
+      { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }), /deadline exceeded/);
+  });
+}
+for (const content of ['receipt', 'logs', 'state', 'timestamp']) {
+  test(`B04: agreement on hashes cannot hide differing ${content}`, async () => {
+    const f = fixture();
+    f.state.peerContent = content;
+    await assert.rejects(f.verifier.verifyRelease(operation, destination, await releaseEvidence(f.quoteWallet)),
+      /content disagrees/);
+  });
+}
+test('parallel verifications serialize checkpoints and retain the newest observations', async () => {
+  const f = fixture();
+  f.state.headSequences['1:primary'] = [18, 19, 20];
+  f.state.headSequences['1:peer'] = [18, 19, 20];
+  await Promise.all(Array.from({ length: 3 }, () => f.verifier.verifyCancellation(operation, destination,
+    { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) })));
+  assert.deepEqual(JSON.parse(fs.readFileSync(f.checkpointFile)).data.chains['1'].map(h => h.number), [20, 20]);
+});
+for (const fault of ['missing', 'tampered']) {
+  test(`a ${fault} checkpoint cannot silently restart`, async () => {
+    const f = fixture();
+    await f.verifier.verifyCancellation(operation, destination, { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) });
+    if (fault === 'missing') fs.unlinkSync(f.checkpointFile);
+    else fs.writeFileSync(f.checkpointFile, '{}');
+    assert.throws(f.makeVerifier);
+    await assert.rejects(f.verifier.verifyCancellation(operation, destination,
+      { sourceBlockNumber: 10, sourceBlockHash: hashFor(10) }));
+  });
 }
 
 test('verifies quote authority, canonical source deposit and unused destination', async () => {
@@ -216,18 +332,13 @@ test('rejects a three-block-deep deposit that is not finalized', async () => {
 });
 
 test('fails closed on independent finalized RPC disagreement or unavailable finality', async () => {
-  const { quoteWallet, verifier, state } = fixture();
-  state.peerForked = true;
-  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
-    /independent finalized RPC views disagree/);
-  state.peerForked = false;
-  state.peerFinalized[1] = 0;
-  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
-    /finality head unavailable/);
-  state.peerFinalized[1] = 18;
-  state.missingFinality = true;
-  await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
-    /finality head unavailable/);
+  for (const mutate of [state => { state.peerForked = true; },
+    state => { state.peerFinalized[1] = 0; }, state => { state.missingFinality = true; }]) {
+    const { quoteWallet, verifier, state } = fixture();
+    mutate(state);
+    await assert.rejects(verifier.verifyRelease(operation, destination, await releaseEvidence(quoteWallet)),
+      /independent finalized RPC views disagree|finality head unavailable/);
+  }
 });
 
 test('Base latest/safe depth does not substitute for an L2 finalized head', async () => {

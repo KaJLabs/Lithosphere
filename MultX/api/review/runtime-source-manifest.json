@@ -38,8 +38,8 @@
     },
     {
       "path": "src/config.js",
-      "bytes": 16749,
-      "sha256": "79331fe90bd502c1b146befb046324908eba49f968f6f3568f22776ec34d8e9c"
+      "bytes": 16840,
+      "sha256": "1a1fcaadf8fa6fe645226d51b60c1d6d7bfe54197a882b0e29f055570112fdaa"
     },
     {
       "path": "src/db/migrate.js",

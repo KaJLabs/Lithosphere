@@ -1,6 +1,7 @@
 import {
   AbiCoder,
-  Contract,
+  Interface,
+  FetchRequest,
   JsonRpcProvider,
   getAddress,
   getBytes,
@@ -21,6 +22,44 @@ const ABI = [
 ];
 const bytes32 = value => typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value);
 const lower = value => String(value).toLowerCase();
+const iface = new Interface(ABI);
+const canonical = value => JSON.stringify(value, (_key, item) => typeof item === 'bigint' ? item.toString() : item);
+export const NATIVE_RPC_TIMEOUT_MS = 10_000;
+export function createNativeRpcProvider(url) {
+  const request = new FetchRequest(url);
+  request.timeout = NATIVE_RPC_TIMEOUT_MS;
+  return new JsonRpcProvider(request, undefined, { cacheTimeout: -1 });
+}
+function bounded(target, timeoutMs) {
+  return new Proxy(target, { get(object, key) {
+    const method = object[key];
+    if (typeof method !== 'function') return method;
+    return (...args) => new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('native RPC deadline exceeded')), timeoutMs);
+      Promise.resolve().then(() => method.apply(object, args)).then(resolve, reject)
+        .finally(() => clearTimeout(timer));
+    });
+  } });
+}
+// eth_call is explicitly bound to the agreed block HASH, never a mutable number.
+function vaultReader(chain, rpc) {
+  const state = name => async (id, options) => iface.decodeFunctionResult(name,
+    await rpc.send('eth_call', [{ to: chain.vault, data: iface.encodeFunctionData(name, [id]) },
+      { blockHash: options.blockHash, requireCanonical: true }]));
+  return {
+    filters: Object.fromEntries(['NativeDeposited', 'NativeReleased', 'ReleaseCancelled']
+      .map(name => [name, id => ({ name, id })])),
+    queryFilter: async (filter, _from, _to, blockHash) => {
+      const logs = await rpc.send('eth_getLogs', [{ address: chain.vault, blockHash,
+        topics: iface.encodeFilterTopics(filter.name, [filter.id]) }]);
+      return logs.map(log => ({ address: lower(log.address), topics: log.topics.map(lower), data: lower(log.data),
+        blockHash: lower(log.blockHash), transactionHash: lower(log.transactionHash),
+        logIndex: Number(BigInt(log.logIndex)), removed: log.removed === true, args: iface.parseLog(log).args }));
+    },
+    deposits: state('deposits'),
+    releaseStates: async (...args) => (await state('releaseStates')(...args))[0],
+  };
+}
 
 export function quoteDigest(operation, destination) {
   return keccak256(coder.encode(
@@ -50,16 +89,36 @@ function normalizeDeposit(value) {
 }
 
 export function createNativeEvidenceVerifier(policy, {
-  providerFactory = chain => new JsonRpcProvider(chain.rpcUrl, undefined, { cacheTimeout: -1 }),
-  finalityProviderFactory = chain => new JsonRpcProvider(chain.finalityRpcUrl, undefined, { cacheTimeout: -1 }),
-  contractFactory = (chain, provider) => new Contract(chain.vault, ABI, provider),
+  providerFactory = chain => createNativeRpcProvider(chain.rpcUrl),
+  finalityProviderFactory = chain => createNativeRpcProvider(chain.finalityRpcUrl),
+  contractFactory = vaultReader,
+  checkpoints,
+  rpcTimeoutMs = NATIVE_RPC_TIMEOUT_MS,
+  report = record => process.stderr.write(JSON.stringify(record) + '\n'),
 } = {}) {
+  if (!checkpoints?.sample) throw new Error('persistent finality checkpoints required');
+  if (!Number.isSafeInteger(rpcTimeoutMs) || rpcTimeoutMs < 1 || rpcTimeoutMs > NATIVE_RPC_TIMEOUT_MS) {
+    throw new Error('invalid native RPC deadline');
+  }
   const clients = new Map();
   const client = chain => {
     if (!clients.has(chain.chainId)) {
-      const provider = providerFactory(chain);
-      clients.set(chain.chainId, { provider, peer: finalityProviderFactory(chain),
-        contract: contractFactory(chain, provider) });
+      const provider = bounded(providerFactory(chain), rpcTimeoutMs);
+      const peer = bounded(finalityProviderFactory(chain), rpcTimeoutMs);
+      const readers = [provider, peer].map(rpc => bounded(contractFactory(chain, rpc), rpcTimeoutMs));
+      const contract = { filters: readers[0].filters };
+      for (const name of ['deposits', 'releaseStates', 'queryFilter']) {
+        contract[name] = async (...args) => {
+          const height = name === 'queryFilter' ? args[1] : args[1].blockTag;
+          const block = await agreedBlock(chain, Number(height));
+          const bound = name === 'queryFilter' ? [...args, block.hash]
+            : [args[0], { ...args[1], blockHash: block.hash }];
+          const results = await Promise.all(readers.map(reader => reader[name](...bound)));
+          if (canonical(results[0]) !== canonical(results[1])) throw new Error('independent vault content disagrees');
+          return results[0];
+        };
+      }
+      clients.set(chain.chainId, { provider, peer, contract });
     }
     return clients.get(chain.chainId);
   };
@@ -78,22 +137,65 @@ export function createNativeEvidenceVerifier(policy, {
     return { number, hash: lower(block.hash) };
   }
 
-  async function finalizedAnchor(chain) {
+  async function agreedBlock(chain, number) {
     const { provider, peer } = client(chain);
-    await Promise.all([assertNetwork(chain, provider), assertNetwork(chain, peer)]);
-    // The two providers may have different finalized heights. Use the lower
-    // height only if both independently report it as canonical and finalized.
-    const heads = await Promise.all([provider, peer].map(async rpc =>
-      blockIdentity(await rpc.send('eth_getBlockByNumber', ['finalized', false]), 'RPC')));
-    const number = Math.min(heads[0].number, heads[1].number);
     const blocks = await Promise.all([provider.getBlock(number), peer.getBlock(number)]);
-    const first = blockIdentity(blocks[0], 'primary RPC');
-    const second = blockIdentity(blocks[1], 'independent RPC');
-    if (first.number !== number || second.number !== number || first.hash !== second.hash ||
-        heads.some(head => head.number === number && head.hash !== first.hash)) {
-      throw new Error('independent finalized RPC views disagree');
+    const ids = blocks.map(block => blockIdentity(block, 'content RPC'));
+    if (ids.some(id => id.number !== number) || ids[0].hash !== ids[1].hash ||
+        !Number.isSafeInteger(Number(blocks[0]?.timestamp)) || Number(blocks[0].timestamp) < 0 ||
+        blocks[0]?.timestamp == null || blocks[1]?.timestamp == null ||
+        Number(blocks[0].timestamp) !== Number(blocks[1].timestamp)) {
+      throw new Error('independent block content disagrees');
     }
-    return { number, hash: first.hash, block: blocks[0] };
+    return blocks[0];
+  }
+
+  async function agreedReceipt(chain, hash) {
+    const { provider, peer } = client(chain);
+    const results = await Promise.all([provider.getTransactionReceipt(hash), peer.getTransactionReceipt(hash)]);
+    const fields = receipt => receipt && ({ status: receipt.status, blockNumber: receipt.blockNumber,
+      blockHash: receipt.blockHash, hash: receipt.hash, to: receipt.to, from: receipt.from,
+      logs: receipt.logs?.map(log => ({ address: log.address, topics: log.topics, data: log.data,
+        blockHash: log.blockHash, transactionHash: log.transactionHash, index: log.index, removed: log.removed })) });
+    if (canonical(fields(results[0])) !== canonical(fields(results[1]))) throw new Error('independent receipt content disagrees');
+    return results[0];
+  }
+
+  async function finalizedAnchor(chain) {
+    return checkpoints.sample(chain.chainId, async previous => {
+      const { provider, peer } = client(chain);
+      await Promise.all([assertNetwork(chain, provider), assertNetwork(chain, peer)]);
+      // The two providers may have different finalized heights. Use the lower
+      // height only if both independently report it as canonical and finalized.
+      const heads = await Promise.all([provider, peer].map(async rpc =>
+        blockIdentity(await rpc.send('eth_getBlockByNumber', ['finalized', false]), 'RPC')));
+      const latest = await Promise.all([provider.getBlockNumber(), peer.getBlockNumber()]);
+      for (const [role, rpc] of [provider, peer].entries()) {
+        if (!Number.isSafeInteger(latest[role]) || latest[role] < heads[role].number) {
+          throw new Error('provider head ordering invalid');
+        }
+        const prior = previous?.[role], head = heads[role];
+        if (prior) {
+          if (head.number < prior.number) throw new Error('provider finality head regressed');
+          if (head.number === prior.number && head.hash !== prior.hash) throw new Error('finality head hash changed');
+          const historical = blockIdentity(await rpc.getBlock(prior.number), 'checkpoint RPC');
+          if (historical.number !== prior.number || historical.hash !== prior.hash) throw new Error('finality continuity broken');
+          if (latest[role] < prior.latest) report({ event: 'LATEST_HEAD_REGRESSION', chainId: chain.chainId,
+            role: role === 0 ? 'primary' : 'finality', prior: prior.latest, latest: latest[role], utc: new Date().toISOString() });
+        }
+        head.latest = latest[role];
+      }
+      const number = Math.min(heads[0].number, heads[1].number);
+      const blocks = await Promise.all([provider.getBlock(number), peer.getBlock(number)]);
+      const first = blockIdentity(blocks[0], 'primary RPC');
+      const second = blockIdentity(blocks[1], 'independent RPC');
+      if (first.number !== number || second.number !== number || first.hash !== second.hash ||
+          heads.some(head => head.number === number && head.hash !== first.hash)) {
+        throw new Error('independent finalized RPC views disagree');
+      }
+      const block = await agreedBlock(chain, number);
+      return { heads, value: { number, hash: first.hash, block, latest } };
+    });
   }
 
   async function recheckAnchor(chain, anchor) {
@@ -112,7 +214,7 @@ export function createNativeEvidenceVerifier(policy, {
     }
     const { provider, peer } = client(chain);
     const anchor = await finalizedAnchor(chain);
-    const tip = await provider.getBlockNumber();
+    const tip = Math.min(...anchor.latest);
     if (Number(number) > anchor.number) throw new Error('evidence block is not finalized');
     const [block, peerBlock] = await Promise.all([provider.getBlock(Number(number)), peer.getBlock(Number(number))]);
     if (!block?.hash || lower(block.hash) !== lower(hash) ||
@@ -121,7 +223,7 @@ export function createNativeEvidenceVerifier(policy, {
     }
     if (tip - Number(number) + 1 < chain.confirmations) throw new Error('evidence has insufficient confirmations');
     await recheckAnchor(chain, anchor);
-    return block;
+    return agreedBlock(chain, Number(number));
   }
 
   async function stableFinalizedState(chain, read) {
@@ -138,7 +240,7 @@ export function createNativeEvidenceVerifier(policy, {
     if (requireQuote) assertQuote(policy, operation, destination, evidence?.quoteSignature);
     const block = await confirmedBlock(source, evidence?.sourceBlockNumber, evidence?.sourceBlockHash);
     const { provider, contract } = client(source);
-    const receipt = await provider.getTransactionReceipt(operation.sourceTxHash);
+    const receipt = await agreedReceipt(source, operation.sourceTxHash);
     if (!receipt || Number(receipt.status) !== 1 || receipt.blockNumber !== Number(evidence.sourceBlockNumber) ||
         lower(receipt.blockHash) !== lower(evidence.sourceBlockHash)) {
       throw new Error('source deposit receipt mismatch');
@@ -187,7 +289,7 @@ export function createNativeEvidenceVerifier(policy, {
     const chain = resolveNativeChain(policy, destination.chainId, destination.vault);
     await confirmedBlock(chain, evidence?.destinationBlockNumber, evidence?.destinationBlockHash);
     const { provider, contract } = client(chain);
-    const receipt = await provider.getTransactionReceipt(evidence?.destinationTxHash);
+    const receipt = await agreedReceipt(chain, evidence?.destinationTxHash);
     if (!receipt || Number(receipt.status) !== 1 || receipt.blockNumber !== Number(evidence.destinationBlockNumber) ||
         lower(receipt.blockHash) !== lower(evidence.destinationBlockHash)) {
       throw new Error('destination release receipt mismatch');
@@ -259,7 +361,7 @@ export function createNativeEvidenceVerifier(policy, {
       const target = resolveNativeChain(policy, destination.chainId, destination.vault);
       const cancellationBlock = await confirmedBlock(target, request.cancellationBlockNumber, request.cancellationBlockHash);
       const { provider, contract } = client(target);
-      const receipt = await provider.getTransactionReceipt(request.cancellationTxHash);
+      const receipt = await agreedReceipt(target, request.cancellationTxHash);
       if (!receipt || Number(receipt.status) !== 1 || receipt.blockNumber !== Number(request.cancellationBlockNumber) ||
           lower(receipt.blockHash) !== lower(request.cancellationBlockHash)) {
         throw new Error('destination cancellation receipt mismatch');
