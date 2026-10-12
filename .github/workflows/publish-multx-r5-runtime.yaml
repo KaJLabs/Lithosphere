@@ -301,6 +301,7 @@ jobs:
           push-to-registry: true
 
       - name: Verify signatures and provenance
+        id: verify-provenance
         env:
           API_DIGEST: ${{ steps.images.outputs.api_digest }}
           SIGNER_DIGEST: ${{ steps.images.outputs.signer_digest }}
@@ -312,7 +313,6 @@ jobs:
               --certificate-identity 'https://github.com/KaJLabs/Lithosphere/.github/workflows/publish-multx-r5-runtime.yaml@refs/heads/main' \
               --certificate-oidc-issuer https://token.actions.githubusercontent.com
             gh attestation verify "oci://$image" --repo KaJLabs/Lithosphere \
-              --cert-identity 'https://github.com/KaJLabs/Lithosphere/.github/workflows/publish-multx-r5-runtime.yaml@refs/heads/main' \
               --cert-oidc-issuer https://token.actions.githubusercontent.com \
               --signer-workflow KaJLabs/Lithosphere/.github/workflows/publish-multx-r5-runtime.yaml \
               --signer-digest "$GITHUB_SHA" --source-digest "$GITHUB_SHA" \
@@ -321,27 +321,54 @@ jobs:
           done
 
       - name: Retain independent verification materials
+        if: always()
         env:
+          VERIFICATION_OUTCOME: ${{ steps.verify-provenance.outcome }}
           API_BUNDLE: ${{ steps.api-provenance.outputs.bundle-path }}
           SIGNER_BUNDLE: ${{ steps.signer-provenance.outputs.bundle-path }}
           API_DIGEST: ${{ steps.images.outputs.api_digest }}
           SIGNER_DIGEST: ${{ steps.images.outputs.signer_digest }}
         run: |
           set -euo pipefail
-          cp "$API_BUNDLE" publication-evidence/api-provenance.sigstore.json
-          cp "$SIGNER_BUNDLE" publication-evidence/signer-provenance.sigstore.json
-          cp publication-control/.github/workflows/publish-multx-r5-runtime.yaml publication-evidence/
-          cp publication-control/.github/docker/*.Dockerfile publication-evidence/
           mkdir -p publication-evidence/api publication-evidence/signer
-          cp accepted-source/MultX/api/review/* publication-evidence/api/
-          cp publication-control/.github/docker/multx-signer-review/* publication-evidence/signer/
-          cp accepted-source/MultX/api/package-lock.json publication-evidence/api/
-          cp accepted-source/MultX/signer/package-lock.json publication-evidence/signer/
+          missing=0
+          retain() {
+            if [ -n "$1" ] && [ -f "$1" ]; then
+              cp "$1" "$2"
+            else
+              printf 'missing=%s\n' "$2" >> publication-evidence/missing-materials.txt
+              missing=1
+            fi
+          }
+          retain "$API_BUNDLE" publication-evidence/api-provenance.sigstore.json
+          retain "$SIGNER_BUNDLE" publication-evidence/signer-provenance.sigstore.json
+          retain publication-control/.github/workflows/publish-multx-r5-runtime.yaml publication-evidence/publish-multx-r5-runtime.yaml
+          for kind in api signer; do
+            retain "publication-control/.github/docker/multx-r5-${kind}.Dockerfile" "publication-evidence/multx-r5-${kind}.Dockerfile"
+            retain "accepted-source/MultX/$kind/package-lock.json" "publication-evidence/$kind/package-lock.json"
+            for evidence in "$kind-signature.sigstore.json" "multx-$kind.provenance-verification.json"; do
+              if [ ! -s "publication-evidence/$evidence" ]; then
+                printf 'missing=%s\n' "$evidence" >> publication-evidence/missing-materials.txt
+                missing=1
+              fi
+            done
+          done
+          for file in runtime-source-manifest.json verify-runtime-source.mjs; do
+            retain "accepted-source/MultX/api/review/$file" "publication-evidence/api/$file"
+            retain "publication-control/.github/docker/multx-signer-review/$file" "publication-evidence/signer/$file"
+          done
           printf '%s\n' "source=$ACCEPTED_COMMIT" "publication=$GITHUB_SHA" "run=$GITHUB_RUN_ID" "api=$API_IMAGE@$API_DIGEST" "signer=$SIGNER_IMAGE@$SIGNER_DIGEST" > publication-evidence/identities.txt
+          status=INCOMPLETE_DO_NOT_INSTALL
+          if [ "$VERIFICATION_OUTCOME" = success ] && [ "$missing" = 0 ] && [[ "$API_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] && [[ "$SIGNER_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            status=VERIFIED_PENDING_INDEPENDENT_ACCEPTANCE
+          fi
+          printf '%s\n' "$status" > publication-evidence/STATUS.txt
           cd publication-evidence
           find . -type f ! -name SHA256SUMS.txt -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
+          test "$status" = VERIFIED_PENDING_INDEPENDENT_ACCEPTANCE
 
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: multx-r5-publication-evidence-${{ github.run_id }}
           path: publication-evidence/
