@@ -354,6 +354,5 @@ function EnabledBridgePage() {
 }
 
 export default function BridgePage() {
-  if (!NETWORK.bridgeEnabled) return <FeatureUnavailable feature="Bridge" />;
-  return <EnabledBridgePage />;
+  return <FeatureUnavailable feature="Bridge" />;
 }

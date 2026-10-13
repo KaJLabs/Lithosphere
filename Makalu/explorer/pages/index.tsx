@@ -178,7 +178,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--color-text-secondary)] md:text-lg">
                 A unified explorer for Lithosphere&apos;s dual-layer blockchain with validator
-                intelligence, AI execution receipts, bridge activity, and real-time network
+                intelligence, AI execution receipts, and real-time network
                 analytics.
               </p>
 
@@ -561,12 +561,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                     Inspect LEP100 receipts, provider proofs, and zk-verifiable AI executions.
                   </div>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
-                  <div className="font-medium">Bridge Activity</div>
-                  <div className="mt-2 text-sm text-white/65">
-                    Track wrapped assets, cross-chain messages, and bridge mint / burn flows.
-                  </div>
-                </div>
+
               </div>
             </div>
           </section>
@@ -581,7 +576,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                 </h2>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-white/65">
                   Connect wallet, inspect onchain activity, verify LEP100 contracts, monitor AI
-                  requests, and track validator or bridge performance from a single explorer
+                  requests, and track validator performance from a single explorer
                   interface.
                 </p>
               </div>

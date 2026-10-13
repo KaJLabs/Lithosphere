@@ -24,6 +24,9 @@ export function supplyValuation(supply: string, price: string): string {
   return `${(cents / BigInt(100)).toLocaleString('en-US')}.${(cents % BigInt(100)).toString().padStart(2, '0')}`;
 }
 
+// Project-supplied circulation until an authoritative circulating-supply feed is available.
+const CIRCULATING_SUPPLY = '60000000000000000000000000';
+
 export default function MarketOverview() {
   const { data, loading, error } = useApi<MarketSummary>('/market-summary', { pollInterval: 60_000 });
   const market = error ? null : data?.market;
@@ -33,13 +36,23 @@ export default function MarketOverview() {
   const items = [
     {
       label: market?.kind === 'launch price' ? 'LITHO launch price' : 'LITHO price',
-      value: price ? `${market.kind === 'launch price' && /^\d+(?:\.\d{1,2})?$/.test(price) ? Number(price).toFixed(2) : price} ${market.currency}` : unavailable,
+      value: price ? `$${/^\d+(?:\.\d{1,2})?$/.test(price) ? Number(price).toFixed(2) : price} USD` : unavailable,
       detail: price ? market.kind === 'launch price' ? 'Ignite DEX · Fixed launch price; open-market trading has not started' : `${market.source} · ${market.kind}` : 'Waiting for a fresh Ignite or Magma quote',
     },
     {
-      label: market?.kind === 'launch price' ? 'Total supply valuation at launch price' : 'Market cap (total supply)',
-      value: price && supply ? `${supplyValuation(supply, price)} ${market.currency}` : unavailable,
-      detail: supply ? `${formatValue(supply)} total on-chain supply; not circulating supply` : 'Total on-chain supply unavailable',
+      label: 'Fully diluted valuation (FDV)',
+      value: price && supply ? `$${supplyValuation(supply, price).split('.')[0]} USD` : unavailable,
+      detail: supply ? 'Based on total on-chain supply' : 'Total on-chain supply unavailable',
+    },
+    {
+      label: 'Circulation',
+      value: '60,000,000',
+      detail: 'LITHO ? Project-reported circulating supply',
+    },
+    {
+      label: 'Current market cap',
+      value: price ? `$${supplyValuation(CIRCULATING_SUPPLY, price).split('.')[0]} USD` : unavailable,
+      detail: 'Circulating supply ? current price',
     },
     {
       label: 'Voting power',
@@ -47,7 +60,7 @@ export default function MarketOverview() {
       detail: 'Bonded, non-jailed validators',
     },
     {
-      label: 'Transactions per second',
+      label: 'Transactions per second (TPS)',
       value: !error && data?.transactionsPerSecond != null ? `${Number(data.transactionsPerSecond).toFixed(2)} TPS` : unavailable,
       detail: 'Indexed transactions over the last 60 seconds',
     },

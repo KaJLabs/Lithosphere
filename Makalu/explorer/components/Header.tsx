@@ -37,7 +37,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Transactions', href: '/txs' },
   { label: 'Tokens', href: '/tokens' },
   { label: 'NFTs', href: '/nfts' },
-  { label: 'Bridge', href: '/bridge' },
   { label: 'Swap', href: '/swap' },
   { label: 'Faucet', href: '/faucet' },
   { label: 'Validators', href: '/validators' },
