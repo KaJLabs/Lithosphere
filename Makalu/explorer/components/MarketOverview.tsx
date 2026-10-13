@@ -47,12 +47,12 @@ export default function MarketOverview() {
     {
       label: 'Circulation',
       value: '60,000,000',
-      detail: 'LITHO ? Project-reported circulating supply',
+      detail: 'LITHO · Project-reported circulating supply',
     },
     {
       label: 'Current market cap',
       value: price ? `$${supplyValuation(CIRCULATING_SUPPLY, price).split('.')[0]} USD` : unavailable,
-      detail: 'Circulating supply ? current price',
+      detail: 'Circulating supply × current price',
     },
     {
       label: 'Voting power',
