@@ -50,8 +50,8 @@ ENV_DIR="${DEPLOY_DIR}/monitoring/explorer"
 ENV_FILE="${ENV_DIR}/.env"
 
 # Production environment values — use Sentry nodes, NEVER the Validator
-CHAIN_ID="lithosphere_777777-1"
-CHAIN_NAME="Lithosphere"
+CHAIN_ID="lithosphere_700777"
+CHAIN_NAME="Lithosphere Makalu Testnet"
 RPC_URL="https://rpc.litho.ai"
 EVM_RPC_URL="${LITHO_EVM_RPC_URL:-https://rpc.litho.ai}"
 GRPC_URL="${LITHO_GRPC_URL:-}"
