@@ -31,3 +31,14 @@ export function prioritizeThanosConnectors<T extends ConnectorIdentity>(
     })
     .map(({ connector }) => connector);
 }
+
+export function preferThanosConnectors<T extends ConnectorIdentity>(controller: {
+  state: { connectors: T[] };
+}): void {
+  const connectors = controller.state.connectors;
+  const prioritized = prioritizeThanosConnectors(connectors);
+  if (prioritized.every((connector, index) => connector === connectors[index])) return;
+  // setConnectors registers additional connectors and preserves announcement order.
+  // Calling it from its own subscription repeatedly appends the same wallets.
+  controller.state.connectors = prioritized;
+}

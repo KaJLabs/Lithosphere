@@ -3,7 +3,7 @@ import { ConnectorController } from '@web3modal/core';
 import { createWeb3Modal, defaultConfig, useWeb3Modal, useWeb3ModalAccount, useDisconnect } from '@web3modal/ethers/react';
 
 import { NETWORK } from '@/lib/network';
-import { prioritizeThanosConnectors } from '@/lib/thanos';
+import { preferThanosConnectors } from '@/lib/thanos';
 
 const PROJECT_ID = '4d5085c5fd29c034f63f9256013dcd09';
 
@@ -104,12 +104,8 @@ if (typeof window !== 'undefined') {
 
     // EIP-6963 wallets are shown in announcement order by Web3Modal. Keep the
     // Lithosphere-native Thanos wallet first without hiding any other wallet.
-    const preferThanos = (connectors: typeof ConnectorController.state.connectors) => {
-      const prioritized = prioritizeThanosConnectors(connectors);
-      if (prioritized.every((connector, index) => connector === connectors[index])) return;
-      queueMicrotask(() => ConnectorController.setConnectors(prioritized));
-    };
-    preferThanos(ConnectorController.state.connectors);
+    const preferThanos = () => queueMicrotask(() => preferThanosConnectors(ConnectorController));
+    preferThanos();
     ConnectorController.subscribeKey('connectors', preferThanos);
   } catch (error) {
     console.log('Web3Modal init:', error instanceof Error ? error.message : 'already initialized');
