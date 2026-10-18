@@ -1906,3 +1906,9 @@ Append one entry whenever a material fact changes:
 - Public BTC snapshot, unsupported-symbol handling and Chromium/WebKit checks passed.
 - Changed MX-05 from external blocker to complete for market snapshots; no faucet, indexer or chain changes.
 - Evidence: `docs/integrations/quantt.md`, image runs `39141325314` and `39141328299`.
+
+### 2026-10-18 - MX-03 published Thanos baseline refreshed
+
+- Chrome Web Store version 1.0.10 is pinned to upstream source `e1e134b03b96c0e896fc3fa4d7080da1a30248a2`, release run `38638238001`.
+- Transaction-free preflight passed at `2026-10-18T15:41:42.458Z`: provider markers, sign-in route, unauthenticated rejection and chain ID 700777.
+- Real-extension browser tests, signed Makalu transaction and wallet-team acceptance remain pending. No transaction was submitted.

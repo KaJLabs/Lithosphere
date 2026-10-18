@@ -3,8 +3,8 @@
 const STORE_URL =
   'https://chromewebstore.google.com/detail/thanos-wallet/jajfgpnlaoakklhnnchdpiglmkkpcehj?hl=en';
 const SOURCE_REPOSITORY = 'imasssad/Thanos-Wallet';
-const EXPECTED_VERSION = '1.0.2';
-const EXPECTED_SOURCE_COMMIT = '38c88287af19433d34274604d9070d228d97bc0d';
+const EXPECTED_VERSION = '1.0.10';
+const EXPECTED_SOURCE_COMMIT = 'e1e134b03b96c0e896fc3fa4d7080da1a30248a2';
 const SIGNIN_URL = 'https://makalu.litho.ai/signin';
 const AUTH_ME_URL = 'https://makalu.litho.ai/api/auth/me';
 const RPC_URL = 'https://rpc.litho.ai';

@@ -9,14 +9,14 @@ until every manual result and the approval record are filled with durable eviden
 | --- | --- | --- |
 | Target | `https://makalu.litho.ai/signin` | Live route |
 | Network | Makalu, EVM chain ID `700777` (`0xab169`) | Explorer network configuration |
-| Published Chrome extension | `1.0.2`, updated 2026-09-24 | Chrome Web Store item `jajfgpnlaoakklhnnchdpiglmkkpcehj`, checked 2026-09-30 |
-| Published-version source | `imasssad/Thanos-Wallet` commit `38c88287af19433d34274604d9070d228d97bc0d` | Latest successful public [extension-release workflow](https://github.com/imasssad/Thanos-Wallet/actions/runs/35909170765) for `1.0.2`; declares `1.0.2`, EIP-6963, RDNS `fi.thanos.wallet`, `window.thanos`, and EIP-1193 signing |
+| Published Chrome extension | `1.0.10`, updated 2026-10-15 | Chrome Web Store item `jajfgpnlaoakklhnnchdpiglmkkpcehj`, checked 2026-10-18 |
+| Published-version source | `imasssad/Thanos-Wallet` commit `e1e134b03b96c0e896fc3fa4d7080da1a30248a2` | Latest successful public [extension-release workflow](https://github.com/imasssad/Thanos-Wallet/actions/runs/38638238001) for `1.0.10`; declares `1.0.10`, EIP-6963, RDNS `fi.thanos.wallet`, `window.thanos`, and EIP-1193 signing |
 | Explorer integration | EIP-6963 discovery plus verified `window.thanos` fallback | `Makalu/explorer/components/ThanosSignIn.tsx` |
 | Server authentication | Nonce-bound SIWE, one-time replay protection, HMAC bearer session | `Makalu/api/src/routes.ts` and focused tests |
 | Makalu session secret | Present, non-placeholder, and at least 32 characters | Value-free production-container check on 2026-08-14 |
 
 The upstream default branch may move beyond the Chrome Web Store release. Run acceptance only with published version
-`1.0.2` and the exact source commit pinned above. If the store version changes, re-pin the matching source commit
+`1.0.10` and the exact source commit pinned above. If the store version changes, re-pin the matching source commit
 and repeat the automated preflight before starting the manual matrix.
 
 Run the transaction-free baseline immediately before manual acceptance:
@@ -72,3 +72,9 @@ before the transaction scenario; the preflight does not authorize that transacti
 - Test date (UTC): `PENDING`
 - Acceptance evidence URL: `PENDING`
 - Decision: `PENDING`
+
+## 2026-10-18 baseline refresh
+
+The transaction-free preflight passed at `2026-10-18T15:41:42.458Z` against the published Chrome Web Store extension 1.0.10 (updated October 15). The matching successful upstream extension release is run `38638238001`, source `e1e134b03b96c0e896fc3fa4d7080da1a30248a2`. Later upstream builds are not assumed to be the store version.
+
+Provider markers, live sign-in HTTP 200, unauthenticated session rejection HTTP 401, and Makalu EVM chain ID 700777 passed. The current Makalu API retains its existing 64-character server session secret; its value was not read into logs or repository files. This does not complete the pending real-extension browser matrix, signed transaction, or wallet-team acceptance. No wallet was connected and no transaction was submitted.
