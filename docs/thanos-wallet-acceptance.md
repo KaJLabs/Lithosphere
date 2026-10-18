@@ -1,7 +1,7 @@
 # MX-03 Thanos Wallet acceptance
 
-Use this record to close the remaining wallet-team acceptance for the Makalu explorer. Do not mark MX-03 complete
-until every manual result and the approval record are filled with durable evidence.
+Status: engineering integration implemented and browser-tested; independent wallet-team acceptance remains open.
+Do not mark MX-03 accepted until the wallet-team approval record is completed.
 
 ## Verified baseline
 
@@ -34,44 +34,71 @@ message, or submit a transaction. The latest passing preflight timestamp is reco
 Record a screenshot, transaction URL, test-run URL, or other durable reference in the Evidence column. Never attach
 seed phrases, private keys, session tokens, or deployment secrets.
 
-Use a dedicated low-value acceptance wallet. The wallet team must approve the sender and maximum transaction amount
-before the transaction scenario; the preflight does not authorize that transaction.
+Use a dedicated low-value acceptance wallet. The client authorized the isolated test-wallet run through "Go ahead"
+and subsequent "continue" instructions on 2026-10-18. This authorized testnet execution, not wallet-team sign-off.
 
 | Scenario | Expected result | Result | Evidence |
 | --- | --- | --- | --- |
-| Fresh extension install | Thanos is detected; no other injected wallet is selected | PENDING | |
-| Late provider announcement | Thanos becomes available without a page reload | PENDING | |
-| Connection rejection | Explorer shows an actionable rejection and creates no session | PENDING | |
-| Signature rejection | Explorer shows cancellation and creates no session | PENDING | |
-| Wrong active chain | Explorer requests a switch to Makalu | PENDING | |
-| Makalu missing | Explorer requests adding Makalu, then switches successfully | PENDING | |
-| SIWE sign-in | Correct address is shown and `/api/auth/me` validates the session | PENDING | |
-| Nonce replay | Reusing the signed message is rejected | PENDING | |
-| Reconnect | The same authorized wallet reconnects correctly | PENDING | |
-| Sign out | Server-backed local session and explorer wallet state are cleared | PENDING | |
-| Extension restart | Valid session restores and is server-validated | PENDING | |
-| Browser restart | Valid session restores and is server-validated | PENDING | |
-| API restart | Existing session remains valid after the API restarts | PENDING | |
-| Low-value transaction | Thanos signs on chain `700777`; transaction succeeds and appears in Makalu Lithoscan | PENDING | |
+| Fresh extension install | Thanos is detected; no other injected wallet is selected | PASS after discovery fix | Official store 1.0.10 bundle, fresh isolated profile; `window.thanos.isThanos` verified |
+| Late provider announcement | Thanos becomes available without a page reload | Automated PASS | `test/auth.test.ts` late EIP-6963 announcement and injected fallback tests |
+| Connection rejection | Explorer shows an actionable rejection and creates no session | PASS | Real extension Reject; no `thanos_session` stored |
+| Signature rejection | Explorer shows cancellation and creates no session | PASS | Real extension Reject on PERSONAL_SIGN; actionable cancellation and no session |
+| Wrong active chain | Explorer requests a switch to Makalu | PASS | Started on Ethereum; switched to `0xab169` before signing |
+| Makalu missing | Supported setup allows switching to Makalu | PASS with limitation | Store 1.0.10 rejects automatic addition. Added custom network in Settings and restarted wallet; switch then succeeded |
+| SIWE sign-in | Correct address is shown and `/api/auth/me` validates the session | PASS | Real extension Approve & Sign; HTTP 200, address/chain verified |
+| Nonce replay | Reusing the signed message is rejected | PASS | Exact signed verify request replay returned HTTP 401 |
+| Reconnect | The same authorized wallet reconnects correctly | PASS | Page reload and repeated sign-in passed |
+| Sign out | Server-backed local session and explorer wallet state are cleared | PASS | Sign out cleared stored session; sign-in button restored |
+| Extension restart | Valid session restores and is server-validated | PASS | Popup close/reopen; complete extension/browser restart also exercised below |
+| Browser restart | Valid session restores and is server-validated | PASS | Persistent profile reopened; session HTTP 200 while extension itself correctly required unlock |
+| API restart | Existing session remains valid after the API restarts | PASS | Restarted only Makalu API; existing session remained HTTP 200 |
+| Low-value transaction | Thanos signs on chain `700777`; transaction succeeds and appears in Makalu Lithoscan | PASS | 0.001 LITHO self-transfer; receipt `0x1`, block 17,922,574 |
 
 ## Required transaction evidence
 
-- Transaction hash: `PENDING`
-- Lithoscan URL: `PENDING`
-- Sender public address: `PENDING`
-- Asset and approved amount: `PENDING`
-- Confirmed chain ID: `PENDING`
-- Confirmation timestamp (UTC): `PENDING`
+- Transaction hash: `0x9a7a0798b87d76496d27163b022e233e4b4f2d94fd2b94aca50624cedd5f35da`
+- Lithoscan URL: https://makalu.litho.ai/txs/0x9a7a0798b87d76496d27163b022e233e4b4f2d94fd2b94aca50624cedd5f35da
+- Sender/recipient public address: `0x57BcAeFE7E6353898B500c312aA0ccd4A99CaE5d` (fresh self-transfer wallet)
+- Asset and amount: `0.001 LITHO`, testnet only; funded by a single 1 LITHO faucet claim
+- Confirmed chain ID: `700777`
+- Block timestamp (UTC): `2026-10-18T16:12:56.172Z`
+- Funding transaction: `0x36423bedd42f5f59f35e98479776cd6613781937293d5afd0fa4f2da305cfeac`
 
 ## Approval record
 
 - Wallet-team approver: `PENDING`
 - Approver role or GitHub username: `PENDING`
-- Tested Chrome/Chromium version: `PENDING`
-- Tested Thanos version: `PENDING`
-- Test date (UTC): `PENDING`
+- Tested Chrome/Chromium version: `153.0.8010.12` (Playwright Chromium)
+- Tested Thanos version: `1.0.10`, official Google update-service CRX, loaded unpacked without modifying bundle files
+- Test date (UTC): `2026-10-18`
 - Acceptance evidence URL: `PENDING`
 - Decision: `PENDING`
+
+These are Codex-run engineering results. They do not impersonate wallet-team approval.
+
+## Discovery regression and deployment
+
+With the store extension enabled, the explorer's preference subscription repeatedly called Web3Modal's append-only
+`setConnectors`, triggering another notification indefinitely. A CPU profile and paused stack located the loop.
+The no-extension control loaded normally. A browser-only patch replacing connector registration with presentation
+reordering restored the page. The source fix reorders the controller's existing presentation array and reads current
+state when its microtask runs. A regression against the real Web3Modal controller failed before the fix and passed
+after it; late registrations retain their backing entries without duplication.
+
+Network tests also exposed that EIP-3085 does not guarantee switching after adding a chain. The explorer now switches
+explicitly after successful addition and explains unsupported automatic addition without calling it a cancelled
+signature. Thanos 1.0.10 primes custom networks on service-worker startup, so its setup guidance includes restarting
+the wallet after adding Makalu. This wallet limitation was not modified or hidden by the explorer tests.
+
+- Wallet/auth/discovery tests passed (15 total across the final focused suites).
+- Initial live fix: `f4f45a8ec398e831e2c54b6ca374a5d9541da69d`, [image publication](https://github.com/KaJLabs/Lithosphere/actions/runs/39143557867).
+- Final restart wording: `dcec45456a16080362afc5965e7091759bf7b4bb`, [image publication](https://github.com/KaJLabs/Lithosphere/actions/runs/39144175305).
+- API remains the QUANTTS release `14f0ad5a35912a74eacc7c9e7159aab8f5618e62`; only explorer images change for these UI fixes.
+- Store CRX SHA-256: `56bd8059be8a76f2c8ad08e5946342b3e6b3120689f90c9260457f2346c45339`.
+- Local evidence: `.inspection/thanos-acceptance-evidence.json`, `.inspection/thanos-live-signedin.png`, `.inspection/thanos-live-transaction.png`.
+
+No recovery phrase, private key, wallet password, session token or signed authentication payload is stored in these
+records. The browser harness kept secrets in memory and an access-restricted temporary encrypted-wallet profile.
 
 ## 2026-10-18 baseline refresh
 

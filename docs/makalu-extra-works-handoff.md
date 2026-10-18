@@ -142,7 +142,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | --- | --- | --- | --- | --- |
 | MX-06 | Validator cleanup and safety | Tracked three-node mainnet gates are evidenced; no separate Makalu-node cleanup scope is recorded | COMPLETE | Continue routine mainnet monitoring; obtain a Makalu inventory and owners if the client intends a distinct testnet cleanup. |
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
-| MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
+| MX-03 | Thanos Wallet | Discovery/network fixes deployed; real store-extension engineering checks and signed testnet transfer passed | EXTERNAL BLOCKER | Wallet team reviews the retained results and records its acceptance. |
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
 | MX-05 | QUANTTS | Partner market snapshots deployed and live-verified on Makalu | COMPLETE | Closed for market-snapshot scope; provider currently does not support LITHO. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
@@ -155,7 +155,7 @@ to the next executable stream without pretending the blocked stream is complete.
 
 1. [ ] **MX-01 MultX / Lithoswap** — consolidated 3-of-5 source accepted and five hosts baseline-prepared; custody, governance, operational readiness, paused deployment, canary, and activation approvals remain.
 2. [x] **MX-06 Validator cleanup and safety** — complete; the missing historical PR #17 window artifact is preserved and accepted through private PR #23 rather than reconstructed.
-3. [ ] **MX-03 Thanos Wallet** — deployed; waiting on wallet-team acceptance.
+3. [ ] **MX-03 Thanos Wallet** - engineering checks passed on 2026-10-18; wallet-team acceptance remains.
 4. [x] **MX-04 DNNS** — complete; authoritative documentation, live forward-confirmed reverse fixture, final smoke matrix, and named acceptance are recorded.
 5. [x] **MX-05 QUANTTS** - partner snapshots deployed and verified on Makalu on 2026-10-18.
 6. [ ] **MX-07 Developer toolchain** — separate major compiler/release program.
@@ -1912,3 +1912,12 @@ Append one entry whenever a material fact changes:
 - Chrome Web Store version 1.0.10 is pinned to upstream source `e1e134b03b96c0e896fc3fa4d7080da1a30248a2`, release run `38638238001`.
 - Transaction-free preflight passed at `2026-10-18T15:41:42.458Z`: provider markers, sign-in route, unauthenticated rejection and chain ID 700777.
 - Real-extension browser tests, signed Makalu transaction and wallet-team acceptance remain pending. No transaction was submitted.
+
+### 2026-10-18 - MX-03 real extension checks and discovery repair
+
+- Tested official Chrome Web Store Thanos 1.0.10 in an isolated Chromium 153.0.8010.12 profile.
+- Reproduced an infinite explorer connector-registration loop, added a real-controller regression, and deployed the presentation-order fix. Added custom-network guidance and a switch after successful chain addition.
+- Connection/signature rejection, SIWE, nonce replay rejection, reload/popup/browser/API restart checks, sign-out and Ethereum-to-Makalu recovery passed.
+- Thanos-signed 0.001 LITHO self-transfer succeeded at block 17,922,574: `0x9a7a0798b87d76496d27163b022e233e4b4f2d94fd2b94aca50624cedd5f35da`.
+- Store 1.0.10 requires Makalu to be added manually in Settings followed by a wallet restart. Automatic addition is unsupported.
+- Independent wallet-team sign-off remains pending. Evidence: `docs/thanos-wallet-acceptance.md`.
