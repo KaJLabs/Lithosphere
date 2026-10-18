@@ -144,7 +144,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
 | MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
-| MX-05 | Quantt | Approved `quantts.ai` boundary merged and deployed; adapter remains disabled | EXTERNAL BLOCKER | Obtain the exact API contract, credential, and product acceptance. |
+| MX-05 | QUANTTS | Partner market snapshots deployed and live-verified on Makalu | COMPLETE | Closed for market-snapshot scope; provider currently does not support LITHO. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
 | MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; KaJ Labs / Litho Foundation assigned the `@jkasr` / `@lithoagent` rotation to all RFC 0002 authorities; four tools remain specification-only and there is no deployable compiler/public release | EXTERNAL BLOCKER | The assigned rotation must resolve RFC 0002 rows L-01 through R-01 and the conformance-corpus change process before compiler or public-release work. |
 
@@ -157,7 +157,7 @@ to the next executable stream without pretending the blocked stream is complete.
 2. [x] **MX-06 Validator cleanup and safety** — complete; the missing historical PR #17 window artifact is preserved and accepted through private PR #23 rather than reconstructed.
 3. [ ] **MX-03 Thanos Wallet** — deployed; waiting on wallet-team acceptance.
 4. [x] **MX-04 DNNS** — complete; authoritative documentation, live forward-confirmed reverse fixture, final smoke matrix, and named acceptance are recorded.
-5. [ ] **MX-05 Quantt** — hostname correction deployed; waiting on the exact API contract, credential, and product acceptance.
+5. [x] **MX-05 QUANTTS** - partner snapshots deployed and verified on Makalu on 2026-10-18.
 6. [ ] **MX-07 Developer toolchain** — separate major compiler/release program.
 7. [ ] **MX-02 LEP100 faucet assets** — deferred by the client on 2026-08-23; retain safeguards and make no changes.
 
@@ -675,79 +675,28 @@ Evidence:
 - Forward-record transaction: `0x5556a0c008df708369a3db2c2ff0fb689fdbfe7429160ccb3c03ba53e554aebd`
 - Reverse-record transaction: `0xb32741c413c8567f4d18b13e2cd119b4f7fe382fca988ca0826390fa516f473b`
 
-## MX-05 — Quantt integration
+## MX-05 - QUANTTS integration
 
-**Owners:** Dev Infra + Quantt team + product owner
+**Status:** COMPLETE for the requested explorer market-snapshot integration.
 
-**Current state:** The credentials-safe server proxy, explorer page, provisional normalizer, tests, and OpenAPI paths
-are deployed. The live status endpoint reports `configured: false`. The research site returns HTTP 200. On
-2026-09-20 the owner confirmed `quantts.ai` as the correct hostname boundary; its apex and developer portal pass
-HTTPS hostname validation. Repository hardening removed guessed auth/path defaults and added the previously missing
-acceptance runbook. The adapter
-must remain fail-closed until the exact owner-approved contract and secret-manager credential are available. PR #88
-and protected run `31828985116` deployed the assumption-free gates as release
-`c01ec48472544270ec0716483e5a07bba947b079`. PR #194 then merged the approved hostname correction and protected run
-`35519157421` deployed release `bd21503968e85b949bfd26c7cb7023a1815c66e0`; all currently executable work is now
-externally blocked.
+The partner supplied the canonical API `https://api.quantts.ai`, the
+`X-Partner-Key` authentication contract and the market snapshot endpoint.
+The integration now runs at `https://makalu.litho.ai/quantt` from release
+`14f0ad5a35912a74eacc7c9e7159aab8f5618e62`.
 
-Completed or evidenced:
+- [x] Server-only credential, exact approved origin/path, redirect rejection, validated snapshot fields and bounded cache.
+- [x] Canonical research links, price/change/volume/source display and clear unsupported-symbol handling.
+- [x] API build, 7 API tests and 3 explorer tests passed; signed image publication and security gates passed.
+- [x] Private candidate checks passed before deployment; public version and configured status verified afterward.
+- [x] Live Chromium/WebKit dark/light mobile checks passed; no direct provider requests or page overflow.
+- [x] Existing explorer routes remained healthy; faucet and indexer were unchanged.
 
-- [x] HTTPS and owner-confirmed `quantts.ai` hostname allow-listing exist.
-- [x] Server-only authentication, symbol validation, bounded timeouts, and sanitized upstream errors exist.
-- [x] `/api/quantt/status`, `/api/quantt/insights`, `/quantt`, tests, and OpenAPI documentation exist.
-- [x] Live `/api/quantt/status` returns HTTP 200 and safely reports unconfigured (2026-08-03).
-- [x] Live status, research portal, developer DNS, and the mismatched certificate subject/SANs were reverified on
-      2026-08-14 without bypassing TLS for acceptance.
-- [x] The owner confirmed `quantts.ai` as the canonical hostname boundary on 2026-09-20; apex and developer portal
-      TLS checks pass.
-- [x] Activation now requires an explicit auth scheme and insights path instead of guessed defaults locally.
-- [x] Five focused Quantt tests, all 164 API tests, and the strict TypeScript build pass locally (2026-08-14).
-- [x] PR #88 passed all checks and merged as `c01ec48472544270ec0716483e5a07bba947b079` (2026-08-14).
-- [x] Protected deployment run `31828985116` passed image, deploy, and public health gates (2026-08-14).
-- [x] PR #194 passed all checks with a verified `bachal-mb` signature and merged as
-      `bd21503968e85b949bfd26c7cb7023a1815c66e0` (2026-09-20).
-- [x] Protected deployment run `35519157421` deployed that exact release and passed its public health gate.
-- [x] Live post-deployment checks show the corrected `https://dev.quantts.ai/` link while status remains safely
-      unconfigured with null origin and insights remain fail-closed with HTTP 503.
-- [x] Public release SHA, disabled status, null API origin, page HTTP 200, and insights HTTP 503 were reverified after
-      deployment.
+LITHO is not currently a supported provider symbol. BTC works. Agents and trade
+decisions are outside this market-snapshot scope. The obsolete `quantt.at`
+TLS issue is superseded by the provider-confirmed canonical domain.
 
-External inputs required:
-
-- [ ] Exact production and development API base URLs beneath `quantts.ai`.
-- [ ] Authentication scheme and a secret-store-delivered credential.
-- [ ] Approved endpoint paths, request parameters, and versioned response schemas.
-- [ ] Product decision on which analytics/research data is displayed.
-- [ ] Rate limits, cache/redistribution policy, attribution, and retention guidance.
-
-Remaining actions after inputs arrive:
-
-- [ ] Add schema validation and contract fixtures for approved responses.
-- [ ] Configure secrets in staging without placing keys in client bundles, files, or logs.
-- [ ] Validate reference symbols, empty results, rate limits, timeouts, and upstream failures.
-- [ ] Promote configuration to Makalu and monitor error/cache behavior.
-- [ ] Obtain Quantt and product-owner acceptance.
-
-Acceptance criteria:
-
-- [ ] Live status reports configured without exposing secrets.
-- [ ] Approved reference responses render correctly and malformed responses fail closed.
-- [ ] TLS, authentication, rate limiting, caching, retention, and attribution meet the Quantt contract.
-- [ ] Quantt and product approvers, schema/version, date, and evidence are recorded.
-
-Evidence:
-
-- `Makalu/api/src/quantt.ts`
-- `Makalu/api/src/__tests__/quantt.test.ts`
-- `Makalu/explorer/lib/quantt.ts`
-- `Makalu/explorer/pages/quantt.tsx`
-- `docs/integrations/quantt.md`
-- Live probe: `https://makalu.litho.ai/api/quantt/status`
-- Public sites: `https://research.quantt.at/`, `https://dev.quantts.ai/`
-- Review PR: `https://github.com/KaJLabs/Lithosphere/pull/88`
-- Deployment run: `https://github.com/KaJLabs/Lithosphere/actions/runs/31828985116`
-- Hostname correction PR: `https://github.com/KaJLabs/Lithosphere/pull/194`
-- Hostname correction deployment: `https://github.com/KaJLabs/Lithosphere/actions/runs/35519157421`
+Deployment digests, build links and operational/rollback evidence:
+[QUANTTS integration](integrations/quantt.md#makalu-activation---2026-10-18).
 
 ## MX-06 — Validator infrastructure cleanup
 
@@ -1950,3 +1899,10 @@ Append one entry whenever a material fact changes:
 - Remaining blocker or next action:
 - Updated by:
 ```
+
+### 2026-10-18 - MX-05 QUANTTS activated on Makalu
+
+- Deployed `14f0ad5a35912a74eacc7c9e7159aab8f5618e62` to the live Makalu API/explorer using immutable digests.
+- Public BTC snapshot, unsupported-symbol handling and Chromium/WebKit checks passed.
+- Changed MX-05 from external blocker to complete for market snapshots; no faucet, indexer or chain changes.
+- Evidence: `docs/integrations/quantt.md`, image runs `39141325314` and `39141328299`.
