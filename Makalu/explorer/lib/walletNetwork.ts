@@ -43,7 +43,7 @@ export async function ensureExplorerNetwork(provider: WalletRequestProvider): Pr
       const message = typeof addError === 'object' && addError !== null && 'message' in addError
         ? String(addError.message) : '';
       if (walletErrorCode(addError) === 4001 && /unsupported network/i.test(message)) {
-        throw new Error(`Add ${NETWORK.name} as a custom network in your wallet Settings using RPC ${NETWORK.rpcUrl} and chain ID ${NETWORK.evmChainId}, then try again.`);
+        throw new Error(`Add ${NETWORK.name} as a custom network in your wallet Settings using RPC ${NETWORK.rpcUrl} and chain ID ${NETWORK.evmChainId}, then restart the wallet and try again.`);
       }
       throw addError;
     }
