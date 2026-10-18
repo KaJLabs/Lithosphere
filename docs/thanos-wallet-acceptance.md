@@ -93,6 +93,7 @@ the wallet after adding Makalu. This wallet limitation was not modified or hidde
 - Wallet/auth/discovery tests passed (15 total across the final focused suites).
 - Initial live fix: `f4f45a8ec398e831e2c54b6ca374a5d9541da69d`, [image publication](https://github.com/KaJLabs/Lithosphere/actions/runs/39143557867).
 - Final restart wording: `dcec45456a16080362afc5965e7091759bf7b4bb`, [image publication](https://github.com/KaJLabs/Lithosphere/actions/runs/39144175305).
+- Final immutable explorer image: `ghcr.io/kajlabs/lithosphere-explorer@sha256:35d8ab5e5cce3a1d224357bd8cb23bf2e558632706e769f3752a3efd6b93b28c`. Deployed and healthy; real-extension sign-in repeated successfully against this unmodified live release. Prior compose/image retained under `/opt/lithoscan/releases/thanos-dcec454/` for rollback.
 - API remains the QUANTTS release `14f0ad5a35912a74eacc7c9e7159aab8f5618e62`; only explorer images change for these UI fixes.
 - Store CRX SHA-256: `56bd8059be8a76f2c8ad08e5946342b3e6b3120689f90c9260457f2346c45339`.
 - Local evidence: `.inspection/thanos-acceptance-evidence.json`, `.inspection/thanos-live-signedin.png`, `.inspection/thanos-live-transaction.png`.
