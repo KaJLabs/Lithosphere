@@ -146,7 +146,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
 | MX-05 | QUANTTS | Partner market snapshots deployed and live-verified on Makalu | COMPLETE | Closed for market-snapshot scope; provider currently does not support LITHO. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
-| MX-07 | Developer toolchain | Executable EVM/native candidates exist; R6.2 capture amendment passes 66 tests on Windows/Linux; benchmark access restored and host idle; full release remains open | EXTERNAL BLOCKER | Resolve the exact R6.2 review/execution disposition and verify live isolation/pins before any bounded rerun. |
+| MX-07 | Developer toolchain | R6.2 fresh-directory revision passes 68 Windows/Linux tests; all 67 host baseline hashes match; benchmark host idle; full release remains open | EXTERNAL BLOCKER | Obtain Amir Dev's exact Foundation approval reference for the fresh-directory packet, then perform the conditional one-shot preparation/diagnostic. |
 
 ## Sequential closure queue
 
@@ -913,6 +913,15 @@ passed all 66 offline tests on both Windows Python 3.13.7 and Linux Python 3.12.
 review. No R6.2 staging, funding, diagnostic or full-block run occurred in this task. Private host/access records
 remain in the operator workspace.
 
+After access restoration, all 67 immutable server baseline hashes matched at `2026-10-18T17:38:32Z`; the host was
+idle. The original R6.2 packet still targeted the used R6.1 directory. A new review revision changes only its common
+module's destination to a fresh directory, with derived pins/templates and two actual-preparation guard tests.
+The funding runner, workload, baseline hashes and bounds remain unchanged. All 68 tests pass on Windows and Linux.
+Candidate SHA-256: `80cd58bd8fb52baf9f5f8eed33885bfcc7d008bf5e549f170952de1083943f45`; pins-object SHA-256:
+`739697ca3cc65c7e8565ff20df2ef4e5fa7989ed0f4cccff1191907aa799b860`. The review packet is retained privately with
+SHA-256 `99427251ece0c9fe9e7a65adf5700e81189f2a30f9932469ed9c09328295a0b3`. The existing runner names Amir Dev
+for Foundation approval; the exact reference covering this new revision was requested. Both templates remain pending.
+
 Primary evidence: Lithic `docs/IMPLEMENTATION_STATUS.md`, `docs/PRODUCTION_GAP_MATRIX.md`,
 `docs/ISOLATED_FULL_BLOCK_BENCHMARK_APPROVAL.md`, and `docs/LTH_R2_RESPONSE_2026_10_01.md` at the pinned draft head.
 LTH-06 source alignment/retest, R3 security acceptance, coordinated store cutover, signed Makalu evidence,
@@ -1070,6 +1079,7 @@ Evidence:
 | 2026-10-18 | Lithic next-work verification | PREPARATION PASS, HOST INPUT OPEN | Draft #13 head `f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce` is retrievable; 13 preparation/package tests passed. Finite isolated full-block approval is already recorded, but the dedicated host identifier is missing from this workspace. No full-block benchmark or node launch occurred. |
 | 2026-10-18 | Lithic latest local state reconciliation | R6.2 OFFLINE PASS, ACCESS BLOCKED | Recovered the original operator working area, dedicated host and matching historical fingerprint. Existing SSH authentication is rejected. Latest R6.1 funding stop and consumed attempt are preserved; all 66 R6.2 tests passed on Windows/Linux, with original archives unchanged. No server workload ran. This supersedes the earlier missing-host entry. |
 | 2026-10-18 | Lithic benchmark access restoration | PASS, HOST IDLE | Updated user-supplied local credential authenticated against the pinned host. Benchmark workspace and expected CPU/RAM class are present; only SSH/local resolver listeners and no node/tracer processes were observed. No node or workload started. This closes the earlier access blocker; exact R6.2 disposition remains open. |
+| 2026-10-18 | Lithic R6.2 fresh-directory revision | PREPARED, FOUNDATION REVIEW OPEN | All 67 host baseline hashes match. The used-home reference was corrected in a new immutable candidate, preserving the funding runner and bounds. All 68 tests pass on Windows/Linux; 51 candidate and 11 review-packet entries verify. No staging or execution occurred. |
 | 2026-10-18 | Makalu infrastructure cleanup | COMPLETE | Private PR #34 merged as `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`; scoped routing/ingress checks and 17 health snapshots across 609 seconds passed without a node restart. Makalu advanced 17,924,445 to 17,925,099. Existing public Kamet TLS failures are separate from its healthy gateway origin. |
 | 2026-08-03 | Live Makalu config | PASS | HTTP 200; faucet and bridge enabled, swap disabled. |
 | 2026-08-03 | Live faucet inventory | BLOCKED | Native LITHO funded; all ten LEP100 assets below the ten-token minimum. |
