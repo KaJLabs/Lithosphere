@@ -146,7 +146,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
 | MX-05 | QUANTTS | Partner market snapshots deployed and live-verified on Makalu | COMPLETE | Closed for market-snapshot scope; provider currently does not support LITHO. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
-| MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; KaJ Labs / Litho Foundation assigned the `@jkasr` / `@lithoagent` rotation to all RFC 0002 authorities; four tools remain specification-only and there is no deployable compiler/public release | EXTERNAL BLOCKER | The assigned rotation must resolve RFC 0002 rows L-01 through R-01 and the conformance-corpus change process before compiler or public-release work. |
+| MX-07 | Developer toolchain | Lithic draft #13 has executable EVM/native compiler paths and isolated runtime evidence; the finite full-block benchmark is approved; full release remains open | EXTERNAL BLOCKER | Obtain the dedicated benchmark VPS host identifier, verify the pinned isolated environment, then complete the approved full-block workload and remaining source/security/release gates. |
 
 ## Sequential closure queue
 
@@ -882,7 +882,30 @@ Evidence:
 
 **Owners:** Lithic/compiler team + Dev Infra/release owner + Security reviewer
 
-**Current state:** All eight public binary boundaries have now been reviewed and merged with three-OS CI coverage.
+**Current state (reverified 2026-10-18):** The primary compiler candidate is now
+[`KaJLabs/Lithic` draft PR #13](https://github.com/KaJLabs/Lithic/pull/13), fork head
+`f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce`. It has executable EVM/native compiler paths,
+native v11 token operations plus v12/v13/v14 string, synchronous-call and child-creation candidates, and isolated
+chain/store evidence. `lithic-v0.2.0-preview.3` is a prerelease, not a full production toolchain release.
+The newer source therefore supersedes the old declaration-only compiler status below. `lithdev` is still a
+placeholder in Lithic, and `lithls`, `lithtest`, `lithsec`, and `lithpkg` remain specification-only.
+
+The finite isolated full-block benchmark was already conditionally approved on 2026-10-01 by Amir Dev for
+Lithosphere Foundation. The recorded scope is 100 consecutive blocks at each 10/25/50/75/100% utilization point,
+warm/cold state, 1k/10k/100k holders/allowances/mixed state, required success/failure/log/deployment cases, and
+execution/commit/CPU/RSS/DB-I/O/growth measurements within 100M gas / 21M bytes per block. It uses only the dedicated
+synthetic chain and approved isolated host. This is not approval of economics, live Makalu activation or a release.
+The current workspace lacks that host's identifier; it was requested from the operator. No benchmark node was
+started. All 13 existing preparation, pre-key isolation and deterministic review-package tests passed in WSL
+Python 3.12.3 against this source. These tests are not full-block results or source-pin/security closure.
+
+Primary evidence: Lithic `docs/IMPLEMENTATION_STATUS.md`, `docs/PRODUCTION_GAP_MATRIX.md`,
+`docs/ISOLATED_FULL_BLOCK_BENCHMARK_APPROVAL.md`, and `docs/LTH_R2_RESPONSE_2026_10_01.md` at the pinned draft head.
+LTH-06 source alignment/retest, R3 security acceptance, coordinated store cutover, signed Makalu evidence,
+remaining tools and a signed reproducible release are still open. RFC 0002 issue #204 still records only owner
+assignment; this draft evidence does not silently accept its stable language/release decisions.
+
+**Historical Lithosphere scaffold baseline:** All eight public binary boundaries were reviewed and merged with three-OS CI coverage.
 Four are deliberately specification-only because their required semantics have not been approved. PR #111 committed
 the workspace lockfile, added one declaration-front-end example, and merged checksummed, 14-day, non-release preview
 archives with explicit capability manifests and packaged-command checks on Linux, Windows, and macOS. The local draft
@@ -1030,6 +1053,7 @@ Evidence:
 
 | Date (PKT) | Surface | Result | Notes |
 | --- | --- | --- | --- |
+| 2026-10-18 | Lithic next-work verification | PREPARATION PASS, HOST INPUT OPEN | Draft #13 head `f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce` is retrievable; 13 preparation/package tests passed. Finite isolated full-block approval is already recorded, but the dedicated host identifier is missing from this workspace. No full-block benchmark or node launch occurred. |
 | 2026-10-18 | Makalu infrastructure cleanup | COMPLETE | Private PR #34 merged as `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`; scoped routing/ingress checks and 17 health snapshots across 609 seconds passed without a node restart. Makalu advanced 17,924,445 to 17,925,099. Existing public Kamet TLS failures are separate from its healthy gateway origin. |
 | 2026-08-03 | Live Makalu config | PASS | HTTP 200; faucet and bridge enabled, swap disabled. |
 | 2026-08-03 | Live faucet inventory | BLOCKED | Native LITHO funded; all ten LEP100 assets below the ten-token minimum. |
@@ -1939,3 +1963,9 @@ Append one entry whenever a material fact changes:
 - Verified the active Makalu inventory, removed two dead standby routes, and restricted five raw sentry RPC ports to the gateway and loopback. Gateway/loopback access, outside-client blocking and P2P checks passed. Boot persistence was enabled after verification and the timed rollback was canceled.
 - All 17 health snapshots across 609 seconds passed; Makalu advanced 654 blocks while caught up and peered. Mainnet and Kamet origin heights also advanced. No node restart, consensus change or signing-state change occurred.
 - Public Kamet RPC TLS failure was reproduced before deployment; its TLS-verified origin remained healthy. This unrelated issue is recorded separately. Private host inventory and rollback details remain in the private infrastructure repository.
+
+### 2026-10-18 - MX-07 current source and approved next workload verified
+
+- Corrected the stale declaration-only compiler summary against the published Lithic draft head `f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce`; executable compiler/runtime candidates exist, while full toolchain/release acceptance remains open.
+- Located the existing Foundation approval for the finite isolated full-block benchmark. Requested only the dedicated host identifier needed to resume that work; no additional approval was requested.
+- Ran all 13 existing preparation/isolation/package tests successfully on WSL Python 3.12.3. No synthetic validator keys, node start, full-block run, live-chain change or release occurred.
