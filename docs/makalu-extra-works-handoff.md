@@ -140,7 +140,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 
 | ID | Workstream | Current gate | Status | Immediate next action |
 | --- | --- | --- | --- | --- |
-| MX-06 | Validator cleanup and safety | Tracked three-node mainnet gates are evidenced; no separate Makalu-node cleanup scope is recorded | COMPLETE | Continue routine mainnet monitoring; obtain a Makalu inventory and owners if the client intends a distinct testnet cleanup. |
+| MX-06 | Validator cleanup and safety | Mainnet controls complete; Makalu scoped routing/ingress cleanup deployed and verified | COMPLETE | Continue routine monitoring; deployment receipt is retained in private-infra PR #34. |
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
 | MX-03 | Thanos Wallet | Discovery/network fixes deployed; real store-extension engineering checks and signed testnet transfer passed | EXTERNAL BLOCKER | Wallet team reviews the retained results and records its acceptance. |
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
@@ -154,7 +154,7 @@ Only one repository stream is active at a time. An external blocker is recorded 
 to the next executable stream without pretending the blocked stream is complete.
 
 1. [ ] **MX-01 MultX / Lithoswap** — consolidated 3-of-5 source accepted and five hosts baseline-prepared; custody, governance, operational readiness, paused deployment, canary, and activation approvals remain.
-2. [x] **MX-06 Validator cleanup and safety** — complete; the missing historical PR #17 window artifact is preserved and accepted through private PR #23 rather than reconstructed.
+2. [x] **MX-06 Validator cleanup and safety** — mainnet complete through private PR #23; Makalu cleanup deployed through private PR #34 and verified with 17 health snapshots across 609 seconds.
 3. [ ] **MX-03 Thanos Wallet** - engineering checks passed on 2026-10-18; wallet-team acceptance remains.
 4. [x] **MX-04 DNNS** — complete; authoritative documentation, live forward-confirmed reverse fixture, final smoke matrix, and named acceptance are recorded.
 5. [x] **MX-05 QUANTTS** - partner snapshots deployed and verified on Makalu on 2026-10-18.
@@ -702,8 +702,18 @@ Deployment digests, build links and operational/rollback evidence:
 
 **Owners:** Validator Infra team + Chain team + CAB/change approver; Dev Infra owns the audit helper
 
-**Current state:** The audit helper and rolling-cleanup material still require the authoritative private inventory and
-an approved cleanup window. The mainnet safety foundation is active: restricted `lithomonitor` access is installed on
+**Current state:** The distinct Makalu cleanup was approved and deployed on 2026-10-18 through private-infra PR #34,
+merge `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`. The active Makalu inventory is verified, dead EVM/REST standby routes
+were removed, and the sentry's five raw RPC ports now accept gateway and loopback consumers only. Gateway access,
+outside-client blocking, P2P, chain identity/progression and fresh explorer indexing passed. The guard is active and
+enabled, with rollback backups retained. No validator/sentry restart, signing-state change or validator-set change
+occurred. Preserve Makalu's matching 900ms consensus profile; the historical mainnet 500ms policy below does not
+apply to Makalu. All 17 post-change snapshots across 609 seconds passed: Makalu advanced 17,924,445 to 17,925,099,
+remained caught up with one peer, and the Mainnet/Kamet origin heights also advanced. Existing Kamet public TLS failures are separate;
+its TLS-verified gateway origin remains healthy. The private inventory and detailed deployment record stay in the
+private infrastructure repository.
+
+The historical mainnet safety foundation is active: restricted `lithomonitor` access is installed on
 the validator and both sentries, pinned host fingerprints were confirmed, and scheduled chain progression checks are
 passing. PR #139 upgraded the signing-state control to two independent recipients. Protected run `33489075548`
 captured and independently encrypted height `5,776,198`; the retained manifest contains two distinct recipient
@@ -1020,6 +1030,7 @@ Evidence:
 
 | Date (PKT) | Surface | Result | Notes |
 | --- | --- | --- | --- |
+| 2026-10-18 | Makalu infrastructure cleanup | COMPLETE | Private PR #34 merged as `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`; scoped routing/ingress checks and 17 health snapshots across 609 seconds passed without a node restart. Makalu advanced 17,924,445 to 17,925,099. Existing public Kamet TLS failures are separate from its healthy gateway origin. |
 | 2026-08-03 | Live Makalu config | PASS | HTTP 200; faucet and bridge enabled, swap disabled. |
 | 2026-08-03 | Live faucet inventory | BLOCKED | Native LITHO funded; all ten LEP100 assets below the ten-token minimum. |
 | 2026-08-03 | Live Quantt status | BLOCKED | HTTP 200; adapter deployed, `configured: false`. |
@@ -1921,3 +1932,10 @@ Append one entry whenever a material fact changes:
 - Thanos-signed 0.001 LITHO self-transfer succeeded at block 17,922,574: `0x9a7a0798b87d76496d27163b022e233e4b4f2d94fd2b94aca50624cedd5f35da`.
 - Store 1.0.10 requires Makalu to be added manually in Settings followed by a wallet restart. Automatic addition is unsupported.
 - Independent wallet-team sign-off remains pending. Evidence: `docs/thanos-wallet-acceptance.md`.
+
+### 2026-10-18 - MX-06 distinct Makalu cleanup deployed and verified
+
+- Dev Infra ownership, immediate execution and independent KaJ Labs review were explicitly confirmed in the operator conversation. Private-infra PR #34 merged as `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`.
+- Verified the active Makalu inventory, removed two dead standby routes, and restricted five raw sentry RPC ports to the gateway and loopback. Gateway/loopback access, outside-client blocking and P2P checks passed. Boot persistence was enabled after verification and the timed rollback was canceled.
+- All 17 health snapshots across 609 seconds passed; Makalu advanced 654 blocks while caught up and peered. Mainnet and Kamet origin heights also advanced. No node restart, consensus change or signing-state change occurred.
+- Public Kamet RPC TLS failure was reproduced before deployment; its TLS-verified origin remained healthy. This unrelated issue is recorded separately. Private host inventory and rollback details remain in the private infrastructure repository.
