@@ -5,7 +5,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"runtime/debug"
 	"strconv"
 	"testing"
 	"time"
@@ -293,7 +292,8 @@ func TestLoadVersion(t *testing.T) {
 }
 
 func TestZeroCopy(t *testing.T) {
-	db, err := Load(t.TempDir(), Options{InitialStores: []string{"test", "test2"}, CreateIfMissing: true, ZeroCopy: true})
+	dir := t.TempDir()
+	db, err := Load(dir, Options{InitialStores: []string{"test", "test2"}, CreateIfMissing: true, ZeroCopy: true})
 	require.NoError(t, err)
 	require.NoError(t, db.ApplyChangeSets([]*NamedChangeSet{
 		{Name: "test", Changeset: ChangeSets[0]},
@@ -327,12 +327,12 @@ func TestZeroCopy(t *testing.T) {
 
 	require.Equal(t, []byte("world"), valueCloned)
 
-	// accessing the zero-copy value after the db is closed triggers segment fault.
-	// reset global panic on fault setting after function finished
-	defer debug.SetPanicOnFault(debug.SetPanicOnFault(true))
-	require.Panics(t, func() {
-		require.Equal(t, []byte("world"), value)
-	})
+	// A zero-copy slice is invalid after Close. Dereferencing it is not a
+	// reliable fault test: the OS/runtime may already have reused its address.
+	// Check release of this snapshot's mappings without touching freed memory.
+	mappings, err := os.ReadFile("/proc/self/maps")
+	require.NoError(t, err)
+	require.NotContains(t, string(mappings), dir+string(os.PathSeparator))
 
 	// it's ok to access after db closed
 	_ = commitInfo.StoreInfos[0].CommitId.Hash[0]

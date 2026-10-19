@@ -1,0 +1,264 @@
+{
+  "reviewedDate": "2026-10-20",
+  "reviewExpires": "2026-11-19",
+  "owner": "KaJ Labs chain engineering",
+  "reviewKind": "Developer source triage; independent acceptance remains required",
+  "queries": [
+    {
+      "module": "github.com/evmos/go-ethereum",
+      "version": "v1.10.26-evmos-rc4",
+      "reviewedMatches": []
+    },
+    {
+      "module": "github.com/ethereum/go-ethereum",
+      "version": "v1.10.26",
+      "reviewedMatches": [
+        "GHSA-2gjw-fg97-vg3r",
+        "GHSA-4xc9-8hmq-j652",
+        "GHSA-689v-6xwf-5jf3",
+        "GHSA-m6j8-rg6r-7mv8",
+        "GHSA-mq3p-rrmp-79jg",
+        "GHSA-mr7q-c9w9-wh4h",
+        "GHSA-ppjg-v974-84cm",
+        "GHSA-v9jh-j8px-98vq",
+        "GO-2023-2046",
+        "GO-2024-2819",
+        "GO-2026-4314",
+        "GO-2026-4315",
+        "GO-2026-4507",
+        "GO-2026-4508",
+        "GO-2026-4511"
+      ]
+    },
+    {
+      "module": "github.com/cosmos/cosmos-sdk",
+      "version": "v0.50.14",
+      "reviewedMatches": [
+        "GO-2023-1821",
+        "GO-2023-1881"
+      ]
+    },
+    {
+      "module": "github.com/cometbft/cometbft",
+      "version": "v0.38.22",
+      "reviewedMatches": [
+        "GO-2025-3442"
+      ]
+    }
+  ],
+  "dispositions": {
+    "GHSA-2gjw-fg97-vg3r": {
+      "summary": "Go Ethereum affected by DoS via malicious p2p message",
+      "status": "backported",
+      "reason": "Upstream 895a8597 coordinate guards backported to the old Go and C APIs. Failing-before/passing-after regressions retained.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-2gjw-fg97-vg3r",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-26314",
+        "https://github.com/ethereum/go-ethereum/commit/895a8597cb16c02203e38707ed2d1da5c500fe60",
+        "https://github.com/ethereum/go-ethereum",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.16.9",
+        "https://pkg.go.dev/vuln/GO-2026-4507"
+      ]
+    },
+    "GHSA-4xc9-8hmq-j652": {
+      "summary": "go-ethereum vulnerable to DoS via malicious p2p message",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-4xc9-8hmq-j652",
+        "https://nvd.nist.gov/vuln/detail/CVE-2024-32972",
+        "https://github.com/advisories/GHSA-4xc9-8hmq-j652",
+        "https://github.com/ethereum/go-ethereum",
+        "https://github.com/ethereum/go-ethereum/compare/v1.13.14...v1.13.15"
+      ]
+    },
+    "GHSA-689v-6xwf-5jf3": {
+      "summary": "Go Ethereum affected by DoS via malicious p2p message",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-689v-6xwf-5jf3",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-26313",
+        "https://github.com/ethereum/go-ethereum",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.17.0",
+        "https://pkg.go.dev/vuln/GO-2026-4508"
+      ]
+    },
+    "GHSA-m6j8-rg6r-7mv8": {
+      "summary": "Go Ethereum Improperly Validates the ECIES Public Key in RLPx Handshake",
+      "status": "backported; not in node imports",
+      "reason": "Upstream 46bee92f ECIES key validation backported. ECIES is not imported by cmd/evmosd. Invalid-point and pure-Go regressions pass.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-m6j8-rg6r-7mv8",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-26315",
+        "https://github.com/ethereum/go-ethereum/pull/33669",
+        "https://github.com/ethereum/go-ethereum/commit/46bee92f9e64c0a06a12586a5d21cffc49d1ba8e",
+        "https://github.com/ethereum/go-ethereum",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.16.9",
+        "https://pkg.go.dev/vuln/GO-2026-4511"
+      ]
+    },
+    "GHSA-mq3p-rrmp-79jg": {
+      "summary": "go-ethereum is vulnerable to high CPU usage leading to DoS via malicious p2p message",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-mq3p-rrmp-79jg",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-22868",
+        "https://github.com/ethereum/go-ethereum/commit/abeb78c647e354ed922726a1d719ac7bc64a07e2",
+        "https://github.com/ethereum/go-ethereum"
+      ]
+    },
+    "GHSA-mr7q-c9w9-wh4h": {
+      "summary": "go-ethereum is vulnerable to DoS via malicious p2p message affecting a vulnerable node",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-mr7q-c9w9-wh4h",
+        "https://nvd.nist.gov/vuln/detail/CVE-2026-22862",
+        "https://github.com/ethereum/go-ethereum/commit/abeb78c647e354ed922726a1d719ac7bc64a07e2",
+        "https://github.com/ethereum/go-ethereum"
+      ]
+    },
+    "GHSA-ppjg-v974-84cm": {
+      "summary": "Go-Ethereum vulnerable to denial of service via malicious p2p message",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-ppjg-v974-84cm",
+        "https://nvd.nist.gov/vuln/detail/CVE-2023-40591",
+        "https://geth.ethereum.org/docs/developers/geth-developer/disclosures",
+        "https://github.com/ethereum/go-ethereum",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.12.1"
+      ]
+    },
+    "GHSA-v9jh-j8px-98vq": {
+      "summary": "go-ethereum vulnerable to denial of service via crafted GraphQL query",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://nvd.nist.gov/vuln/detail/CVE-2023-42319",
+        "https://blog.mevsec.com/posts/geth-dos-with-graphql",
+        "https://geth.ethereum.org/docs/fundamentals/security",
+        "https://github.com/ethereum/go-ethereum"
+      ]
+    },
+    "GO-2023-1821": {
+      "summary": "The x/crisis package does not cause chain halt in github.com/cosmos/cosmos-sdk",
+      "status": "disabled runtime module",
+      "reason": "x/crisis is imported for a legacy CLI flag but absent from app module managers and genesis. TestLITHOCrisisModuleUnavailable guards that disposition. No upstream fix claimed.",
+      "references": [
+        "https://github.com/cosmos/cosmos-sdk/security/advisories/GHSA-qfc5-6r3j-jj22",
+        "https://github.com/cosmos/cosmos-sdk/issues/15325",
+        "https://github.com/cosmos/cosmos-sdk/issues/15706"
+      ]
+    },
+    "GO-2023-1881": {
+      "summary": "The x/crisis package does not charge ConstantFee in github.com/cosmos/cosmos-sdk",
+      "status": "disabled runtime module",
+      "reason": "x/crisis is imported for a legacy CLI flag but absent from app module managers and genesis. TestLITHOCrisisModuleUnavailable guards that disposition. No upstream fix claimed.",
+      "references": [
+        "https://github.com/cosmos/cosmos-sdk/security/advisories/GHSA-w5w5-2882-47pc",
+        "https://github.com/cosmos/cosmos-sdk/issues/15706"
+      ]
+    },
+    "GO-2023-2046": {
+      "summary": "Unbounded memory consumption in github.com/ethereum/go-ethereum",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-ppjg-v974-84cm"
+      ]
+    },
+    "GO-2024-2819": {
+      "summary": "Denial of Service in github.com/ethereum/go-ethereum",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/advisories/GHSA-4xc9-8hmq-j652"
+      ]
+    },
+    "GO-2025-3442": {
+      "summary": "CometBFT allows a malicious peer to make node stuck in blocksync in github.com/cometbft/cometbft",
+      "status": "patched ancestry; other affected package absent",
+      "reason": "The 0.38 blocksync package was patched in 0.38.17; source is 0.38.22. The broad version match is for internal/blocksync on a different release line; that package is absent.",
+      "references": [
+        "https://github.com/cometbft/cometbft/security/advisories/GHSA-22qq-3xwm-r5x4",
+        "https://github.com/cometbft/cometbft/commit/0ee80cd609c7ae9fe856bdd1c6d38553fdae90ce",
+        "https://github.com/cometbft/cometbft/commit/2cebfde06ae5073c0b296a9d2ca6ab4b95397ea5",
+        "https://github.com/cometbft/cometbft/releases/tag/v0.38.17",
+        "https://github.com/cometbft/cometbft/releases/tag/v1.0.1"
+      ]
+    },
+    "GO-2026-4314": {
+      "summary": "High CPU usage leading to DoS via malicious p2p message in github.com/ethereum/go-ethereum",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-mq3p-rrmp-79jg",
+        "https://github.com/ethereum/go-ethereum/commit/abeb78c647e354ed922726a1d719ac7bc64a07e2"
+      ]
+    },
+    "GO-2026-4315": {
+      "summary": "DoS via malicious p2p message affecting a vulnerable node in github.com/ethereum/go-ethereum",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-mr7q-c9w9-wh4h",
+        "https://github.com/ethereum/go-ethereum/commit/abeb78c647e354ed922726a1d719ac7bc64a07e2"
+      ]
+    },
+    "GO-2026-4507": {
+      "summary": "Go Ethereum affected by crash via malicious p2p message in github.com/ethereum/go-ethereum",
+      "status": "backported",
+      "reason": "Upstream 895a8597 coordinate guards backported to the old Go and C APIs. Failing-before/passing-after regressions retained.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-2gjw-fg97-vg3r",
+        "https://github.com/ethereum/go-ethereum/commit/895a8597cb16c02203e38707ed2d1da5c500fe60",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.16.9"
+      ]
+    },
+    "GO-2026-4508": {
+      "summary": "Go Ethereum affected by DoS via malicious p2p message in github.com/ethereum/go-ethereum",
+      "status": "affected service not compiled",
+      "reason": "The published advisory concerns the upstream Ethereum devp2p/RLPx/ETH protocol or GraphQL service. None is imported by the node. Only p2p/netutil is included; it is not the geth peer server. Re-review if enabling those services.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-689v-6xwf-5jf3",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.17.0"
+      ]
+    },
+    "GO-2026-4511": {
+      "summary": "Go Ethereum Improperly Validates the ECIES Public Key in RLPx Handshake in github.com/ethereum/go-ethereum",
+      "status": "backported; not in node imports",
+      "reason": "Upstream 46bee92f ECIES key validation backported. ECIES is not imported by cmd/evmosd. Invalid-point and pure-Go regressions pass.",
+      "references": [
+        "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-m6j8-rg6r-7mv8",
+        "https://github.com/ethereum/go-ethereum/commit/46bee92f9e64c0a06a12586a5d21cffc49d1ba8e",
+        "https://github.com/ethereum/go-ethereum/pull/33669",
+        "https://github.com/ethereum/go-ethereum/releases/tag/v1.16.9"
+      ]
+    }
+  },
+  "sourceGuards": {
+    "node/app/app.go": "079a9fac8743af7072c661f304c636712acda40ee37f7378b2712a9a267bcd7b",
+    "node/app/litho_security_exposure_test.go": "e6ac1ac52263799d438e193cd5afcc249c993e0479f9e6c7c23f5f9b921a3e89",
+    "geth/crypto/secp256k1/curve.go": "c57d90ca76c8c1409f11390d9059f8a3a240c9f245aaee1f610395c46ba8d9a7",
+    "geth/crypto/secp256k1/ext.h": "5b08a3c71b13b6ff9fcdec14065122f9ba729212346e9bb031f5f27d438cdee1",
+    "geth/crypto/ecies/ecies.go": "65fbc44f4a116d11c2bbe8486fafca65aa312a158b64c05f415808a6aabf1180",
+    "geth/crypto/signature_nocgo.go": "c856734ada9a1709ac7401bb661adf73809d32d7ed2a59ccbe2454d1ec2204c5",
+    "comet/blocksync/pool.go": "c432eddfd68f566c718dc315826450630f297792786021f74a42c5f8955bd222",
+    "comet/blocksync/reactor.go": "8a001bd9084fffe19df25a809ff4a8ee8a4fdc90d6c3751e4f1cff892222cce7"
+  },
+  "forbiddenRuntimePackages": [
+    "github.com/ethereum/go-ethereum/eth/protocols",
+    "github.com/ethereum/go-ethereum/graphql",
+    "github.com/ethereum/go-ethereum/crypto/ecies",
+    "github.com/cometbft/cometbft/internal/blocksync",
+    "golang.org/x/crypto/openpgp",
+    "github.com/ethereum/go-ethereum/p2p/rlpx",
+    "github.com/ethereum/go-ethereum/p2p/discover"
+  ],
+  "forbiddenExactRuntimePackages": [
+    "github.com/ethereum/go-ethereum/p2p"
+  ]
+}

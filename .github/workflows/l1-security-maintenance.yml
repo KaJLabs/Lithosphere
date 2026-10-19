@@ -1,0 +1,23 @@
+name: LITHO L1 security maintenance
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '17 6 * * 1'
+permissions:
+  contents: read
+jobs:
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6, resolved 2026-10-20
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6, resolved 2026-10-20
+        with:
+          go-version: '1.26.9'
+          cache-dependency-path: node/go.sum
+      - run: bash security/check.sh

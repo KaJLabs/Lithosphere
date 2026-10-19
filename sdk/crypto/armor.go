@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/ProtonMail/go-crypto/openpgp/armor"
 	"github.com/cometbft/cometbft/crypto"
 	"golang.org/x/crypto/argon2"
 	"golang.org/x/crypto/chacha20poly1305"
-	"golang.org/x/crypto/openpgp/armor" //nolint:staticcheck //TODO: remove this dependency
 
 	errorsmod "cosmossdk.io/errors"
 

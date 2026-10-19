@@ -1,0 +1,6 @@
+/toolchain/
+/tools/
+/dist/
+/*.tar.gz
+/lithod-candidate
+/litho-l1-security-*
