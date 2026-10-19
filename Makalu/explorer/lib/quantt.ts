@@ -51,3 +51,22 @@ export function normalizeQuanttInsight(value: unknown): QuanttInsight {
     raw: value,
   };
 }
+
+export interface QuanttSnapshot {
+  symbol: string;
+  as_of: string;
+  price: number;
+  change_pct_24h: number | null;
+  volume_24h: number | null;
+  metadata: { source: string | null };
+}
+export function normalizeQuanttSnapshot(value: unknown): QuanttSnapshot | null {
+  const data = asRecord(value);
+  if (!data || typeof data.symbol !== 'string' || typeof data.as_of !== 'string' ||
+      !Number.isFinite(Date.parse(data.as_of)) || typeof data.price !== 'number' || !Number.isFinite(data.price) || data.price <= 0) return null;
+  const number = (v: unknown) => typeof v === 'number' && Number.isFinite(v) ? v : null;
+  return { symbol: data.symbol, as_of: data.as_of, price: data.price,
+    change_pct_24h: number(data.change_pct_24h), volume_24h: number(data.volume_24h),
+    metadata: { source: typeof asRecord(data.metadata)?.source === 'string' ? asRecord(data.metadata)!.source as string : null },
+  };
+}
