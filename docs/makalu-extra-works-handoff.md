@@ -146,7 +146,7 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
 | MX-05 | QUANTTS | Partner market snapshots deployed and live-verified on Makalu | COMPLETE | Closed for market-snapshot scope; provider currently does not support LITHO. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
-| MX-07 | Developer toolchain | Approved R6.2 one-shot executed; synthetic funding stopped with first-block readiness error; evidence captured, host idle, full release open | EXTERNAL BLOCKER | Review the stop evidence and a separately pinned bounded first-block readiness revision before any further workload. The single-attempt authority is consumed. |
+| MX-07 | Developer toolchain | R6.3 committed-block readiness fix prepared; original failure reproduced offline, all 76 tests pass on Windows/Linux; full release open | EXTERNAL BLOCKER | Obtain exact Foundation disposition for the new R6.3 candidate/pins before staging or another workload. R6.2 single-attempt authority is consumed; its evidence is retained. |
 
 ## Sequential closure queue
 
@@ -882,6 +882,22 @@ Evidence:
 
 **Owners:** Lithic/compiler team + Dev Infra/release owner + Security reviewer
 
+**Latest engineering revision (2026-10-19):** R6.3 fixes the demonstrated readiness race offline. The runner now
+requires the expected chain to report a positive committed height before its single funding invocation. Height zero
+continues polling within the existing 90-second startup budget; malformed status, wrong chain, deadline or watchdog
+failure stops before funding. Deadline checks also reject a late successful response. The actual main-function
+startup-through-funding statements reproduce the old first-block error and pass with the fix. All 76 tests pass
+after clean archive extraction on Windows Python 3.13.7 and Linux Python 3.12.3. All 58 manifest entries and 15
+candidate-file pins verify. All 67 baseline pins, funding and subsequent statements, workload and bounds are unchanged;
+only the readiness loop and proposed fresh-home constant change at runtime. No staging, preparation, node or funding
+ran while building this revision. Live first-block progress remains unproven; failure to commit will stop on the deadline.
+
+Candidate SHA-256: `1200ec5b7959b72863f911c28c9da89e3796c3e33f8854d107265988fffcbfbb`.
+Pins-object SHA-256: `8607dcbaea5ca4960755268d6a349f9c2413552f0c69af2a238c5fb28e649418`.
+The candidate, exact diff, red/green receipts, pending approval templates and review request remain in the private
+operator review packet. The previous single-attempt reference is consumed. A new exact Foundation disposition is
+required before staging or executing R6.3; prior homes and evidence must remain unchanged.
+
 **Latest execution (2026-10-19):** Foundation approval
 `LITHIC-R6.2-FRESH-HOME-DIAG-APPROVAL-20261019-01` bound the exact fresh-directory candidate and conditional
 single-attempt sequence. All staging, preparation and pre-execution checks passed. Exactly one preparation and one
@@ -1089,6 +1105,7 @@ Evidence:
 
 | Date (PKT) | Surface | Result | Notes |
 | --- | --- | --- | --- |
+| 2026-10-19 | Lithic R6.3 readiness revision | OFFLINE PASS, FOUNDATION REVIEW OPEN | Real startup-to-funding seam reproduces the old failure; revised runner waits for a committed block within the existing deadline. All 76 tests pass on Windows/Linux; 58 manifest entries and 15 runtime pins verify; 67 baseline pins and funding/subsequent statements unchanged. Candidate SHA-256 `1200ec5b7959b72863f911c28c9da89e3796c3e33f8854d107265988fffcbfbb`; pins SHA-256 `8607dcbaea5ca4960755268d6a349f9c2413552f0c69af2a238c5fb28e649418`. No remote execution. |
 | 2026-10-19 | Approved Lithic R6.2 one-shot | STOPPED, NO RETRY | Approval `LITHIC-R6.2-FRESH-HOME-DIAG-APPROVAL-20261019-01`; staging/preparation/pre-execution passed. Funding CLI failed because the application needed its first block. Exact error evidence captured; deployment/measured stages not reached. Host idle, 67 baseline pins and prior home unchanged. Stop-review ZIP SHA-256 `3e4043e657c4b6b6b288837a3a9bfd5810c151df5bef41469bf8e904d5b3a08f`. |
 | 2026-10-18 | Lithic next-work verification | PREPARATION PASS, HOST INPUT OPEN | Draft #13 head `f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce` is retrievable; 13 preparation/package tests passed. Finite isolated full-block approval is already recorded, but the dedicated host identifier is missing from this workspace. No full-block benchmark or node launch occurred. |
 | 2026-10-18 | Lithic latest local state reconciliation | R6.2 OFFLINE PASS, ACCESS BLOCKED | Recovered the original operator working area, dedicated host and matching historical fingerprint. Existing SSH authentication is rejected. Latest R6.1 funding stop and consumed attempt are preserved; all 66 R6.2 tests passed on Windows/Linux, with original archives unchanged. No server workload ran. This supersedes the earlier missing-host entry. |
@@ -2022,3 +2039,10 @@ Append one entry whenever a material fact changes:
 - Staging, one preparation and pre-execution checks passed. Invoked the one diagnostic; its funding CLI failed with the first-block readiness error. The R6.2 amendment captured exact error bytes, return code and timing. No retry, deployment, seeding or measured work followed.
 - Verified shutdown/idleness, all 67 baseline hashes and the old directory digest. Retained the new directory and eleven partial artifacts. The verified stop-review packet contains 14 entries; SHA-256 `3e4043e657c4b6b6b288837a3a9bfd5810c151df5bef41469bf8e904d5b3a08f`.
 - The approval is consumed. A bounded first-committed-block readiness revision is the proposed next engineering change, requiring a new pinned review/disposition before another workload. No compiler/gas-cap acceptance or full-benchmark pass is claimed.
+
+### 2026-10-19 - MX-07 R6.3 readiness fix prepared and verified offline
+
+- Reproduced the first-block error against the unchanged R6.2 runner using its actual startup-through-funding statements. Updated readiness to require the expected chain and positive committed height within the existing 90-second startup deadline.
+- Added eight regression cases covering delayed readiness, unavailable RPC, exhausted/late deadlines, malformed status, wrong chain and watchdog stops. All 76 tests pass on both Windows and Linux after clean archive extraction; existing funding evidence and no-retry guards pass.
+- Built a separately pinned R6.3 candidate with a proposed fresh home and pending approval templates. Verified 58 manifest entries, 15 candidate-file hashes, unchanged 67 baseline pins and byte-identical funding/subsequent statements. Previous attempts and approval records remain untouched.
+- No staging, preparation or diagnostic was attempted. The consumed R6.2 approval is not reused; exact R6.3 Foundation disposition is the remaining execution gate. Live readiness and full benchmark/release acceptance remain open.
