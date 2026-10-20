@@ -1200,8 +1200,8 @@ function TokenContractLayout({
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
       <div className="border-b border-white/10">
-        <div className="overflow-x-auto">
-          <nav className="flex w-max min-w-full gap-6 -mb-px" aria-label="Token contract tabs">
+        <div className="explorer-tabs-scroll">
+          <nav className="explorer-tabs" aria-label="Token contract tabs">
             {visibleTokenTabs.map((t) => {
               const active = resolvedTab === t.key;
               return (
@@ -1350,8 +1350,8 @@ function WalletLayout({
       <HoldingsSection balance={account.balance} balanceSource={balanceSource} usdPrice={usdPrice} />
 
       {/* ── Tab bar ─────────────────────────────────────────────────── */}
-      <div className="border-b border-white/10 overflow-x-auto">
-        <nav className="flex gap-6 -mb-px whitespace-nowrap" aria-label="Address tabs">
+      <div className="explorer-tabs-scroll border-b border-white/10">
+        <nav className="explorer-tabs" aria-label="Address tabs">
           {WALLET_TABS.map((t) => {
             const isActive = resolvedTab === t.key;
             return (
