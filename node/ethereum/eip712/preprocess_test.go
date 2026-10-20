@@ -11,6 +11,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keyring"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
@@ -46,6 +47,7 @@ type TestCaseStruct struct {
 func TestLedgerPreprocessing(t *testing.T) {
 	// Update bech32 prefix
 	sdk.GetConfig().SetBech32PrefixForAccount(config.Bech32Prefix, "")
+	feePayerAddress = lithoBech32Fixture(t, feePayerAddress)
 
 	testCases := []TestCaseStruct{
 		createBasicTestCase(t),
@@ -210,7 +212,7 @@ func createPopulatedTestCase(t *testing.T) TestCaseStruct {
 
 	msgSend := banktypes.MsgSend{
 		FromAddress: feePayerAddress,
-		ToAddress:   "evmos12luku6uxehhak02py4rcz65zu0swh7wjun6msa",
+		ToAddress:   lithoBech32Fixture(t, "evmos12luku6uxehhak02py4rcz65zu0swh7wj9u9hfh"),
 		Amount: sdk.NewCoins(
 			sdk.NewCoin(
 				utils.BaseDenom,
@@ -231,4 +233,14 @@ func createPopulatedTestCase(t *testing.T) TestCaseStruct {
 		expectedMsg:            msgSend.String(),
 		expectedSignatureBytes: basicTestCase.expectedSignatureBytes,
 	}
+}
+
+// Re-encode the upstream fixture without changing its account bytes.
+func lithoBech32Fixture(t *testing.T, value string) string {
+	t.Helper()
+	_, payload, err := bech32.DecodeAndConvert(value)
+	require.NoError(t, err)
+	result, err := bech32.ConvertAndEncode(config.Bech32Prefix, payload)
+	require.NoError(t, err)
+	return result
 }

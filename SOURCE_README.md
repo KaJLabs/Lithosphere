@@ -6,6 +6,9 @@ Evmos v20 remains the source ancestry; KaJ Labs chain engineering owns this fork
 Relative to reviewed rc2: full CometBFT v0.38.24 with retained ProtonMail armor;
 two SDK v0.50.15 nil-pointer backports; historical snapshots force ZeroCopy=false;
 Go 1.26.10; five unchanged Autha test files; release-feed, format and vet gates.
+The legacy EIP-712 test fixture now re-encodes its upstream account bytes with
+the LITHO Bech32 prefix and fixes an invalid fixture checksum; production signing
+and address validation are unchanged. Original failing test logs are retained.
 IBC 8.8 ICA acceptance changes and CometBFT 0.38.26 ML-DSA protocol features are
 explicitly deferred in security/upstream-release-ledger.json. They are not cleared
 by an empty vulnerability scan. The no-cgo build is not an approved release.
