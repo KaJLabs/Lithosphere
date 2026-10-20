@@ -868,7 +868,8 @@ func TestConcurrency(t *testing.T) {
 			for i := 0; i < 1_000; i++ {
 				index := rand.Int31n(atomic.LoadInt32(&maxIndex)) + 1
 				if _, err := l.Read(uint64(index)); err != nil {
-					t.Fatal(err)
+					t.Error(err)
+					return
 				}
 				atomic.AddInt32(&numReads, 1)
 			}

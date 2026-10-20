@@ -6,5 +6,6 @@
   "node/app/litho_security_exposure_test.go",
   "sdk/baseapp/query_closure_test.go",
   "sdk/baseapp/query_mapping_integration_test.go",
-  "node/ethereum/eip712/preprocess_test.go"
+  "node/ethereum/eip712/preprocess_test.go",
+  "wal/wal_test.go"
 ]
