@@ -1037,8 +1037,8 @@ export default function TokenDetailPage() {
 
         {/* ── Tab Bar ─────────────────────────────────────────────────── */}
         <div className="border-b border-white/10">
-          <div className="overflow-x-auto">
-            <nav className="flex w-max min-w-full gap-6 -mb-px" aria-label="Token tabs">
+          <div className="explorer-tabs-scroll">
+            <nav className="explorer-tabs" aria-label="Token tabs">
               {TABS.map((t) => {
                 const active = activeTab === t.key;
                 return (
