@@ -1,32 +1,22 @@
-# LITHO L1 security candidate, 20 October 2026
+# LITHO L1 rc3 — Autha L1P1-R1 remediation
 
-Developer release `litho-l1-security-20261020-rc2`, derived from the retained R1 and October RPC/storage fixes.
-The module path `github.com/evmos/evmos/v20` retains ancestry; upstream Evmos v20
-is not claimed to be supported. KaJ Labs chain engineering owns this maintained fork.
+Maintained fork release `litho-l1-security-20261021-rc3`, not independently accepted or deployed.
+Evmos v20 remains the source ancestry; KaJ Labs chain engineering owns this fork.
 
-Build: pinned Go 1.26.9 linux/amd64, GCC, `netgo,ledger`, `-trimpath`,
-`-buildvcs=false`. Run `bash security/build.sh`; expected executable SHA-256:
-`7133bdfd7495565f66861e4663706397a2408fdbb5751e8b8e65056dd5ece201`.
+Relative to reviewed rc2: full CometBFT v0.38.24 with retained ProtonMail armor;
+two SDK v0.50.15 nil-pointer backports; historical snapshots force ZeroCopy=false;
+Go 1.26.10; five unchanged Autha test files; release-feed, format and vet gates.
+IBC 8.8 ICA acceptance changes and CometBFT 0.38.26 ML-DSA protocol features are
+explicitly deferred in security/upstream-release-ledger.json. They are not cleared
+by an empty vulnerability scan. The no-cgo build is not an approved release.
 
-Changes: supported compiler; scan-driven network, RPC, compression, downloader,
-token and cryptography dependency patches; maintained OpenPGP armor in SDK and
-CometBFT; secp256k1/ECIES upstream crypto guards in the exact Evmos geth fork.
-Existing fixed-supply, disabled inflation, StateDB, IBC and RPC/storage fixes remain.
+Build with the pinned Go 1.26.10 linux/amd64 toolchain and GCC using
+`bash security/build.sh`. Candidate executable SHA-256: `c80f89bf0c95360852fe3a8b6b27f6782004e2acd04b629aff236fa0d0e37a1a`.
+The evidence package contains exact compiler/linker/libc identity and raw checks.
+`security/check.sh` includes advisory, upstream-release, format, vet and regression
+gates. Hosted CI is packaged but has not been activated or observed running.
 
-The zero-copy test no longer dereferences unmapped memory after closing its DB.
-It checks mapping release and safe copied values. This is a test-only correction.
-
-`security/check.sh` runs scanners, expiry/source/exposure guards and regressions.
-The weekly workflow is a packaged template; activation in the canonical hosted
-source repository still needs release integration. Review `fork-ledger.json` by
-19 November 2026. Zero scanner findings do not clear renamed/local sources.
-
-The offline replay helper uses only a disposable copy of public state and fixed
-RPC responses, validates commit signatures and compares canonical app hashes.
-It changes only the copy's WAL-origin metadata, as the existing state-sync importer
-does. Its path guard intentionally limits writes to the recorded replay workspace.
-
-This candidate has not been independently accepted or deployed. Compiler and
-cryptographic validation changes require explicit consensus-compatibility and
-activation review. A bounded replay is not proof of all future mixed-version cases.
-Do not replace a live validator binary using this build script.
+Supply, inflation, StateDB, IBC and October RPC/storage fixes are retained.
+Do not point these tools at production node homes. Independent focused review,
+the broader replay condition, exact target acceptance, signed release controls
+and an immediately fresh quorum preflight remain activation requirements.

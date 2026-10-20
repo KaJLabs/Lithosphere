@@ -1,6 +1,6 @@
 {
-  "reviewedDate": "2026-10-20",
-  "reviewExpires": "2026-11-19",
+  "reviewedDate": "2026-10-21",
+  "reviewExpires": "2026-10-28",
   "owner": "KaJ Labs chain engineering",
   "reviewKind": "Developer source triage; independent acceptance remains required",
   "queries": [
@@ -40,7 +40,7 @@
     },
     {
       "module": "github.com/cometbft/cometbft",
-      "version": "v0.38.22",
+      "version": "v0.38.24",
       "reviewedMatches": [
         "GO-2025-3442"
       ]
@@ -50,7 +50,7 @@
     "GHSA-2gjw-fg97-vg3r": {
       "summary": "Go Ethereum affected by DoS via malicious p2p message",
       "status": "backported",
-      "reason": "Upstream 895a8597 coordinate guards backported to the old Go and C APIs. Failing-before/passing-after regressions retained.",
+      "reason": "Backported upstream 895a8597 guards to the cgo BitCurve and C scalar multiplication APIs. Release builds enforce CGO_ENABLED=1. The no-cgo btcec.S256 path lacks the upstream btCurve range wrapper and is NOT approved for release; no no-cgo clearance is claimed. Autha scalar test adopted unchanged.",
       "references": [
         "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-2gjw-fg97-vg3r",
         "https://nvd.nist.gov/vuln/detail/CVE-2026-26314",
@@ -181,7 +181,7 @@
     "GO-2025-3442": {
       "summary": "CometBFT allows a malicious peer to make node stuck in blocksync in github.com/cometbft/cometbft",
       "status": "patched ancestry; other affected package absent",
-      "reason": "The 0.38 blocksync package was patched in 0.38.17; source is 0.38.22. The broad version match is for internal/blocksync on a different release line; that package is absent.",
+      "reason": "The 0.38 blocksync fix is present since 0.38.17; current fork base is 0.38.24. The other internal/blocksync release-line package is absent.",
       "references": [
         "https://github.com/cometbft/cometbft/security/advisories/GHSA-22qq-3xwm-r5x4",
         "https://github.com/cometbft/cometbft/commit/0ee80cd609c7ae9fe856bdd1c6d38553fdae90ce",
@@ -211,7 +211,7 @@
     "GO-2026-4507": {
       "summary": "Go Ethereum affected by crash via malicious p2p message in github.com/ethereum/go-ethereum",
       "status": "backported",
-      "reason": "Upstream 895a8597 coordinate guards backported to the old Go and C APIs. Failing-before/passing-after regressions retained.",
+      "reason": "Backported upstream 895a8597 guards to the cgo BitCurve and C scalar multiplication APIs. Release builds enforce CGO_ENABLED=1. The no-cgo btcec.S256 path lacks the upstream btCurve range wrapper and is NOT approved for release; no no-cgo clearance is claimed. Autha scalar test adopted unchanged.",
       "references": [
         "https://github.com/ethereum/go-ethereum/security/advisories/GHSA-2gjw-fg97-vg3r",
         "https://github.com/ethereum/go-ethereum/commit/895a8597cb16c02203e38707ed2d1da5c500fe60",
@@ -246,8 +246,11 @@
     "geth/crypto/secp256k1/ext.h": "5b08a3c71b13b6ff9fcdec14065122f9ba729212346e9bb031f5f27d438cdee1",
     "geth/crypto/ecies/ecies.go": "65fbc44f4a116d11c2bbe8486fafca65aa312a158b64c05f415808a6aabf1180",
     "geth/crypto/signature_nocgo.go": "c856734ada9a1709ac7401bb661adf73809d32d7ed2a59ccbe2454d1ec2204c5",
-    "comet/blocksync/pool.go": "c432eddfd68f566c718dc315826450630f297792786021f74a42c5f8955bd222",
-    "comet/blocksync/reactor.go": "8a001bd9084fffe19df25a809ff4a8ee8a4fdc90d6c3751e4f1cff892222cce7"
+    "comet/blocksync/pool.go": "f6d05783588a9eed9feb5371e7b28d39e44adc46931d8fb198387e915e6201d1",
+    "comet/blocksync/reactor.go": "79c904c6a7c5a1b1ab2b4fcbb42fcfe8ee961cf37735150fc3c54590d15773e8",
+    "store/rootmulti/store.go": "58c5eb6485c2210e0538b20a0fbda0196181faf48f553e1f6eb6478f5efe780f",
+    "sdk/baseapp/abci.go": "634903e2f3637ce055253912bab983b82eeedc12c0f0a1b321503729432fdaa5",
+    "sdk/types/query/collections_pagination.go": "6bdcf032d11d1ac1202a7df16937457f8ce50ea32704bc40582aacfdfbc58b05"
   },
   "forbiddenRuntimePackages": [
     "github.com/ethereum/go-ethereum/eth/protocols",

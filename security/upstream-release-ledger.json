@@ -1,0 +1,39 @@
+{
+  "reviewedDate": "2026-10-21",
+  "expires": "2026-10-28",
+  "owner": "KaJ Labs chain engineering",
+  "status": "Developer release and changelog review; not independent acceptance",
+  "go": {
+    "branch": "go1.26.",
+    "reviewedLatest": "go1.26.10",
+    "adopted": "go1.26.10",
+    "source": "https://go.dev/doc/devel/release",
+    "change": "crypto/x509 eight intermediate-CA distrust fix aa64342a9e13affffea3e989d67e574475af5a78 / CVE-2026-111943"
+  },
+  "modules": [
+    {
+      "repo": "cometbft/cometbft",
+      "prefix": "v0.38.",
+      "reviewedLatest": "v0.38.26",
+      "adoptedBase": "v0.38.24",
+      "decision": "Adopt complete v0.38.23-24 hardening retaining only LITHO armor patch. v0.38.25-26 reviewed: new ML-DSA public-key decoding/signature verification and larger accepted block/consensus encodings. Excluded from rolling candidate because this adds protocol features, not missing p2p hardening. Separate coordinated protocol review required.",
+      "source": "https://github.com/cometbft/cometbft/compare/v0.38.24...v0.38.26"
+    },
+    {
+      "repo": "cosmos/cosmos-sdk",
+      "prefix": "v0.50.",
+      "reviewedLatest": "v0.50.15",
+      "adoptedBase": "v0.50.14 plus two nil-pointer backports",
+      "decision": "Backport FinalizeBlock deferred-listener nil-response guard and collections pagination nil-page guard. Other v0.50.15 event, governance, group, staking and distribution changes are excluded from this limited rolling candidate; require separate compatibility and protocol review.",
+      "source": "https://github.com/cosmos/cosmos-sdk/compare/v0.50.14...v0.50.15"
+    },
+    {
+      "repo": "cosmos/ibc-go",
+      "prefix": "v8.",
+      "reviewedLatest": "v8.8.0",
+      "adoptedBase": "v8.7.0",
+      "decision": "ICA host is enabled. v8.8.0 ProtoJSON round-trip acceptance validation changes state-machine behavior. Deliberately not activated in rc3; retained as pending coordinated protocol upgrade, not scanner false positive or vulnerability clearance. Requires protocol owner decision, height and ICA compatibility replay.",
+      "source": "https://github.com/cosmos/ibc-go/compare/v8.7.0...v8.8.0"
+    }
+  ]
+}

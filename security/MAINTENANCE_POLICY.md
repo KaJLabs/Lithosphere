@@ -77,3 +77,25 @@ independent acceptance, testnet validation and production deployment. Point 1
 cannot be declared closed solely because an old patch was deployed, a new binary
 was built, or a public version string changed. Exchange evidence must name the
 actual running hashes and disclose any remaining exposure or support limitation.
+
+## Upstream release tracking (Autha L1P1-01 and -03)
+
+Before every release and weekly, check official Go release history/downloads and
+the CometBFT 0.38, Cosmos SDK 0.50 and IBC-Go 8 release/tag feeds and changelogs,
+even when OSV and govulncheck have no new entries. Record source URLs, newest
+reviewed stable release, adopted base, exact backports and protocol deferrals in
+upstream-release-ledger.json. A patch tag can contain a state-machine change;
+review it rather than blindly adopting it. The gate fails on a newer unreviewed
+release, expired review, feed error or inconsistent compiler. Deferral is visible
+technical debt and cannot be described as upstream security clearance.
+
+The canonical workflow runs release-feed, formatting and vet checks. This local
+candidate contains the workflow; it has not been pushed or observed in hosted CI.
+The delivered local execution logs establish only the checks actually run here.
+
+Release builds require Linux amd64 CGO_ENABLED=1. The pure-Go btcec curve lacks
+the range wrapper and is not an approved release variant (Autha O-1). ProtonMail
+armor intentionally ignores CRC24 per its decoder: unencrypted armored public
+keys have no corruption-detection guarantee. Authenticate public keys through
+their fingerprint and a trusted channel; encrypted exports retain AEAD integrity
+(O-2). CRC24 is not authentication.

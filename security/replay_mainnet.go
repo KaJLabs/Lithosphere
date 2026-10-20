@@ -37,7 +37,7 @@ func readResult(dir, kind string, height int64, value interface{}) {
 func main() {
 	if len(os.Args) != 5 { panic("usage: replay disposable-home block-inputs snapshot-height count") }
 	home, err := filepath.Abs(os.Args[1]); if err != nil { panic(err) }
-	if !strings.HasPrefix(home, "/home/bachal/litho-l1-mainnet-replay-20261020/") { panic("home is outside the disposable replay directory") }
+	if !strings.HasPrefix(home, "/home/bachal/litho-l1-mainnet-replay-20261021-rc3/") { panic("home is outside the disposable replay directory") }
 	if _, err = os.Stat(filepath.Join(home, "REPLAY_ONLY")); err != nil { panic("missing replay marker") }
 	height, err := strconv.ParseInt(os.Args[3], 10, 64); if err != nil { panic(err) }
 	count, err := strconv.Atoi(os.Args[4]); if err != nil || count < 1 || count > 128 { panic("invalid replay count") }

@@ -1,0 +1,9 @@
+[
+  "store/rootmulti/store.go",
+  "sdk/baseapp/query_closure.go",
+  "sdk/baseapp/abci.go",
+  "sdk/types/query/collections_pagination.go",
+  "node/app/litho_security_exposure_test.go",
+  "sdk/baseapp/query_closure_test.go",
+  "sdk/baseapp/query_mapping_integration_test.go"
+]

@@ -18,6 +18,6 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6, resolved 2026-10-20
         with:
-          go-version: '1.26.9'
+          go-version: '1.26.10'
           cache-dependency-path: node/go.sum
       - run: bash security/check.sh

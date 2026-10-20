@@ -206,6 +206,9 @@ func (rs *Store) CacheMultiStoreWithVersion(version int64) (types.CacheMultiStor
 	opts := rs.opts
 	opts.TargetVersion = uint32(version)
 	opts.ReadOnly = true
+	// Historical query responses can outlive this snapshot and its mmap.
+	// Copy values before the interceptor closes the read-only store.
+	opts.ZeroCopy = false
 	db, err := memiavl.Load(rs.dir, opts)
 	if err != nil {
 		return nil, err
