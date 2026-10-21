@@ -1,0 +1,90 @@
+name: LITHO rc3 production release approval gate
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/l1-rc3-release-approval-gate.yaml"
+      - "infra/litho-mainnet-9005/rc3-release-control/**"
+  workflow_dispatch:
+    inputs:
+      approval_path:
+        description: Final signed bundle below protected approvals/mainnet/rc3/
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: litho-mainnet-rc3-release-gate
+  cancel-in-progress: false
+jobs:
+  controls-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Reject changed scope, artifacts and missing acceptance
+        run: python -m unittest discover -s infra/litho-mainnet-9005/rc3-release-control -p test_rollout_guards.py -v
+  approval:
+    if: github.event_name == 'workflow_dispatch'
+    needs: controls-tests
+    runs-on: ubuntu-latest
+    environment: l1-mainnet-activation
+    env:
+      RELEASE_TAG: litho-l1-security-20261021-rc3
+      APPROVAL_PATH: ${{ inputs.approval_path }}
+      CONTROL_ROOT: infra/litho-mainnet-9005/rc3-release-control
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Validate protected approval path and immutable release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import os,pathlib,re
+          value=os.environ['APPROVAL_PATH']
+          assert re.fullmatch(r'approvals/mainnet/rc3/[A-Za-z0-9._-]+\.json',value)
+          root=pathlib.Path('approvals/mainnet/rc3').resolve(strict=True)
+          path=pathlib.Path(value).resolve(strict=True)
+          assert path.parent==root and path.is_file()
+          PY
+          gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > release-record.json
+          python - <<'PY'
+          import json,os
+          release=json.load(open('release-record.json'))
+          assert release['tag_name']==os.environ['RELEASE_TAG']
+          assert release.get('immutable') is True and release['draft'] is False
+          assert release['target_commitish']=='5226f43dadcca0afa025c4f153ebfb90d38c02dc'
+          names={item['name'] for item in release['assets']}
+          assert {'lithod-rc3','candidate-source.tar.gz','candidate.cdx.json','lithod-rollback','rollback-source.tar.gz'}<=names
+          PY
+      - name: Download exact release artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir candidate
+          for asset in lithod-rc3 candidate-source.tar.gz candidate.cdx.json lithod-rollback rollback-source.tar.gz; do
+            gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --pattern "$asset" --dir candidate
+          done
+      - name: Verify organizational signature and complete operational acceptances
+        shell: bash
+        run: |
+          set -euo pipefail
+          python "$CONTROL_ROOT/verify_rc3_activation.py" \
+            --approval "$APPROVAL_PATH" \
+            --binary candidate/lithod-rc3 \
+            --source candidate/candidate-source.tar.gz \
+            --sbom candidate/candidate.cdx.json \
+            --rollback candidate/lithod-rollback \
+            --rollback-source candidate/rollback-source.tar.gz | tee rc3-offline-gate.json
+          sha256sum "$APPROVAL_PATH" candidate/* rc3-offline-gate.json release-record.json > RC3_GATE_SHA256SUMS.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: litho-rc3-approval-gate-${{ github.run_id }}
+          path: |
+            rc3-offline-gate.json
+            release-record.json
+            RC3_GATE_SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 90
