@@ -6,7 +6,7 @@ on:
       source_commit:
         description: Exact independently reviewed R5 source commit
         required: true
-        default: f15bc5b2ed86cb3cc7d58f4dc3986841a222cc0c
+        default: c78199e6a484bf05de65f0b4d7563535c2f8321d
       confirmation:
         description: Type PUBLISH_REVIEWED_R5_RUNTIME to publish images only
         required: true
@@ -25,7 +25,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  ACCEPTED_COMMIT: f15bc5b2ed86cb3cc7d58f4dc3986841a222cc0c
+  ACCEPTED_COMMIT: c78199e6a484bf05de65f0b4d7563535c2f8321d
   API_IMAGE: ghcr.io/kajlabs/lithosphere/multx-api
   SIGNER_IMAGE: ghcr.io/kajlabs/lithosphere/multx-signer
 
