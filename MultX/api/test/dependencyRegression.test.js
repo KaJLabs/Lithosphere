@@ -9,7 +9,9 @@ test('Express and body-parser use patched qs for hostile constructor round trips
     const fromParent = createRequire(require.resolve(parent));
     const qs = fromParent('qs');
     const version = fromParent('qs/package.json').version;
-    assert.equal(version, '6.16.0');
+    assert.equal(version, '6.17.0');
+    // GHSA-6pq8-jhm2-2vcw: comma arrays must tolerate an own non-callable toString.
+    assert.doesNotThrow(() => qs.stringify({ item: [{ toString: 'hostile' }] }, { arrayFormat: 'comma' }));
     for (const options of [{ plainObjects: true }, { allowPrototypes: true }]) {
       const parsed = qs.parse('item[constructor][isBuffer]=hostile', options);
       assert.doesNotThrow(() => qs.stringify(parsed));
