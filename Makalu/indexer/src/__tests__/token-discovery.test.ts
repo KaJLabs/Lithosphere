@@ -4,14 +4,15 @@ import { discoverToken, type DiscoveryRpc } from '../token-discovery.js';
 const abi = new Interface([
   'function name() view returns (string)', 'function symbol() view returns (string)',
   'function decimals() view returns (uint8)', 'function totalSupply() view returns (uint256)',
+  'function totalSupply(uint256) view returns (uint256)', 'function balanceOf(address,uint256) view returns (uint256)',
   'function supportsInterface(bytes4) view returns (bool)',
 ]);
 const address = '0x' + 'ab'.repeat(20);
 function rpc(values: Record<string, unknown>): DiscoveryRpc {
   return vi.fn(async (_method, params) => {
     const call = abi.parseTransaction({ data: (params[0] as {data: string}).data })!;
-    const value = values[call.name];
-    return (value === undefined ? null : abi.encodeFunctionResult(call.name, [value])) as any;
+    const value = values[call.signature] ?? values[call.name];
+    return (value === undefined ? null : abi.encodeFunctionResult(call.signature, [value])) as any;
   });
 }
 it('discovers an unseeded six-decimal token with zero supply before its first transfer', async () => {
@@ -23,6 +24,11 @@ it('lists a token even when optional name and symbol revert', async () => {
 });
 it('does not classify arbitrary contracts as coins', async () => {
   expect(await discoverToken(address, rpc({ name: 'Not a coin', symbol: 'NO' }))).toBeNull();
+});
+it('discovers this chain\'s LEP100 before a mint without inventing token decimals', async () => {
+  expect(await discoverToken(address, rpc({ name: 'New LEP100', symbol: 'LEP',
+    'totalSupply(uint256)': 0n, 'balanceOf(address,uint256)': 0n })))
+    .toEqual({ name: 'New LEP100', symbol: 'LEP', decimals: null, totalSupply: '0', contractType: 'token' });
 });
 it('keeps ERC-721 collections out of fungible coins', async () => {
   expect(await discoverToken(address, rpc({ name: 'NFT', supportsInterface: true }))).toMatchObject({ contractType: 'nft', decimals: 0 });
