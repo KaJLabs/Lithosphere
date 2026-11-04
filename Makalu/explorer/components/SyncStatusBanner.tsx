@@ -9,7 +9,7 @@ interface SyncStatusBannerProps {
 }
 
 export default function SyncStatusBanner({ stats, className = '' }: SyncStatusBannerProps) {
-  if (!stats || (!stats.isSyncing && stats.inconsistentBlocks === 0)) return null;
+  if (!stats || (!stats.isSyncing && !stats.inconsistentBlocks)) return null;
 
   const latestTxLabel = stats.latestTransactionHeight > 0
     ? `#${formatNumber(stats.latestTransactionHeight)}`
@@ -29,7 +29,7 @@ export default function SyncStatusBanner({ stats, className = '' }: SyncStatusBa
             Explorer Sync
           </div>
           <h2 className="mt-2 text-xl font-semibold">
-            {stats.inconsistentBlocks > 0
+            {(stats.inconsistentBlocks ?? 0) > 0
               ? `${NETWORK.shortName} explorer is repairing and catching up.`
               : `${NETWORK.shortName} explorer is still indexing the chain.`}
           </h2>
@@ -41,7 +41,7 @@ export default function SyncStatusBanner({ stats, className = '' }: SyncStatusBa
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/55">
             <span>Latest indexed block time: {latestBlockTime}</span>
             <span>Latest indexed tx time: {latestTxTime}</span>
-            {stats.inconsistentBlocks > 0 && (
+            {(stats.inconsistentBlocks ?? 0) > 0 && (
               <span>Consistency repairs queued: {formatNumber(stats.inconsistentBlocks)}</span>
             )}
           </div>

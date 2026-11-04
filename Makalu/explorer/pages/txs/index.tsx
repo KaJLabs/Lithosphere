@@ -137,7 +137,7 @@ export default function TransactionsPage() {
                   {txs.map((tx) => {
                     const methodLabel = tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer');
                     const txHash = getPreferredTxHash(tx);
-                    const txKey = txHash ?? `${tx.blockHeight}-${tx.fromAddr}-${tx.toAddr ?? 'none'}-${tx.timestamp ?? 'unknown'}`;
+                    const txKey = `${tx.blockHeight}:${tx.txIndex ?? 0}:${txHash ?? tx.fromAddr}`;
                     return (
                       <div
                         key={txKey}

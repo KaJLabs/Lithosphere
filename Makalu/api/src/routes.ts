@@ -12,6 +12,7 @@ import { query, slowQuery } from './db.js';
 import { logger } from './lib/logger.js';
 import { audit } from './lib/audit.js';
 import { loadCachedShared } from './lib/shared-cache.js';
+import { metricDeadline } from './metric-deadline.js';
 import { recoverTxMemo } from './tx-memo.js';
 import { fetchLithoMarketPrice, fetchNativeSupply } from './market-data.js';
 import {
@@ -62,14 +63,22 @@ const HIDDEN_TOKEN_ADDRESSES = new Set([
   '0x468022f17cafebd43c18f68d53c66a1a7f0e5249',
 ]);
 const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
-const SYNCING_LAG_THRESHOLD = 1000;
+const SYNCING_LAG_THRESHOLD = 30;
+const INCLUSIONS_ENABLED = process.env.TRANSACTION_INCLUSIONS_ENABLED === 'true';
+const INCLUSION_CHAIN_ID = process.env.TRANSACTION_INCLUSION_CHAIN_ID?.trim() || '';
+if (INCLUSIONS_ENABLED && !/^[A-Za-z0-9_.-]+$/.test(INCLUSION_CHAIN_ID)) {
+  throw new Error('Transaction inclusion reads require a verified chain ID');
+}
+const INCLUSION_SOURCE = INCLUSIONS_ENABLED ? 'transaction_inclusions' : 'transactions';
+const INCLUSION_FILTER = INCLUSIONS_ENABLED ? `WHERE chain_id='${INCLUSION_CHAIN_ID}'` : '';
+const MODEL_CACHE_VERSION = INCLUSIONS_ENABLED ? `inclusions-v1:${INCLUSION_CHAIN_ID}` : 'freshness-v1';
 const EVM_RPC_URL = (process.env.EVM_RPC_URL || '').replace(/\/$/, '');
 // Keep a public EVM RPC as a last resort so direct tx lookups still work when
 // the server's private RPC is missing older historical transaction data.
 const PUBLIC_EVM_RPC_URL = (process.env.PUBLIC_EVM_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
 const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL, PUBLIC_EVM_RPC_URL].filter(Boolean))];
 const COUNT_CACHE_TTL_MS = 10_000;
-const STATS_SUMMARY_TTL_MS = 15_000;
+const STATS_SUMMARY_TTL_MS = 2_000;
 // Data-integrity diagnostic: full GROUP BY over the whole transactions table
 // (~5M rows, ~8s). It drifts slowly and only needs to be roughly fresh, so it
 // gets a long TTL and is kept OFF the 15s stats hot path.
@@ -136,6 +145,40 @@ async function loadCached<T>(key: string, ttlMs: number, loader: () => Promise<T
 
   runtimeCachePending.set(key, promise as Promise<unknown>);
   return promise;
+}
+
+const STATS_AGGREGATE_STALE_MS = 60_000;
+const statsAggregateCache = new Map<string, { value: unknown; freshUntil: number; staleUntil: number }>();
+const statsAggregatePending = new Map<string, Promise<unknown>>();
+const statsAggregateRetryAt = new Map<string, number>();
+async function loadStatsAggregate<T>(key: string, ttlMs: number, loader: () => Promise<T>): Promise<T> {
+  const now = Date.now();
+  const cached = statsAggregateCache.get(key);
+  if (cached && cached.freshUntil > now) return cached.value as T;
+  const refresh = (): Promise<T> => {
+    const inflight = statsAggregatePending.get(key);
+    if (inflight) return inflight as Promise<T>;
+    const promise = loadCachedShared<T>(key, ttlMs, loader).then(value => {
+      const freshUntil = Date.now() + ttlMs;
+      statsAggregateCache.set(key, { value, freshUntil, staleUntil: freshUntil + STATS_AGGREGATE_STALE_MS });
+      statsAggregateRetryAt.delete(key);
+      return value;
+    }).catch(err => {
+      statsAggregateRetryAt.set(key, Date.now() + 5_000);
+      throw err;
+    }).finally(() => { statsAggregatePending.delete(key); });
+    statsAggregatePending.set(key, promise);
+    return promise;
+  };
+  // Only fixed, slowly drifting stats aggregates use this grace period.
+  // Heads, transaction data and gas prices continue using their current paths.
+  if (cached && cached.staleUntil > now) {
+    if ((statsAggregateRetryAt.get(key) || 0) <= now)
+      void refresh().catch(err => logger.warn({ key, err }, '[stats] aggregate refresh failed'));
+    return cached.value as T;
+  }
+  // No fabricated cold value and no unbounded stale success after failures.
+  return refresh();
 }
 
 function isHiddenToken(token: { symbol?: string | null; address?: string | null }): boolean {
@@ -573,17 +616,20 @@ interface SyncSummary {
   latestTransactionTimestamp: string | null;
   syncLagBlocks: number;
   isSyncing: boolean;
-  inconsistentBlocks: number;
+  inconsistentBlocks: number | null;
+  indexedBlockAgeSeconds: number | null;
+  chainTipAvailable: boolean;
 }
 
 interface StatsSummaryResponse extends SyncSummary {
-  totalTransactions: number;
+  totalTransactions: number | null;
   /** Cumulative count of every address ever seen on-chain (all-time, not current holders). */
-  walletAddresses: number;
+  walletAddresses: number | null;
   /** Distinct addresses that currently hold a non-zero native LITHO balance. */
-  currentHolders: number;
-  avgBlockTime: number;
+  currentHolders: number | null;
+  avgBlockTime: number | null;
   gasPriceWei: string | null;
+  unavailableMetrics: string[];
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -703,7 +749,8 @@ export function hexTimestampToIso(value: string | null | undefined): string | un
 const INCONSISTENT_BLOCKS_CTE = `
   WITH tx_counts AS (
     SELECT block_height::bigint AS height, COUNT(*)::bigint AS tx_count
-    FROM transactions
+    FROM ${INCLUSION_SOURCE}
+    ${INCLUSION_FILTER}
     GROUP BY block_height
   ),
   inconsistent_blocks AS (
@@ -739,30 +786,35 @@ async function getSyncSummary(): Promise<SyncSummary> {
       'SELECT COALESCE(MAX(height), 0)::text AS height, MAX(block_time) AS block_time FROM blocks'
     ),
     query<{ height: string; timestamp: Date | string | null }>(
-      'SELECT COALESCE(MAX(block_height), 0)::text AS height, MAX(timestamp) AS timestamp FROM transactions'
+      `SELECT block_height::text AS height, timestamp FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER} ORDER BY block_height DESC, tx_index DESC LIMIT 1`
     ),
-    loadCachedShared('inconsistent-blocks', INCONSISTENT_BLOCKS_TTL_MS, () =>
+    metricDeadline(loadStatsAggregate(`inconsistent-blocks:${MODEL_CACHE_VERSION}`, INCONSISTENT_BLOCKS_TTL_MS, () =>
       query<CountRow>(`
         ${INCONSISTENT_BLOCKS_CTE}
         SELECT COUNT(*) AS count FROM inconsistent_blocks
-      `).catch(() => [{ count: '0' }])
-    ),
+      `)
+    )),
     fetchChainTipHeight(),
   ]);
 
   const tipHeight = parseIntSafe(maxBlock[0]?.height);
   const latestTransactionHeight = parseIntSafe(maxTx[0]?.height);
   const syncLagBlocks = chainTipHeight > 0 ? Math.max(0, chainTipHeight - tipHeight) : 0;
+  const latestBlockTimestamp = toIsoString(maxBlock[0]?.block_time);
+  const indexedBlockAgeSeconds = latestBlockTimestamp
+    ? Math.max(0, (Date.now() - Date.parse(latestBlockTimestamp)) / 1000) : null;
 
   return {
     tipHeight,
     chainTipHeight,
     latestTransactionHeight,
-    latestBlockTimestamp: toIsoString(maxBlock[0]?.block_time),
+    latestBlockTimestamp,
     latestTransactionTimestamp: toIsoString(maxTx[0]?.timestamp),
     syncLagBlocks,
-    isSyncing: chainTipHeight > 0 && syncLagBlocks > SYNCING_LAG_THRESHOLD,
-    inconsistentBlocks: parseIntSafe(inconsistentCount[0]?.count),
+    isSyncing: chainTipHeight <= 0 || indexedBlockAgeSeconds === null || indexedBlockAgeSeconds > 60 || syncLagBlocks > SYNCING_LAG_THRESHOLD,
+    indexedBlockAgeSeconds,
+    chainTipAvailable: chainTipHeight > 0,
+    inconsistentBlocks: inconsistentCount ? parseIntSafe(inconsistentCount[0]?.count) : null,
   };
 }
 
@@ -770,48 +822,50 @@ async function getStatsSummaryResponse(): Promise<StatsSummaryResponse> {
   // Redis-backed so every API replica shares one warm copy (the stack runs
   // multiple replicas, each with its own in-memory cache). The heavy inner
   // aggregates below are ALSO shared, so even the replica that recomputes the
-  // summary on a 15s miss reuses warm counts/CTE instead of re-scanning ~5M rows.
-  return loadCachedShared<StatsSummaryResponse>('stats:summary', STATS_SUMMARY_TTL_MS, async () => {
+  // summary on a head-cache miss reuses warm counts/CTE rather than scanning history.
+  // Version the head cache so older replicas cannot repopulate it for 15 seconds.
+  return loadCachedShared<StatsSummaryResponse>(`stats:summary:availability-v3:${MODEL_CACHE_VERSION}`, STATS_SUMMARY_TTL_MS, async () => {
     const [syncSummary, totalTransactions, walletAddresses, currentHolders, avgBlockTime, gasPriceWei] = await Promise.all([
       getSyncSummary(),
       // Slow-drifting totals on a ~5M-row table — long TTL, shared across replicas.
       // slowQuery: COUNT(*) over the whole table can exceed the 15s pool timeout.
-      loadCachedShared('count:transactions-total', STATS_COUNT_TTL_MS, async () => {
-        const rows = await slowQuery<CountRow>('SELECT COUNT(*) AS count FROM transactions');
+      metricDeadline(loadStatsAggregate(`count:transactions-total:${MODEL_CACHE_VERSION}`, STATS_COUNT_TTL_MS, async () => {
+        const rows = await slowQuery<CountRow>(`SELECT COUNT(*) AS count FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER}`);
         return parseInt(rows[0]?.count ?? '0', 10);
-      }),
+      })),
       // Distinct wallets across cosmos accounts + EVM tx participants. The outer
       // UNION already dedupes, so the inner DISTINCTs are redundant. Runs ~17s on
       // the slow pool (would 500 the endpoint on the 15s main pool) and is cached
       // for an hour since it's an all-time figure.
-      loadCachedShared('count:wallet-addresses', STATS_WALLET_TTL_MS, async () => {
+      metricDeadline(loadStatsAggregate('count:wallet-addresses:v2', STATS_WALLET_TTL_MS, async () => {
         const rows = await slowQuery<CountRow>(
           `SELECT COUNT(*) AS count FROM (
-             SELECT address FROM accounts
+             SELECT DISTINCT LOWER(COALESCE(NULLIF(evm_address, ''), address)) AS address FROM accounts
              UNION
-             SELECT from_address FROM evm_transactions WHERE from_address IS NOT NULL
+             SELECT DISTINCT LOWER(from_address) FROM evm_transactions WHERE from_address IS NOT NULL
              UNION
-             SELECT to_address FROM evm_transactions WHERE to_address IS NOT NULL
+             SELECT DISTINCT LOWER(to_address) FROM evm_transactions WHERE to_address IS NOT NULL
            ) all_addrs`
         );
         return parseInt(rows[0]?.count ?? '0', 10);
-      }),
+      })),
       // Current holders = addresses with a non-zero native balance. The indexer's
       // balance sweep keeps accounts.balance warm via eth_getBalance, so this is a
       // real owner count rather than the historical-participant figure above.
-      loadCachedShared('count:current-holders', STATS_COUNT_TTL_MS, async () => {
+      metricDeadline(loadStatsAggregate('count:current-holders', STATS_COUNT_TTL_MS, async () => {
         const rows = await query<CountRow>(
           `SELECT COUNT(*) AS count FROM accounts WHERE balance IS NOT NULL AND balance <> '0'`
         );
         return parseInt(rows[0]?.count ?? '0', 10);
-      }),
-      query<{ avg_seconds: string }>(
+      })),
+      metricDeadline(query<{ avg_seconds: string }>(
         `SELECT COALESCE(EXTRACT(EPOCH FROM AVG(diff)), 0) AS avg_seconds FROM (
            SELECT block_time - LAG(block_time) OVER (ORDER BY height) AS diff
-           FROM blocks ORDER BY height DESC LIMIT 100
+           FROM (SELECT height, block_time FROM blocks ORDER BY height DESC LIMIT 101) recent
+           ORDER BY height DESC LIMIT 100
          ) sub WHERE diff IS NOT NULL`
-      ).catch(() => [{ avg_seconds: '0' }]),
-      getCurrentGasPriceWei().catch(() => null),
+      )),
+      metricDeadline(getCurrentGasPriceWei()),
     ]);
 
     return {
@@ -819,8 +873,10 @@ async function getStatsSummaryResponse(): Promise<StatsSummaryResponse> {
       totalTransactions,
       walletAddresses,
       currentHolders,
-      avgBlockTime: Math.round(parseFloat(avgBlockTime[0]?.avg_seconds ?? '0') * 10) / 10,
+      avgBlockTime: avgBlockTime?.[0] ? Math.round(parseFloat(avgBlockTime[0].avg_seconds) * 100) / 100 : null,
       gasPriceWei,
+      unavailableMetrics: Object.entries({ totalTransactions, walletAddresses, currentHolders, avgBlockTime, gasPriceWei })
+        .filter(([, value]) => value === null).map(([key]) => key),
     };
   });
 }
@@ -1246,6 +1302,7 @@ function mapTx(r: TxRow, evmHash?: string | null, evmExtra?: { input_data?: stri
     hash: safeHash ?? '',
     evmHash: safeEvmHash,
     blockHeight: Number(r.block_height),
+    txIndex: r.tx_index,
     fromAddr,
     toAddr,
     value,
@@ -1614,6 +1671,12 @@ export function explorerRouter(): Router {
       const totalTxs = Number(blocks[0].num_txs ?? 0);
       const whereClauses = ['t.block_height = $1'];
       const filterParams: unknown[] = [height];
+      if (INCLUSIONS_ENABLED) {
+        filterParams.push(INCLUSION_CHAIN_ID);
+        whereClauses.push(`t.chain_id = $${filterParams.length}`);
+      }
+      // Hash identity can span multiple inclusions; EVM metadata belongs to its block.
+      const evmJoin = 'e.cosmos_tx_hash = t.hash AND e.block_height = t.block_height';
 
       if (rawSearch) {
         filterParams.push(`%${rawSearch}%`);
@@ -1649,8 +1712,8 @@ export function explorerRouter(): Router {
       const filteredTxs = filtersActive
         ? await query<CountRow>(
             `SELECT COUNT(*) AS count
-             FROM transactions t
-             LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
+             FROM ${INCLUSION_SOURCE} t
+             LEFT JOIN evm_transactions e ON ${evmJoin}
              WHERE ${whereClauses.join(' AND ')}`,
             filterParams
           )
@@ -1663,8 +1726,8 @@ export function explorerRouter(): Router {
       const offset = Math.min(requestedOffset, maxOffset);
       const txs = await query<TxRow & { evm_hash: string | null; evm_input_data: string | null; evm_contract_address: string | null; evm_from_address: string | null; evm_to_address: string | null; evm_value: string | null; evm_gas_price: string | null; evm_nonce: number | null }>(
         `SELECT t.*, e.hash AS evm_hash, e.input_data AS evm_input_data, e.contract_address AS evm_contract_address, e.from_address AS evm_from_address, e.to_address AS evm_to_address, e.value AS evm_value, e.gas_price AS evm_gas_price, e.nonce AS evm_nonce
-         FROM transactions t
-         LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
+         FROM ${INCLUSION_SOURCE} t
+         LEFT JOIN evm_transactions e ON ${evmJoin}
          WHERE ${whereClauses.join(' AND ')}
          ORDER BY t.tx_index ASC
          LIMIT $${filterParams.length + 1} OFFSET $${filterParams.length + 2}`,
@@ -1708,13 +1771,14 @@ export function explorerRouter(): Router {
       const [rows, total] = await Promise.all([
         query<TxRow & { evm_hash: string | null; evm_input_data: string | null; evm_contract_address: string | null; evm_from_address: string | null; evm_to_address: string | null; evm_value: string | null; evm_gas_price: string | null; evm_nonce: number | null }>(
           `SELECT t.*, e.hash AS evm_hash, e.input_data AS evm_input_data, e.contract_address AS evm_contract_address, e.from_address AS evm_from_address, e.to_address AS evm_to_address, e.value AS evm_value, e.gas_price AS evm_gas_price, e.nonce AS evm_nonce
-           FROM transactions t
-           LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
-           ORDER BY t.timestamp DESC, t.block_height DESC
+           FROM ${INCLUSION_SOURCE} t
+           LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash AND e.block_height = t.block_height
+           ${INCLUSIONS_ENABLED ? `WHERE t.chain_id='${INCLUSION_CHAIN_ID}'` : ''}
+           ORDER BY t.block_height DESC, t.tx_index DESC
            LIMIT $1 OFFSET $2`,
           [limit, offset]
         ),
-        getCachedCount('transactions-total', 'SELECT COUNT(*) AS count FROM transactions'),
+        getCachedCount(`transactions-total:${MODEL_CACHE_VERSION}`, `SELECT COUNT(*) AS count FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER}`),
       ]);
 
       const baseRows = rows.map((row) => {
@@ -1739,6 +1803,29 @@ export function explorerRouter(): Router {
       });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, '[api] /txs error');
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  r.get('/txs/:hash/inclusions', async (req: Request, res: Response) => {
+    if (!INCLUSIONS_ENABLED) { res.status(404).json({ message: 'Inclusion history unavailable' }); return; }
+    const hash = String(req.params.hash);
+    if (!/^(?:[a-fA-F0-9]{64}|0x[a-fA-F0-9]{64})$/.test(hash)) {
+      res.status(400).json({ error: 'Invalid transaction hash' }); return;
+    }
+    try {
+      const limit = clamp(req.query.limit);
+      const offset = resolveOffset(req.query, limit);
+      const rows = await query<TxRow & { abci_code: number | null }>(
+        `SELECT i.* FROM transaction_inclusions i WHERE i.chain_id=$1 AND i.hash=COALESCE(
+          (SELECT cosmos_tx_hash FROM evm_transactions WHERE LOWER(hash)=LOWER($2)), UPPER($2))
+         ORDER BY i.block_height DESC, i.tx_index DESC LIMIT $3 OFFSET $4`,
+        [INCLUSION_CHAIN_ID, hash, limit, offset]
+      );
+      // Do not enrich failed history with receipt metadata from a later success.
+      res.json({ inclusions: rows.map(row => ({ ...mapTx(row), txIndex: row.tx_index, abciCode: row.abci_code, rawLog: row.raw_log })), limit, offset });
+    } catch (err) {
+      logger.error({ err: err instanceof Error ? err.message : String(err) }, '[api] inclusion history error');
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -2408,22 +2495,23 @@ export function explorerRouter(): Router {
         total_supply: string | null;
         contract_type: string | null;
         creator: string | null;
+        verified: boolean | null;
+        deployer_verified_at: Date | null;
         created_at: Date;
       }>(
         // Dedupe by lower(address): the same contract can exist as two rows that
         // differ only by EVM-address casing — a checksummed seeded row and a
         // lowercased indexer-detected row. Collapse them with DISTINCT ON, keeping
         // the checksummed (seeded) row, which carries the canonical name/symbol.
-        `SELECT address, name, symbol, decimals, total_supply, contract_type, creator, created_at
+        `SELECT address, name, symbol, decimals, total_supply, contract_type, creator, verified, deployer_verified_at, created_at
          FROM (
            SELECT DISTINCT ON (lower(address))
-                  address, name, symbol, decimals, total_supply, contract_type, creator, created_at
+                  address, name, symbol, decimals, total_supply, contract_type, creator, verified, deployer_verified_at, created_at
            FROM contracts
            WHERE contract_type = 'token' OR (symbol IS NOT NULL AND contract_type IS DISTINCT FROM 'nft')
            ORDER BY lower(address), (address = lower(address)), created_at ASC
          ) deduped
-         ORDER BY created_at DESC
-         LIMIT 100`
+         ORDER BY created_at DESC`
       ).catch(() => []);
 
       // Native LITHO holders = addresses with a non-zero current balance (kept
@@ -2433,11 +2521,12 @@ export function explorerRouter(): Router {
         query<CountRow>(
           `SELECT COUNT(*) AS count FROM accounts WHERE balance IS NOT NULL AND balance <> '0'`
         ).catch(() => [{ count: '0' }]),
-        query<CountRow>('SELECT COUNT(*) AS count FROM transactions').catch(() => [{ count: '0' }]),
-        getTokenTransferIndexStatus(),
+        metricDeadline(loadCachedShared(`token-list:tx-count:${MODEL_CACHE_VERSION}`, STATS_COUNT_TTL_MS,
+          () => query<CountRow>(`SELECT COUNT(*) AS count FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER}`))),
+        metricDeadline(getTokenTransferIndexStatus()).then(value => value ?? { ready: false, evmTxCount: 0, transferCount: 0 }),
       ]);
       const tokenStatsByAddress = tokenTransferIndex.ready
-        ? await loadCached('token-stats-by-contract', 30_000, getTokenStatsByContract)
+        ? await metricDeadline(loadCached('token-stats-by-contract', 30_000, getTokenStatsByContract))
         : new Map<string, { holders: number; transfers: number }>();
 
       const visibleContractTokens = contractTokens.filter((token) => !isHiddenToken(token));
@@ -2450,22 +2539,25 @@ export function explorerRouter(): Router {
           totalSupply: '1000000000000000000000000000',
           type: 'native',
           holders: parseInt(holderCount[0]?.count ?? '0'),
-          transfers: parseInt(totalTxCount[0]?.count ?? '0'),
+          transfers: totalTxCount ? parseInt(totalTxCount[0]?.count ?? '0') : null,
           contractAddress: null,
+          verifiedBadge: true,
         },
         ...visibleContractTokens.map((c) => {
           const type = getAssetType(c.contract_type, c.symbol);
           const isFungible = isFungibleContractType(c.contract_type, c.symbol);
-          const stats = isFungible ? tokenStatsByAddress.get(c.address.toLowerCase()) : null;
+          const stats = isFungible ? tokenStatsByAddress?.get(c.address.toLowerCase()) : null;
           return {
             symbol: c.symbol ?? 'Unknown',
             name: c.name ?? 'Unknown Token',
             decimals: c.decimals ?? getDefaultTokenDecimals(c.contract_type),
             totalSupply: c.total_supply,
             type,
-            holders: isFungible && tokenTransferIndex.ready ? (stats?.holders ?? 0) : null,
-            transfers: isFungible && tokenTransferIndex.ready ? (stats?.transfers ?? 0) : null,
+            holders: isFungible && tokenTransferIndex.ready && tokenStatsByAddress ? (stats?.holders ?? 0) : null,
+            transfers: isFungible && tokenTransferIndex.ready && tokenStatsByAddress ? (stats?.transfers ?? 0) : null,
             contractAddress: c.address,
+            verifiedBadge: c.verified === true && c.deployer_verified_at != null,
+            deployerVerified: c.deployer_verified_at != null,
           };
         }),
       ];
@@ -2630,10 +2722,10 @@ export function explorerRouter(): Router {
         decimals: number | null; total_supply: string | null;
         contract_type: string | null; creator: string | null;
         creation_tx: string | null; creation_block: string | null;
-        verified: boolean | null; created_at: Date;
+        verified: boolean | null; deployer_verified_at: Date | null; created_at: Date;
       }>(
         `SELECT address, name, symbol, decimals, total_supply, contract_type, creator,
-                creation_tx, creation_block, verified, created_at
+                creation_tx, creation_block, verified, deployer_verified_at, created_at
          FROM contracts WHERE LOWER(address) = $1`,
         [addrLower]
       );
@@ -2688,6 +2780,8 @@ export function explorerRouter(): Router {
         standard: getAssetStandard(assetType),
         description: null,
         verified: c.verified ?? false,
+        deployerVerified: c.deployer_verified_at != null,
+        verifiedBadge: c.verified === true && c.deployer_verified_at != null,
       });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, '[api] /tokens/:address error');
@@ -3561,6 +3655,37 @@ export function explorerRouter(): Router {
       return;
     }
     res.json({ ok: true, address: claims.sub, chainId: claims.chainId, expiresAt: claims.exp });
+  });
+
+  // A valid explorer session proves wallet control. Only the recorded deployer
+  // can claim this token; source verification remains an independent condition.
+  r.post('/tokens/:address/verify-deployer', async (req: Request, res: Response) => {
+    const token = bearerToken(req);
+    const claims = token ? verifySession(token) : null;
+    if (!claims || claims.chainId !== AUTH_ALLOWED_CHAIN || !isAddress(claims.sub)) {
+      res.status(401).json({ error: 'Sign in with the deployer wallet on this network.' });
+      return;
+    }
+    const address = normalizeContractAddress(req.params.address);
+    if (!isAddress(address)) {
+      res.status(400).json({ error: 'Invalid token contract address.' });
+      return;
+    }
+    try {
+      const rows = await query<{ verified: boolean }>(
+        `UPDATE contracts SET deployer_verified_at = NOW()
+         WHERE LOWER(address) = $1 AND LOWER(creator) = $2
+         RETURNING verified`, [address.toLowerCase(), claims.sub.toLowerCase()]
+      );
+      if (!rows[0]) {
+        res.status(403).json({ error: 'Only the recorded contract deployer can verify this account.' });
+        return;
+      }
+      res.json({ deployerVerified: true, verifiedBadge: rows[0].verified === true });
+    } catch (err) {
+      logger.error({ err: String(err) }, '[api] deployer verification failed');
+      res.status(500).json({ error: 'Could not verify the deployer. Please retry.' });
+    }
   });
 
   return r;

@@ -72,7 +72,7 @@ describe('GET /api/stats/summary', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({
-      avgBlockTime: 0.5, // 0.525 rounded to one decimal
+      avgBlockTime: 0.53, // Preserve useful precision for fast chains.
     });
     expect(typeof res.body.totalTransactions).toBe('number');
     expect(typeof res.body.walletAddresses).toBe('number');

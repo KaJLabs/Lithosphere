@@ -5,6 +5,7 @@ import { useRouter } from 'next/router';
 import { useState, useCallback, useEffect } from 'react';
 
 import { useApi } from '@/lib/api';
+import TokenVerification from '@/components/TokenVerification';
 import { EXPLORER_TITLE } from '@/lib/constants';
 import { formatNumber, formatSupply, truncateHash, timeAgo, formatTimestamp, evmToCosmos, preferLitho, truncateAddressSmart } from '@/lib/format';
 import { NETWORK } from '@/lib/network';
@@ -709,7 +710,7 @@ function InfoTab({ token }: { token: ApiTokenDetail }) {
           <InfoRow label="Decimals" value={String(token.decimals)} mono />
           <InfoRow label="Type" value={getAssetTypeLabel(token)} />
           <InfoRow label="Standard" value={getAssetStandard(token)} />
-          {isNative && <InfoRow label="Denom" value="ulitho" mono />}
+          {isNative && <InfoRow label="Denomination" value="LITHO" mono />}
           <InfoRow label="Chain" value={NETWORK.cosmosChainId} mono />
           <InfoRow label="Chain ID" value={String(NETWORK.evmChainId)} mono />
           <InfoRow
@@ -786,7 +787,7 @@ export default function TokenDetailPage() {
     }
   }, [address, router]);
 
-  const { data: token, loading, error } = useApi<ApiTokenDetail>(
+  const { data: token, loading, error, refetch } = useApi<ApiTokenDetail>(
     address ? `/tokens/${address}` : null
   );
 
@@ -856,12 +857,12 @@ export default function TokenDetailPage() {
             <div>
               <div className="flex items-center gap-3 flex-wrap">
                 <h1 className="text-3xl font-semibold">{token.name}</h1>
-                {token.verified ? (
+                {token.verifiedBadge || token.type === 'native' ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-0.5 text-xs font-medium text-emerald-300">
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
                     Verified
                   </span>
-                ) : token.type !== 'native' && (
+                ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-yellow-400/30 bg-yellow-400/10 px-2.5 py-0.5 text-xs font-medium text-yellow-300">
                     <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
                     Unverified
@@ -1076,7 +1077,7 @@ export default function TokenDetailPage() {
           )}
 
           {activeTab === 'contract' && (
-            <ContractTab token={token} />
+            <><ContractTab token={token} /><TokenVerification token={token} onVerified={refetch} /></>
           )}
 
           {activeTab === 'info' && (

@@ -209,6 +209,8 @@ CREATE TABLE IF NOT EXISTS contracts (
     creation_block BIGINT,
     bytecode TEXT,
     verified BOOLEAN DEFAULT FALSE,
+    deployer_verified_at TIMESTAMPTZ,
+    metadata_checked_at TIMESTAMPTZ,
     name VARCHAR(100),
     symbol VARCHAR(20),
     decimals INTEGER,

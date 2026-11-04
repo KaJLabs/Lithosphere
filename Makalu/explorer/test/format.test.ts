@@ -6,6 +6,8 @@ import {
   formatLitho,
   formatNumber,
   formatStrat,
+  formatMafic,
+  formatGasPrice,
   formatSupply,
   formatTimestamp,
   formatValue,
@@ -184,13 +186,17 @@ describe('formatSupply', () => {
   });
 });
 
-describe('formatStrat (1 Strat = 100 ulitho)', () => {
-  it('formats 100 ulitho as 1 Strat', () => {
-    expect(formatStrat('100')).toBe('1 Strat');
+describe('native display units (1 LITHO = 10,000 Strat = 100 Mafic)', () => {
+  it('converts one LITHO consistently across all units', () => {
+    expect(formatStrat('1000000000000000000')).toBe('10,000 Strat');
+    expect(formatMafic('1000000000000000000')).toBe('100 Mafic');
+    expect(formatLitho('1000000000000000000')).toBe('1 LITHO');
   });
 
   it('formats fractional Strat', () => {
-    expect(formatStrat('7')).toBe('0.07 Strat');
+    expect(formatStrat('7')).toBe('0.00000000000007 Strat');
+    expect(formatGasPrice('7')).toBe('0.0000000000000007 Mafic/gas');
+    expect(formatGasPrice('8035714285')).toBe('0.0000008035714285 Mafic/gas');
   });
 
   it('handles zero / null', () => {
@@ -199,7 +205,8 @@ describe('formatStrat (1 Strat = 100 ulitho)', () => {
   });
 
   it('strips trailing zeros', () => {
-    expect(formatStrat('150')).toBe('1.5 Strat');
+    expect(formatStrat('150000000000000')).toBe('1.5 Strat');
+    expect(formatMafic('15000000000000000')).toBe('1.5 Mafic');
   });
 });
 

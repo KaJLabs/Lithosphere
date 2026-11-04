@@ -84,6 +84,19 @@ A machine-readable JSON configuration bundle is available at [`network-parameter
 | Consensus | CometBFT (LinBFT) |
 | Framework | Cosmos-SDK (Ethermint fork) |
 
+## Explorer denomination display
+
+Makalu and mainnet bank metadata both define **1 LITHO = 10^18 native `ulitho`**.
+The on-chain base denomination is an atto unit despite its name. A display
+micro-LITHO is 10^-6 LITHO; it must not be confused with a raw `ulitho` quantity.
+
+The explorer display convention requested on 2026-11-04 is
+**1 LITHO = 100 Mafic = 10,000 Strat = 1,000,000 micro-LITHO**.
+Gas prices are shown in Mafic per gas; paid transaction fees and native amounts
+are shown in LITHO. These are display conversions; consensus gas settings and
+stored/RPC quantities retain their native precision. See the
+[live denomination verification](../lithoscan-denominations-2026-11-04.md).
+
 ## Rate Limits and Anti-Spam Controls
 
 ### Public RPC Endpoints

@@ -10,7 +10,7 @@ import { FormattedValueElement } from '@/components/FormattedValueElement';
 import Loading from '@/components/Loading';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, timeAgo, truncateHash, formatValue, formatStrat } from '@/lib/format';
+import { formatNumber, formatTimestamp, timeAgo, truncateHash, formatValue } from '@/lib/format';
 import { NETWORK } from '@/lib/network';
 import { getPreferredTxHash } from '@/lib/tx';
 
@@ -165,7 +165,7 @@ export default function BlockDetailPage() {
     {
       key: 'fee',
       header: 'Fee',
-      render: (tx) => <span className="font-mono text-sm text-white/60">{formatStrat(tx.feePaid)}</span>,
+      render: (tx) => <span className="font-mono text-sm text-white/60">{formatValue(tx.feePaid)}</span>,
     },
     {
       key: 'memo',
@@ -346,7 +346,7 @@ export default function BlockDetailPage() {
           )}
 
           <Row label="Gas Used">
-            <span className="font-mono">{formatStrat(block.gasUsed)}</span>
+            <span className="font-mono">{formatNumber(block.gasUsed)}</span>
           </Row>
         </div>
 

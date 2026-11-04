@@ -15,7 +15,7 @@ export interface BuildInfo {
   nodeVersion: string;
 }
 
-export function readBuildInfo(env: NodeJS.ProcessEnv = process.env): BuildInfo {
+export function readBuildInfo(env: Partial<NodeJS.ProcessEnv> = process.env): BuildInfo {
   return {
     gitSha: env.GIT_SHA || env.NEXT_PUBLIC_GIT_SHA || 'unknown',
     buildTime: env.BUILD_TIME || env.NEXT_PUBLIC_BUILD_TIME || 'unknown',

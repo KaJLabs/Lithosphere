@@ -4,7 +4,8 @@ import { useRouter } from 'next/router';
 import { useState } from 'react';
 
 import { useApi } from '@/lib/api';
-import { EXPLORER_TITLE } from '@/lib/constants';
+import { VerifiedTokenBadge } from '@/components/TokenVerification';
+import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, formatSupply, preferLitho, truncateAddressSmart } from '@/lib/format';
 
 import type { ApiToken } from '@/lib/types';
@@ -95,7 +96,7 @@ function SkeletonCard() {
 
 export default function TokensPage() {
   const router = useRouter();
-  const { data: tokens, loading, error } = useApi<ApiToken[]>('/tokens');
+  const { data: tokens, loading, error } = useApi<ApiToken[]>('/tokens', { pollInterval: POLL_INTERVAL });
   const [page, setPage] = useState(1);
 
   const totalTokens = tokens?.length ?? 0;
@@ -222,6 +223,7 @@ export default function TokensPage() {
                               <div>
                                 <span className="text-sm font-semibold text-white group-hover:text-emerald-300 transition">
                                   {token.symbol}
+                                  <VerifiedTokenBadge verified={token.verifiedBadge} />
                                 </span>
                                 <div className="text-xs text-white/40">{token.name}</div>
                               </div>
@@ -289,7 +291,7 @@ export default function TokensPage() {
                             </div>
                           )}
                           <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-white">{token.symbol}</div>
+                            <div className="truncate text-sm font-semibold text-white">{token.symbol}<VerifiedTokenBadge verified={token.verifiedBadge} /></div>
                             <div className="truncate text-xs text-white/40">{token.name}</div>
                           </div>
                         </div>

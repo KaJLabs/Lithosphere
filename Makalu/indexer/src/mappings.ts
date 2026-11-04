@@ -2,7 +2,10 @@ import 'dotenv/config';
 // Must come before any pg / http / fetch imports — see tracing.ts.
 import './tracing.js';
 import { createHash } from 'crypto';
+import { prefetchEvmTransactions, createSingleFlightTask, type EvmDetails } from './evm-prefetch.js';
 import { decodeTxMemo } from './tx-memo.js';
+import { discoverToken } from './token-discovery.js';
+import { writeTransaction } from './transaction-inclusions.js';
 import { bech32 } from 'bech32';
 import pkg, { type PoolClient } from 'pg';
 const { Pool } = pkg;
@@ -33,9 +36,12 @@ const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL, PUBLIC_EVM_RPC_URL]
 const EVM_CHAIN_ID = parseConfiguredEvmChainId(process.env.LITHO_CHAIN_ID);
 const START_BLOCK = parseInt(process.env.START_BLOCK || process.env.INDEXER_START_BLOCK || '1');
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || process.env.INDEXER_BATCH_SIZE || '100');
-const POLL_MS = 6000;           // Wait between polls when caught up
+const POLL_MS = 1000; // Wait for the next block without adding six seconds of display lag.
 const CATCHUP_DELAY_MS = 100;   // Delay between batches during bulk sync
-const SYNCING_LAG_THRESHOLD = 1000;
+const SYNCING_LAG_THRESHOLD = 30;
+const INCLUSIONS_ENABLED = process.env.TRANSACTION_INCLUSIONS_ENABLED === 'true';
+const INCLUSION_CHAIN_ID = INCLUSIONS_ENABLED ? process.env.TRANSACTION_INCLUSION_CHAIN_ID?.trim() : undefined;
+if (INCLUSIONS_ENABLED && !/^[A-Za-z0-9_.-]+$/.test(INCLUSION_CHAIN_ID || '')) throw new Error('Transaction inclusions require an explicit chain ID');
 const CONSISTENCY_REPAIR_INTERVAL_MS = 300_000;
 const SYNC_SNAPSHOT_REFRESH_MS = 30_000;
 const CONSISTENCY_REPAIR_BATCH = 250;
@@ -353,7 +359,8 @@ export function toIsoString(value: Date | string | null | undefined): string | n
 const INCONSISTENT_BLOCKS_CTE = `
   WITH tx_counts AS (
     SELECT block_height::bigint AS height, COUNT(*)::bigint AS tx_count
-    FROM transactions
+    FROM ${INCLUSIONS_ENABLED ? 'transaction_inclusions' : 'transactions'}
+    ${INCLUSIONS_ENABLED ? `WHERE chain_id='${INCLUSION_CHAIN_ID}'` : ''}
     GROUP BY block_height
   ),
   inconsistent_blocks AS (
@@ -369,12 +376,30 @@ const INCONSISTENT_BLOCKS_CTE = `
   )
 `;
 
+let consistencyCountCache: number | null = null;
+let consistencyCountCheckedAt = 0;
+let consistencyCountPending: Promise<number> | null = null;
 async function getInconsistentBlockCount(): Promise<number> {
-  const rows = await pool.query<{ count: string }>(`
+  const refresh = (): Promise<number> => {
+    if (!consistencyCountPending) {
+      consistencyCountPending = pool.query<{ count: string }>(`
     ${INCONSISTENT_BLOCKS_CTE}
     SELECT COUNT(*) AS count FROM inconsistent_blocks
-  `);
-  return parseIntSafe(rows.rows[0]?.count);
+  `).then(rows => {
+        consistencyCountCache = parseIntSafe(rows.rows[0]?.count);
+        consistencyCountCheckedAt = Date.now();
+        return consistencyCountCache;
+      }).finally(() => { consistencyCountPending = null; });
+    }
+    return consistencyCountPending;
+  };
+  // Startup establishes a real count. Later snapshots reuse that diagnostic
+  // and refresh it at the existing repair cadence, without blocking indexing.
+  if (consistencyCountCache === null)
+    return refresh();
+  if (Date.now() - consistencyCountCheckedAt >= CONSISTENCY_REPAIR_INTERVAL_MS)
+    void refresh().catch(err => logger.warn({ err }, '[indexer] consistency diagnostic refresh failed'));
+  return consistencyCountCache;
 }
 
 async function findInconsistentBlockHeights(limit: number): Promise<number[]> {
@@ -406,7 +431,7 @@ async function refreshSyncSnapshot(chainTip = lastKnownChainTip): Promise<Indexe
       'SELECT COALESCE(MAX(height), 0)::text AS height, MAX(block_time) AS block_time FROM blocks'
     ).catch(() => ({ rows: [] as HeightWithTimeRow[] })),
     pool.query<HeightWithTimeRow>(
-      'SELECT COALESCE(MAX(block_height), 0)::text AS height, MAX(timestamp) AS timestamp FROM transactions'
+      `SELECT block_height::text AS height, timestamp FROM ${INCLUSIONS_ENABLED ? 'transaction_inclusions' : 'transactions'} ${INCLUSIONS_ENABLED ? `WHERE chain_id='${INCLUSION_CHAIN_ID}'` : ''} ORDER BY block_height DESC, tx_index DESC LIMIT 1`
     ).catch(() => ({ rows: [] as HeightWithTimeRow[] })),
     getInconsistentBlockCount().catch(() => 0),
     getIndexerState('last_reset_reason').catch(() => null),
@@ -431,7 +456,8 @@ async function refreshSyncSnapshot(chainTip = lastKnownChainTip): Promise<Indexe
     latestTransactionTimestamp: toIsoString(maxTransactionBlockRow.rows[0]?.timestamp),
     inconsistentBlockCount,
     lagBlocks,
-    isSyncing: lagBlocks > SYNCING_LAG_THRESHOLD,
+    isSyncing: effectiveChainTip <= 0 || lagBlocks > SYNCING_LAG_THRESHOLD || !maxIndexedBlockRow.rows[0]?.block_time
+      || Date.now() - Date.parse(String(maxIndexedBlockRow.rows[0]?.block_time)) > 60_000,
     lastResetReason,
     lastResetAt,
     lastRepairAt,
@@ -635,6 +661,7 @@ async function ensureChainConsistency(forceReset: boolean): Promise<void> {
   ]);
 
   const currentChainId = status.node_info.network;
+  if (INCLUSIONS_ENABLED && currentChainId !== INCLUSION_CHAIN_ID) throw new Error('Inclusion chain ID does not match the RPC');
   const currentGenesisHash = genesisBlock.block_id.hash.toLowerCase();
   const currentGenesisTime = genesisBlock.block.header.time;
 
@@ -658,7 +685,11 @@ async function ensureChainConsistency(forceReset: boolean): Promise<void> {
   }
 
   if (resetReason) {
+    if (INCLUSIONS_ENABLED) throw new Error('Preserving inclusion history: explicit reset requires separate reconciliation');
     await resetIndexedData(resetReason);
+  }
+  if (INCLUSIONS_ENABLED && await getIndexerState('transaction_inclusions_seeded') !== INCLUSION_CHAIN_ID) {
+    throw new Error('Run the verified inclusion migration before enabling the writer');
   }
 
   await setIndexerState('chain_id', currentChainId);
@@ -676,7 +707,13 @@ export async function indexBlock(height: number, options: IndexBlockOptions = {}
 
   const rawTxs    = blockData.block.data.txs ?? [];
   const txResults = resultsData.txs_results ?? [];
+  if (rawTxs.length !== txResults.length) throw new Error('Block transaction/result counts disagree');
   const totalGas  = txResults.reduce((s, r) => s + parseInt(r.gas_used || '0'), 0);
+  const hashes = txResults
+    .filter(result => (attr(result.events ?? [], 'message', 'action') || '').split('.').pop() === 'MsgEthereumTx')
+    .map(result => attr(result.events ?? [], 'ethereum_tx', 'ethereumTxHash'))
+    .filter(Boolean);
+  const evmDetails = await prefetchEvmTransactions<RpcEvmTx, RpcEvmReceipt>(hashes, evmRpc, 16, height);
 
   const client = await pool.connect();
   try {
@@ -685,9 +722,10 @@ export async function indexBlock(height: number, options: IndexBlockOptions = {}
     if (options.replaceExisting) {
       await client.query('DELETE FROM token_transfers WHERE block_height = $1', [height]);
       await client.query('DELETE FROM evm_transactions WHERE block_height = $1', [height]);
-      await client.query('DELETE FROM transactions WHERE block_height = $1', [height]);
+      if (!INCLUSIONS_ENABLED) await client.query('DELETE FROM transactions WHERE block_height = $1', [height]);
+      if (INCLUSIONS_ENABLED) await client.query('DELETE FROM transaction_inclusions WHERE chain_id=$1 AND block_height=$2', [INCLUSION_CHAIN_ID, height]);
       await client.query('DELETE FROM contracts WHERE creation_block = $1', [height]);
-      await client.query('DELETE FROM blocks WHERE height = $1', [height]);
+      if (!INCLUSIONS_ENABLED) await client.query('DELETE FROM blocks WHERE height = $1', [height]);
     }
 
     await client.query(
@@ -714,7 +752,7 @@ export async function indexBlock(height: number, options: IndexBlockOptions = {}
       const txHash  = createHash('sha256').update(txBytes).digest('hex').toUpperCase();
       const result  = txResults[i];
       if (result) {
-        await indexTx(client, txHash, height, i, blockData.block.header.time, result, txBytes);
+        await indexTx(client, txHash, height, i, blockData.block.header.time, result, txBytes, evmDetails);
       }
     }
 
@@ -748,7 +786,8 @@ async function indexTx(
   index: number,
   blockTime: string,
   result: TxResult,
-  txBytes: Uint8Array
+  txBytes: Uint8Array,
+  evmDetails?: Map<string, EvmDetails<RpcEvmTx, RpcEvmReceipt>>,
 ): Promise<void> {
   const evts    = result.events ?? [];
   const success = result.code === 0;
@@ -795,13 +834,7 @@ async function indexTx(
   if (sender)                   await upsertAccount(client, sender,   height);
   if (receiver && receiver !== sender) await upsertAccount(client, receiver, height);
 
-  await client.query(
-    `INSERT INTO transactions
-       (hash, block_height, tx_index, tx_type, sender, receiver, amount, denom,
-        gas_used, gas_wanted, fee, fee_denom, success, memo, raw_log, timestamp)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-     ON CONFLICT (hash) DO UPDATE SET memo = EXCLUDED.memo`,
-    [
+  await writeTransaction(client, [
       hash, height, index, txType,
       sender   || null,
       receiver || null,
@@ -812,15 +845,14 @@ async function indexTx(
       memo,
       result.log?.substring(0, 2000) || '',
       blockTime,
-    ]
-  );
+    ], INCLUSION_CHAIN_ID, result.code);
 
   // EVM transaction
   if (isEvm) {
     const evmHash = attr(evts, 'ethereum_tx', 'ethereumTxHash');
     if (evmHash) {
       logger.info({ evmHash, cosmosHash: hash, height }, '[evm] Indexing EVM tx');
-      await indexEvmTx(client, evmHash, hash, height, index, blockTime, evts, result, gasUsed);
+      await indexEvmTx(client, evmHash, hash, height, index, blockTime, evts, result, gasUsed, evmDetails?.get(evmHash));
     } else {
       logger.warn({ height }, '[evm] MsgEthereumTx has no ethereumTxHash event');
     }
@@ -842,6 +874,10 @@ const LEP100_TRANSFER_SINGLE_TOPIC =
   '0xc3d58168c5ae7397731d063d5bbf3d657854427343f4c083240f7aacaa2d0f62';
 
 interface RpcEvmReceipt {
+  contractAddress?: string | null;
+  status?: string;
+  effectiveGasPrice?: string;
+  gasUsed?: string;
   logs?: Array<{
     address: string;
     topics: string[];
@@ -851,6 +887,8 @@ interface RpcEvmReceipt {
 }
 
 interface RpcEvmTx {
+  hash?: string;
+  blockNumber?: string;
   from: string;
   to: string | null;
   value: string;
@@ -908,7 +946,8 @@ async function indexEvmTx(
   blockTime: string,
   evts: TxEvent[],
   result: TxResult,
-  gasUsed: number
+  gasUsed: number,
+  prefetched?: EvmDetails<RpcEvmTx, RpcEvmReceipt>,
 ): Promise<void> {
   // Initial values from Cosmos events
   let fromAddr = (attr(evts, 'message', 'sender') || '').toLowerCase();
@@ -923,7 +962,8 @@ async function indexEvmTx(
   // Enrich with EVM JSON-RPC details when available (tx + receipt in parallel)
   if (EVM_RPC_ENDPOINTS.length > 0) {
     try {
-      const [tx, rcpt] = await Promise.all([
+      if (prefetched?.error) throw prefetched.error;
+      const [tx, rcpt] = prefetched ? [prefetched.tx, prefetched.receipt] : await Promise.all([
         evmRpc<RpcEvmTx>('eth_getTransactionByHash', [evmHash]),
         evmRpc<RpcEvmReceipt>('eth_getTransactionReceipt', [evmHash]),
       ]);
@@ -936,16 +976,24 @@ async function indexEvmTx(
         nonce    = Number(BigInt(tx.nonce ?? '0x0'));
         input    = tx.input ?? '';
       }
-      receipt = rcpt;
+      receipt = rcpt ?? null;
+      if (rcpt?.effectiveGasPrice) gasPrice = String(BigInt(rcpt.effectiveGasPrice));
+      if (rcpt?.gasUsed) gasUsed = Number(BigInt(rcpt.gasUsed));
     } catch (err) {
       logger.warn({ evmHash, err: err instanceof Error ? err.message : String(err) }, '[evm] RPC enrichment failed');
     }
   }
 
-  const contractAddr = !toAddr
-    ? (attr(evts, 'ethereum_tx', 'contractAddress') || null)
+  const contractAddr = !toAddr && result.code === 0 && receipt?.status !== '0x0'
+    ? (receipt?.contractAddress || attr(evts, 'ethereum_tx', 'contractAddress') || '').toLowerCase() || null
     : null;
 
+  for (const address of new Set([fromAddr, toAddr, contractAddr])) {
+    if (address && /^0x[0-9a-f]{40}$/i.test(address)) {
+      const cosmosAddress = bech32.encode('litho', bech32.toWords(Buffer.from(address.slice(2), 'hex')));
+      await upsertAccount(client, cosmosAddress, height);
+    }
+  }
   await client.query(
     `INSERT INTO evm_transactions
        (hash, cosmos_tx_hash, block_height, tx_index,
@@ -959,7 +1007,7 @@ async function indexEvmTx(
       value, gasPrice, gasLimit, gasUsed,
       nonce, input.substring(0, 4096),
       contractAddr,
-      result.code === 0,
+      result.code === 0 && receipt?.status !== '0x0',
       blockTime,
     ]
   );
@@ -1077,6 +1125,14 @@ async function indexTransferLogs(
            contract_type = 'nft',
            updated_at = NOW()
          WHERE contracts.contract_type IS DISTINCT FROM 'token'`,
+        [contractAddress]
+      );
+    } else {
+      await client.query(
+        `INSERT INTO contracts (address, contract_type)
+         VALUES ($1, 'token')
+         ON CONFLICT (address) DO UPDATE SET contract_type = 'token'
+         WHERE contracts.contract_type IS NULL`,
         [contractAddress]
       );
     }
@@ -1707,6 +1763,45 @@ async function main(): Promise<void> {
     logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[indexer] NFT contract classification backfill failed');
   }
 
+  // Discovery runs independently so RPC metadata calls cannot delay block ingestion.
+  await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS metadata_checked_at TIMESTAMPTZ');
+  const discover = async () => {
+    const pending = await pool.query<{ address: string }>(
+      `SELECT address FROM contracts
+       WHERE metadata_checked_at IS NULL OR metadata_checked_at < NOW() - INTERVAL '1 day'
+       ORDER BY metadata_checked_at ASC NULLS FIRST, created_at DESC LIMIT 25`
+    );
+    for (const { address } of pending.rows) {
+      const token = await discoverToken(address, evmRpc);
+      await pool.query(
+        `UPDATE contracts SET
+           name = COALESCE($2, name), symbol = COALESCE($3, symbol),
+           decimals = COALESCE($4, decimals), total_supply = COALESCE($5, total_supply),
+           contract_type = COALESCE($6, contract_type), metadata_checked_at = NOW()
+         WHERE address = $1`,
+        [address, token?.name ?? null, token?.symbol ?? null, token?.decimals ?? null,
+         token?.totalSupply ?? null, token?.contractType ?? null]
+      );
+    }
+  };
+  // Recover historical and factory-deployed tokens from their on-chain transfers.
+  await pool.query(
+    `INSERT INTO contracts (address, contract_type)
+     SELECT LOWER(contract_address),
+            CASE WHEN bool_or(token_id IS NOT NULL) THEN 'nft' ELSE 'token' END
+     FROM token_transfers GROUP BY LOWER(contract_address)
+     ON CONFLICT (address) DO NOTHING`
+  );
+  let discoveryRunning = false;
+  const runDiscovery = () => {
+    if (discoveryRunning) return;
+    discoveryRunning = true;
+    void discover().catch(err => logger.warn({ err: String(err) }, '[discovery] retry next cycle'))
+      .finally(() => { discoveryRunning = false; });
+  };
+  runDiscovery();
+  setInterval(runDiscovery, 15_000).unref();
+
   // Initial validator load
   await refreshValidators();
 
@@ -1715,6 +1810,7 @@ async function main(): Promise<void> {
   let lastConsistencyRepair = Date.now();
   let lastSyncSnapshotRefresh = Date.now();
   let lastNativeBalanceRefresh = 0; // 0 → run on the first cycle so holder counts warm up immediately
+  const nativeBalanceTask = createSingleFlightTask(err => logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[balances] background refresh failed'));
 
   while (true) {
     const cycleId = newCycleId();
@@ -1760,8 +1856,11 @@ async function main(): Promise<void> {
         lastStatsRefresh = Date.now();
       }
       if (Date.now() - lastNativeBalanceRefresh > 60_000) {
-        await refreshNativeBalances(lastKnownChainTip);
-        lastNativeBalanceRefresh = Date.now();
+        const balanceChainTip = lastKnownChainTip;
+        nativeBalanceTask.run(async () => {
+          await refreshNativeBalances(balanceChainTip);
+          lastNativeBalanceRefresh = Date.now();
+        });
       }
       if (Date.now() - lastConsistencyRepair > CONSISTENCY_REPAIR_INTERVAL_MS) {
         await repairInconsistentBlocks();
@@ -1773,7 +1872,7 @@ async function main(): Promise<void> {
       }
 
       // Back off only when caught up; aggressively sync when behind
-      const delay = to >= chainTip ? POLL_MS : CATCHUP_DELAY_MS;
+      const delay = CATCHUP_DELAY_MS;
       await new Promise(r => setTimeout(r, delay));
 
     } catch (err) {

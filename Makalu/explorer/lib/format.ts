@@ -61,34 +61,24 @@ export function formatSupply(raw: string | null | undefined, decimals = 18): str
   }
 }
 
-/**
- * Convert raw ulitho value to Strat display string.
- * 1 Strat = 100 ulitho. Verified against kamet.litho.ai's bundle, which
- * uses the same divisor (`CU = 100n`) — using the same definition keeps
- * Lithosphere's two explorers in agreement on what "1 Strat" means.
- *
- * On Lithosphere 1 wei = 1 ulitho, so an EVM gas price of 7 wei becomes
- * "0.07 Strat" rather than the pre-fix "0.00000000000007 Strat" trap that
- * came from the wrong 1e14 divisor.
- */
-export function formatStrat(amount: string | null | undefined): string {
-  if (!amount || amount === '0') return '0 Strat';
+/** Format native base units without rounding tiny gas prices to zero. */
+function formatNativeUnit(amount: string | null | undefined, decimals: number, unit: string): string {
+  if (!amount || amount === '0') return `0 ${unit}`;
   try {
     const raw = BigInt(amount);
-    const stratDivisor = BigInt(100);
-    const whole = raw / stratDivisor;
-    const frac = raw % stratDivisor;
-    const fracStr = frac.toString().padStart(2, '0').replace(/0+$/, '');
-    const wholeFormatted = whole.toLocaleString('en-US');
-    if (!fracStr) return `${wholeFormatted} Strat`;
-    return `${wholeFormatted}.${fracStr} Strat`;
+    const divisor = BigInt(10) ** BigInt(decimals);
+    const whole = raw / divisor;
+    const fraction = (raw % divisor).toString().padStart(decimals, '0').replace(/0+$/, '');
+    return `${whole.toLocaleString('en-US')}${fraction ? '.' + fraction : ''} ${unit}`;
   } catch {
-    return `${amount} Strat`;
+    return 'Unavailable';
   }
 }
 
-/** Alias retained for call sites that mean specifically "EVM gas price in Strat". */
-export const formatGasPrice = formatStrat;
+/** Display specification: 1 LITHO = 10,000 Strat = 100 Mafic. Native ulitho has 18 decimals. */
+export const formatStrat = (amount: string | null | undefined): string => formatNativeUnit(amount, 14, 'Strat');
+export const formatMafic = (amount: string | null | undefined): string => formatNativeUnit(amount, 16, 'Mafic');
+export const formatGasPrice = (amount: string | null | undefined): string => `${formatMafic(amount)}/gas`;
 
 export function formatGas(gas: string | null | undefined): string {
   if (!gas) return '-';

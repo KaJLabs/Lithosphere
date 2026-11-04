@@ -5,7 +5,7 @@ import { useState } from 'react';
 
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatStrat, formatGasPrice } from '@/lib/format';
+import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatGasPrice } from '@/lib/format';
 import { getPreferredTxHash } from '@/lib/tx';
 
 import type { ApiTx } from '@/lib/types';
@@ -317,7 +317,7 @@ export default function TransactionReceiptPage() {
           )}
           <Row label="Fee">
             <span className="font-mono">
-              {formatStrat(feeBig)}
+              {formatValue(feeBig)}
             </span>
           </Row>
           <Row label="Total">

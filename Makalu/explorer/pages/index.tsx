@@ -115,7 +115,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
   const summaryStats: Array<{ label: string; value: string; subtitle?: string }> = [
     {
       label: isSyncing ? 'Indexed Block' : 'Latest Block',
-      value: statsLoading ? '—' : `#${formatNumber(stats?.tipHeight ?? 0)}`,
+      value: stats?.tipHeight != null ? `#${formatNumber(stats.tipHeight)}` : statsLoading ? '—' : 'Unavailable',
     },
     {
       label: 'Validators',
@@ -128,30 +128,32 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
         : stats?.gasPriceWei
           ? formatGasPrice(stats.gasPriceWei)
           : '—',
+      subtitle: stats?.gasPriceWei ? `${formatValue(stats.gasPriceWei)}/gas · 1 LITHO = 100 Mafic` : undefined,
     },
   ];
 
   const networkMetrics: Array<{ label: string; value: string; subtitle?: string }> = [
     {
       label: 'Average Block Time',
-      value: statsLoading ? '—' : `${stats?.avgBlockTime ?? 0}s`,
+      value: stats?.avgBlockTime != null ? `${stats.avgBlockTime}s` : statsLoading ? '—' : 'Unavailable',
     },
     {
       label: 'Total Transactions',
-      value: statsLoading ? '—' : formatNumber(stats?.totalTransactions ?? 0),
+      value: stats?.totalTransactions != null ? formatNumber(stats.totalTransactions) : statsLoading ? '—' : 'Unavailable',
     },
     {
       label: 'LITHO Holders',
-      value: statsLoading ? '—' : formatNumber(stats?.currentHolders ?? 0),
+      value: stats?.currentHolders != null ? formatNumber(stats.currentHolders) : statsLoading ? '—' : 'Unavailable',
     },
     {
       label: 'Total Addresses',
-      value: statsLoading ? '—' : formatNumber(stats?.walletAddresses ?? 0),
+      value: stats?.walletAddresses != null ? formatNumber(stats.walletAddresses) : statsLoading ? '—' : 'Unavailable',
       subtitle: 'all-time, incl. inactive',
     },
     {
       label: 'Gas Price',
       value: stats?.gasPriceWei ? formatGasPrice(stats.gasPriceWei) : '—',
+      subtitle: stats?.gasPriceWei ? `${formatValue(stats.gasPriceWei)}/gas` : undefined,
     },
   ];
 
@@ -177,7 +179,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                 Explore blocks, contracts, AI activity, and LEP100 assets on {NETWORK.shortName}.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--color-text-secondary)] md:text-lg">
-                A unified explorer for Lithosphere&apos;s dual-layer blockchain with validator
+                An explorer for Lithosphere&apos;s dual-layer blockchain with validator
                 intelligence, AI execution receipts, and real-time network
                 analytics.
               </p>
@@ -226,7 +228,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                   className="rounded-3xl border border-white/10 bg-white/5 p-5"
                 >
                   <div className="text-sm text-white/55">{item.label}</div>
-                  <div className="mt-2 text-2xl font-semibold">{item.value}</div>
+                  <div className="mt-2 text-2xl font-semibold [overflow-wrap:anywhere]">{item.value}</div>
                   {item.subtitle && (
                     <div className="mt-1 text-xs text-white/45">{item.subtitle}</div>
                   )}
@@ -245,7 +247,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                 className="rounded-3xl border border-violet-200 bg-violet-50 p-5 dark:border-violet-400/15 dark:bg-violet-400/5"
               >
                 <div className="text-sm font-medium text-violet-800 dark:text-violet-200/65">{item.label}</div>
-                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-violet-100">{item.value}</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-950 dark:text-violet-100 [overflow-wrap:anywhere]">{item.value}</div>
                 {item.subtitle && (
                   <div className="mt-1 text-xs text-violet-700 dark:text-violet-200/45">{item.subtitle}</div>
                 )}
@@ -357,7 +359,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                   : txs.map((tx) => {
                       const txHash = getPreferredTxHash(tx);
                       const methodLabel = tx.methodName ?? (tx.txType === 'call' ? 'Call' : tx.txType === 'create' ? 'Create' : 'Transfer');
-                      const txKey = txHash ?? `${tx.blockHeight}-${tx.fromAddr}-${tx.toAddr ?? 'none'}-${tx.timestamp ?? 'unknown'}`;
+                      const txKey = `${tx.blockHeight}:${tx.txIndex ?? 0}:${txHash ?? tx.fromAddr}`;
 
                       return (
                       <div

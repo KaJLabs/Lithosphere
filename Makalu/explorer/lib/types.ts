@@ -8,13 +8,14 @@ export interface StatsSummary {
   latestTransactionTimestamp: string | null;
   syncLagBlocks: number;
   isSyncing: boolean;
-  inconsistentBlocks: number;
-  totalTransactions: number;
+  inconsistentBlocks: number | null;
+  totalTransactions: number | null;
   /** Cumulative count of every address ever seen on-chain (all-time, not current holders). */
-  walletAddresses: number;
+  walletAddresses: number | null;
   /** Distinct addresses currently holding a non-zero native LITHO balance. */
-  currentHolders?: number;
-  avgBlockTime: number;
+  currentHolders?: number | null;
+  avgBlockTime: number | null;
+  unavailableMetrics?: string[];
   /** Live chain gas price in wei (= ulitho on Lithosphere). null if RPC unreachable. */
   gasPriceWei?: string | null;
 }
@@ -44,6 +45,7 @@ export interface ApiBlock {
 }
 
 export interface ApiTx {
+  txIndex?: number | null;
   hash: string;
   evmHash?: string;
   blockHeight: number;
@@ -93,6 +95,8 @@ export interface ApiPrice {
 }
 
 export interface ApiToken {
+  verifiedBadge?: boolean;
+  deployerVerified?: boolean;
   symbol: string;
   name: string;
   decimals: number;
@@ -170,6 +174,8 @@ export interface ApiAddress {
 }
 
 export interface ApiTokenDetail {
+  verifiedBadge?: boolean;
+  deployerVerified?: boolean;
   address: string;
   name: string;
   symbol: string;

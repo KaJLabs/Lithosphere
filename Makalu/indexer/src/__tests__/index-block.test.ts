@@ -61,6 +61,32 @@ function stubRpc(responses: Record<string, unknown>) {
 const { indexBlock } = await import('../mappings.js');
 
 describe('indexBlock', () => {
+  it.each(['0x1', '0x0'])('uses receipt deployment and effective fee data, status=%s', async (status) => {
+    const contract = '0x' + 'cd'.repeat(20);
+    const evmHash = '0x' + 'ab'.repeat(32);
+    const sender = '0x' + 'ef'.repeat(20);
+    globalThis.fetch = vi.fn(async (url, init) => {
+      const method = init?.body ? JSON.parse(String(init.body)).method : '';
+      const result = method === 'eth_getTransactionByHash'
+        ? { hash: evmHash, from: sender, to: null, value: '0x0', gasPrice: '0x64', gas: '0xffff', nonce: '0x1', input: '0x6000' }
+        : method === 'eth_getTransactionReceipt'
+          ? { contractAddress: contract, status, effectiveGasPrice: '0x7', gasUsed: '0x5208', logs: [] }
+          : String(url).includes('/block_results')
+            ? { txs_results: [{ code: 0, gas_used: '50000', events: [
+                { type: 'message', attributes: [{ key: 'action', value: '/ethermint.evm.v1.MsgEthereumTx' }] },
+                { type: 'ethereum_tx', attributes: [{ key: 'ethereumTxHash', value: evmHash }] },
+              ] }] }
+            : { block_id: { hash: 'abc' }, block: { header: { proposer_address: 'abc', time: '2026-11-04T00:00:00Z' }, data: { txs: [''] } } };
+      return new Response(JSON.stringify({ result }));
+    }) as typeof fetch;
+    await indexBlock(200);
+    const deployment = captured.find(item => item.sql.includes('INSERT INTO contracts'));
+    if (status === '0x1') expect(deployment?.params).toEqual([contract, sender, evmHash, 200]);
+    else expect(deployment).toBeUndefined();
+    const transaction = captured.find(item => item.sql.includes('INSERT INTO evm_transactions'));
+    expect(transaction?.params?.[7]).toBe('7');
+    expect(transaction?.params?.[9]).toBe(21000);
+  });
   it('continues indexing when a rejected transaction has malformed protobuf bytes', async () => {
     stubRpc({
       '/block?height=12050205': {

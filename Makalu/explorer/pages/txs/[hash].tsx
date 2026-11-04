@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { FormattedValueElement } from '@/components/FormattedValueElement';
 import { useApi } from '@/lib/api';
 import { EXPLORER_TITLE } from '@/lib/constants';
-import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatStrat, formatGasPrice } from '@/lib/format';
+import { formatNumber, formatTimestamp, truncateHash, timeAgo, cleanMethod, txTypeInfo, formatValue, formatSupply, formatGasPrice } from '@/lib/format';
 import { NETWORK } from '@/lib/network';
 import { getPreferredTxHash, normalizeEvmTxHash } from '@/lib/tx';
 
@@ -458,7 +458,7 @@ export default function TransactionDetailPage() {
 
                   {/* Transaction Fee */}
                   <InfoRow label="Transaction Fee">
-                    <span className="font-mono">{formatStrat(tx.feePaid)}</span>
+                    <span className="font-mono">{formatValue(tx.feePaid)}</span>
                   </InfoRow>
 
                   {/* Gas Used */}

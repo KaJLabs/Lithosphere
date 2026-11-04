@@ -207,6 +207,12 @@
 }
 
 /* NetworkSwitchModal entrance animation */
+/* Readable transaction links in the light theme. */
+:root:not(.dark) a.text-emerald-300,
+:root:not(.dark) a.text-emerald-400 { color: #065f46; }
+:root:not(.dark) a.text-emerald-300:hover,
+:root:not(.dark) a.text-emerald-400:hover { color: #064e3b; }
+
 @keyframes networkModalIn {
   from {
     opacity: 0;

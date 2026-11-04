@@ -63,6 +63,7 @@ export async function ensurePerformanceIndexes(): Promise<void> {
   pool.on('error', (err) => logger.error({ err: err.message }, '[migration] index pool error'));
 
   try {
+    await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS deployer_verified_at TIMESTAMPTZ');
     for (const sql of PERFORMANCE_INDEXES) {
       try {
         await pool.query(sql);
