@@ -51,7 +51,7 @@ export async function discoverToken(address: string, rpc: DiscoveryRpc): Promise
   const text = (value: unknown, max: number) => typeof value === 'string'
     ? value.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max) || null : null;
   return {
-    name: text(name, 256), symbol: text(symbol, 64),
+    name: text(name, 100), symbol: text(symbol, 20),
     decimals: nft === true ? 0 : validDecimals ? Number(decimals) : null,
     totalSupply: validSupply ? String(supply) : lep100 ? String(lepSupply) : null,
     contractType: nft === true ? 'nft' : 'token',

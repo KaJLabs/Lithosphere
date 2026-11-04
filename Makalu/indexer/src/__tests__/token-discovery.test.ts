@@ -33,3 +33,8 @@ it('discovers this chain\'s LEP100 before a mint without inventing token decimal
 it('keeps ERC-721 collections out of fungible coins', async () => {
   expect(await discoverToken(address, rpc({ name: 'NFT', supportsInterface: true }))).toMatchObject({ contractType: 'nft', decimals: 0 });
 });
+it('bounds untrusted names to the database column sizes so one coin cannot stop discovery', async () => {
+  const result = await discoverToken(address, rpc({ name: 'N'.repeat(500), symbol: 'S'.repeat(500), decimals: 18n, totalSupply: 1n }));
+  expect(result?.name).toHaveLength(100);
+  expect(result?.symbol).toHaveLength(20);
+});
