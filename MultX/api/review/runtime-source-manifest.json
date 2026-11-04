@@ -24,12 +24,12 @@
     {
       "path": "package-lock.json",
       "bytes": 47592,
-      "sha256": "8727b8f43650d3d62b7a8cf92e0861dfb56b1f0235c5166d736a9cf5bd331aae"
+      "sha256": "8ef9be0dbbc86a95e7ac4e4432d49cfb165209a6417665e327df065a904fa572"
     },
     {
       "path": "package.json",
       "bytes": 682,
-      "sha256": "2b6b12fea676614f7eec5b76678a68395103428f9e52b2fbb5ef5e1e3ea247d9"
+      "sha256": "63db7f55c06f1219a1bf286efcf4de4099a4c5e77b3e926b9ed2931d79f6dcee"
     },
     {
       "path": "scripts/compile-review-solidity.cjs",
