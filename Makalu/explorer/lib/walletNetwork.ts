@@ -34,9 +34,23 @@ export async function ensureExplorerNetwork(provider: WalletRequestProvider): Pr
   } catch (error) {
     if (walletErrorCode(error) !== 4902) throw error;
 
+    try {
+      await provider.request({
+        method: 'wallet_addEthereumChain',
+        params: [WALLET_CHAIN],
+      });
+    } catch (addError) {
+      const message = typeof addError === 'object' && addError !== null && 'message' in addError
+        ? String(addError.message) : '';
+      if (walletErrorCode(addError) === 4001 && /unsupported network/i.test(message)) {
+        throw new Error(`Add ${NETWORK.name} as a custom network in your wallet Settings using RPC ${NETWORK.rpcUrl} and chain ID ${NETWORK.evmChainId}, then restart the wallet and try again.`);
+      }
+      throw addError;
+    }
+    // EIP-3085 adds a network without requiring the wallet to select it.
     await provider.request({
-      method: 'wallet_addEthereumChain',
-      params: [WALLET_CHAIN],
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: NETWORK.chainIdHex }],
     });
   }
 }

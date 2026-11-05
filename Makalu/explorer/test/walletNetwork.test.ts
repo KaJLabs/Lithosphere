@@ -19,9 +19,10 @@ describe('wallet network setup', () => {
   });
 
   it('adds the network when the wallet reports an unknown chain', async () => {
+    let switches = 0;
     const request = vi.fn(async ({ method }: { method: string }) => {
       if (method === 'eth_chainId') return '0x1';
-      if (method === 'wallet_switchEthereumChain') throw { data: { originalError: { code: 4902 } } };
+      if (method === 'wallet_switchEthereumChain' && switches++ === 0) throw { data: { originalError: { code: 4902 } } };
       return null;
     });
 
@@ -30,6 +31,19 @@ describe('wallet network setup', () => {
     expect(request).toHaveBeenCalledWith(expect.objectContaining({
       method: 'wallet_addEthereumChain',
     }));
+    expect(request.mock.calls.map(([args]) => args.method)).toEqual([
+      'eth_chainId', 'wallet_switchEthereumChain', 'wallet_addEthereumChain', 'wallet_switchEthereumChain',
+    ]);
+  });
+
+  it('explains custom network setup when the wallet does not support automatic addition', async () => {
+    const request = vi.fn(async ({ method }: { method: string }) => {
+      if (method === 'eth_chainId') return '0x232d';
+      if (method === 'wallet_switchEthereumChain') throw { code: 4902 };
+      if (method === 'wallet_addEthereumChain') throw { code: 4001, message: 'Unsupported network. Add networks in Settings.' };
+      return null;
+    });
+    await expect(ensureExplorerNetwork({ request })).rejects.toThrow(/custom network.*https:\/\/rpc\.litho\.ai/);
   });
 
   it('reads nested wallet error codes', () => {

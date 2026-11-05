@@ -140,13 +140,13 @@ into a reviewable change, and never bulk-commit the dirty worktree.
 
 | ID | Workstream | Current gate | Status | Immediate next action |
 | --- | --- | --- | --- | --- |
-| MX-06 | Validator cleanup and safety | Tracked three-node mainnet gates are evidenced; no separate Makalu-node cleanup scope is recorded | COMPLETE | Continue routine mainnet monitoring; obtain a Makalu inventory and owners if the client intends a distinct testnet cleanup. |
+| MX-06 | Validator cleanup and safety | Mainnet controls complete; Makalu scoped routing/ingress cleanup deployed and verified | COMPLETE | Continue routine monitoring; deployment receipt is retained in private-infra PR #34. |
 | MX-02 | LEP100 faucet assets | Current faucet accepted by client; remaining rotation/funding closure postponed | DEFERRED | Take no faucet deployment or funding action until the client reprioritizes it. |
-| MX-03 | Thanos Wallet | Repository work merged and deployed; acceptance open | EXTERNAL BLOCKER | Wallet team completes the published-version browser matrix, signed transaction, and approval record. |
+| MX-03 | Thanos Wallet | Discovery/network fixes deployed; real store-extension engineering checks and signed testnet transfer passed | EXTERNAL BLOCKER | Wallet team reviews the retained results and records its acceptance. |
 | MX-04 | DNNS | Kamet v0 interface, authoritative public documentation, `kamet-validator.litho` forward/reverse fixture, no-persistent-cache policy, final smoke matrix, and named acceptance are evidenced | COMPLETE | Closed; retain the evidence and renew the fixture before its registration expires. |
-| MX-05 | Quantt | Approved `quantts.ai` boundary merged and deployed; adapter remains disabled | EXTERNAL BLOCKER | Obtain the exact API contract, credential, and product acceptance. |
+| MX-05 | QUANTTS | Partner market snapshots deployed and live-verified on Makalu | COMPLETE | Closed for market-snapshot scope; provider currently does not support LITHO. |
 | MX-01 | MultX / Lithoswap | Consolidated 3-of-5 source accepted; five signer hosts baseline-prepared and fail-closed; staging findings closed; O-01, custodian/governance inputs, application behavior, deployment, canary, and activation remain open; MultX disabled | EXTERNAL BLOCKER | Complete signer custody and O-01 operational readiness, then obtain separate paused-deployment, canary, and activation approvals. |
-| MX-07 | Developer toolchain | All eight tool boundaries plus locked, checksummed three-OS preview packaging reviewed; KaJ Labs / Litho Foundation assigned the `@jkasr` / `@lithoagent` rotation to all RFC 0002 authorities; four tools remain specification-only and there is no deployable compiler/public release | EXTERNAL BLOCKER | The assigned rotation must resolve RFC 0002 rows L-01 through R-01 and the conformance-corpus change process before compiler or public-release work. |
+| MX-07 | Developer toolchain | R6.3 committed-block readiness fix prepared; original failure reproduced offline, all 76 tests pass on Windows/Linux; full release open | EXTERNAL BLOCKER | Obtain exact Foundation disposition for the new R6.3 candidate/pins before staging or another workload. R6.2 single-attempt authority is consumed; its evidence is retained. |
 
 ## Sequential closure queue
 
@@ -154,10 +154,10 @@ Only one repository stream is active at a time. An external blocker is recorded 
 to the next executable stream without pretending the blocked stream is complete.
 
 1. [ ] **MX-01 MultX / Lithoswap** — consolidated 3-of-5 source accepted and five hosts baseline-prepared; custody, governance, operational readiness, paused deployment, canary, and activation approvals remain.
-2. [x] **MX-06 Validator cleanup and safety** — complete; the missing historical PR #17 window artifact is preserved and accepted through private PR #23 rather than reconstructed.
-3. [ ] **MX-03 Thanos Wallet** — deployed; waiting on wallet-team acceptance.
+2. [x] **MX-06 Validator cleanup and safety** — mainnet complete through private PR #23; Makalu cleanup deployed through private PR #34 and verified with 17 health snapshots across 609 seconds.
+3. [ ] **MX-03 Thanos Wallet** - engineering checks passed on 2026-10-18; wallet-team acceptance remains.
 4. [x] **MX-04 DNNS** — complete; authoritative documentation, live forward-confirmed reverse fixture, final smoke matrix, and named acceptance are recorded.
-5. [ ] **MX-05 Quantt** — hostname correction deployed; waiting on the exact API contract, credential, and product acceptance.
+5. [x] **MX-05 QUANTTS** - partner snapshots deployed and verified on Makalu on 2026-10-18.
 6. [ ] **MX-07 Developer toolchain** — separate major compiler/release program.
 7. [ ] **MX-02 LEP100 faucet assets** — deferred by the client on 2026-08-23; retain safeguards and make no changes.
 
@@ -675,86 +675,45 @@ Evidence:
 - Forward-record transaction: `0x5556a0c008df708369a3db2c2ff0fb689fdbfe7429160ccb3c03ba53e554aebd`
 - Reverse-record transaction: `0xb32741c413c8567f4d18b13e2cd119b4f7fe382fca988ca0826390fa516f473b`
 
-## MX-05 — Quantt integration
+## MX-05 - QUANTTS integration
 
-**Owners:** Dev Infra + Quantt team + product owner
+**Status:** COMPLETE for the requested explorer market-snapshot integration.
 
-**Current state:** The credentials-safe server proxy, explorer page, provisional normalizer, tests, and OpenAPI paths
-are deployed. The live status endpoint reports `configured: false`. The research site returns HTTP 200. On
-2026-09-20 the owner confirmed `quantts.ai` as the correct hostname boundary; its apex and developer portal pass
-HTTPS hostname validation. Repository hardening removed guessed auth/path defaults and added the previously missing
-acceptance runbook. The adapter
-must remain fail-closed until the exact owner-approved contract and secret-manager credential are available. PR #88
-and protected run `31828985116` deployed the assumption-free gates as release
-`c01ec48472544270ec0716483e5a07bba947b079`. PR #194 then merged the approved hostname correction and protected run
-`35519157421` deployed release `bd21503968e85b949bfd26c7cb7023a1815c66e0`; all currently executable work is now
-externally blocked.
+The partner supplied the canonical API `https://api.quantts.ai`, the
+`X-Partner-Key` authentication contract and the market snapshot endpoint.
+The integration now runs at `https://makalu.litho.ai/quantt` from release
+`14f0ad5a35912a74eacc7c9e7159aab8f5618e62`.
 
-Completed or evidenced:
+- [x] Server-only credential, exact approved origin/path, redirect rejection, validated snapshot fields and bounded cache.
+- [x] Canonical research links, price/change/volume/source display and clear unsupported-symbol handling.
+- [x] API build, 7 API tests and 3 explorer tests passed; signed image publication and security gates passed.
+- [x] Private candidate checks passed before deployment; public version and configured status verified afterward.
+- [x] Live Chromium/WebKit dark/light mobile checks passed; no direct provider requests or page overflow.
+- [x] Existing explorer routes remained healthy; faucet and indexer were unchanged.
 
-- [x] HTTPS and owner-confirmed `quantts.ai` hostname allow-listing exist.
-- [x] Server-only authentication, symbol validation, bounded timeouts, and sanitized upstream errors exist.
-- [x] `/api/quantt/status`, `/api/quantt/insights`, `/quantt`, tests, and OpenAPI documentation exist.
-- [x] Live `/api/quantt/status` returns HTTP 200 and safely reports unconfigured (2026-08-03).
-- [x] Live status, research portal, developer DNS, and the mismatched certificate subject/SANs were reverified on
-      2026-08-14 without bypassing TLS for acceptance.
-- [x] The owner confirmed `quantts.ai` as the canonical hostname boundary on 2026-09-20; apex and developer portal
-      TLS checks pass.
-- [x] Activation now requires an explicit auth scheme and insights path instead of guessed defaults locally.
-- [x] Five focused Quantt tests, all 164 API tests, and the strict TypeScript build pass locally (2026-08-14).
-- [x] PR #88 passed all checks and merged as `c01ec48472544270ec0716483e5a07bba947b079` (2026-08-14).
-- [x] Protected deployment run `31828985116` passed image, deploy, and public health gates (2026-08-14).
-- [x] PR #194 passed all checks with a verified `bachal-mb` signature and merged as
-      `bd21503968e85b949bfd26c7cb7023a1815c66e0` (2026-09-20).
-- [x] Protected deployment run `35519157421` deployed that exact release and passed its public health gate.
-- [x] Live post-deployment checks show the corrected `https://dev.quantts.ai/` link while status remains safely
-      unconfigured with null origin and insights remain fail-closed with HTTP 503.
-- [x] Public release SHA, disabled status, null API origin, page HTTP 200, and insights HTTP 503 were reverified after
-      deployment.
+LITHO is not currently a supported provider symbol. BTC works. Agents and trade
+decisions are outside this market-snapshot scope. The obsolete `quantt.at`
+TLS issue is superseded by the provider-confirmed canonical domain.
 
-External inputs required:
-
-- [ ] Exact production and development API base URLs beneath `quantts.ai`.
-- [ ] Authentication scheme and a secret-store-delivered credential.
-- [ ] Approved endpoint paths, request parameters, and versioned response schemas.
-- [ ] Product decision on which analytics/research data is displayed.
-- [ ] Rate limits, cache/redistribution policy, attribution, and retention guidance.
-
-Remaining actions after inputs arrive:
-
-- [ ] Add schema validation and contract fixtures for approved responses.
-- [ ] Configure secrets in staging without placing keys in client bundles, files, or logs.
-- [ ] Validate reference symbols, empty results, rate limits, timeouts, and upstream failures.
-- [ ] Promote configuration to Makalu and monitor error/cache behavior.
-- [ ] Obtain Quantt and product-owner acceptance.
-
-Acceptance criteria:
-
-- [ ] Live status reports configured without exposing secrets.
-- [ ] Approved reference responses render correctly and malformed responses fail closed.
-- [ ] TLS, authentication, rate limiting, caching, retention, and attribution meet the Quantt contract.
-- [ ] Quantt and product approvers, schema/version, date, and evidence are recorded.
-
-Evidence:
-
-- `Makalu/api/src/quantt.ts`
-- `Makalu/api/src/__tests__/quantt.test.ts`
-- `Makalu/explorer/lib/quantt.ts`
-- `Makalu/explorer/pages/quantt.tsx`
-- `docs/integrations/quantt.md`
-- Live probe: `https://makalu.litho.ai/api/quantt/status`
-- Public sites: `https://research.quantt.at/`, `https://dev.quantts.ai/`
-- Review PR: `https://github.com/KaJLabs/Lithosphere/pull/88`
-- Deployment run: `https://github.com/KaJLabs/Lithosphere/actions/runs/31828985116`
-- Hostname correction PR: `https://github.com/KaJLabs/Lithosphere/pull/194`
-- Hostname correction deployment: `https://github.com/KaJLabs/Lithosphere/actions/runs/35519157421`
+Deployment digests, build links and operational/rollback evidence:
+[QUANTTS integration](integrations/quantt.md#makalu-activation---2026-10-18).
 
 ## MX-06 — Validator infrastructure cleanup
 
 **Owners:** Validator Infra team + Chain team + CAB/change approver; Dev Infra owns the audit helper
 
-**Current state:** The audit helper and rolling-cleanup material still require the authoritative private inventory and
-an approved cleanup window. The mainnet safety foundation is active: restricted `lithomonitor` access is installed on
+**Current state:** The distinct Makalu cleanup was approved and deployed on 2026-10-18 through private-infra PR #34,
+merge `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`. The active Makalu inventory is verified, dead EVM/REST standby routes
+were removed, and the sentry's five raw RPC ports now accept gateway and loopback consumers only. Gateway access,
+outside-client blocking, P2P, chain identity/progression and fresh explorer indexing passed. The guard is active and
+enabled, with rollback backups retained. No validator/sentry restart, signing-state change or validator-set change
+occurred. Preserve Makalu's matching 900ms consensus profile; the historical mainnet 500ms policy below does not
+apply to Makalu. All 17 post-change snapshots across 609 seconds passed: Makalu advanced 17,924,445 to 17,925,099,
+remained caught up with one peer, and the Mainnet/Kamet origin heights also advanced. Existing Kamet public TLS failures are separate;
+its TLS-verified gateway origin remains healthy. The private inventory and detailed deployment record stay in the
+private infrastructure repository.
+
+The historical mainnet safety foundation is active: restricted `lithomonitor` access is installed on
 the validator and both sentries, pinned host fingerprints were confirmed, and scheduled chain progression checks are
 passing. PR #139 upgraded the signing-state control to two independent recipients. Protected run `33489075548`
 captured and independently encrypted height `5,776,198`; the retained manifest contains two distinct recipient
@@ -923,7 +882,82 @@ Evidence:
 
 **Owners:** Lithic/compiler team + Dev Infra/release owner + Security reviewer
 
-**Current state:** All eight public binary boundaries have now been reviewed and merged with three-OS CI coverage.
+**Latest engineering revision (2026-10-19):** R6.3 fixes the demonstrated readiness race offline. The runner now
+requires the expected chain to report a positive committed height before its single funding invocation. Height zero
+continues polling within the existing 90-second startup budget; malformed status, wrong chain, deadline or watchdog
+failure stops before funding. Deadline checks also reject a late successful response. The actual main-function
+startup-through-funding statements reproduce the old first-block error and pass with the fix. All 76 tests pass
+after clean archive extraction on Windows Python 3.13.7 and Linux Python 3.12.3. All 58 manifest entries and 15
+candidate-file pins verify. All 67 baseline pins, funding and subsequent statements, workload and bounds are unchanged;
+only the readiness loop and proposed fresh-home constant change at runtime. No staging, preparation, node or funding
+ran while building this revision. Live first-block progress remains unproven; failure to commit will stop on the deadline.
+
+Candidate SHA-256: `1200ec5b7959b72863f911c28c9da89e3796c3e33f8854d107265988fffcbfbb`.
+Pins-object SHA-256: `8607dcbaea5ca4960755268d6a349f9c2413552f0c69af2a238c5fb28e649418`.
+The candidate, exact diff, red/green receipts, pending approval templates and review request remain in the private
+operator review packet. The previous single-attempt reference is consumed. A new exact Foundation disposition is
+required before staging or executing R6.3; prior homes and evidence must remain unchanged.
+
+**Latest execution (2026-10-19):** Foundation approval
+`LITHIC-R6.2-FRESH-HOME-DIAG-APPROVAL-20261019-01` bound the exact fresh-directory candidate and conditional
+single-attempt sequence. All staging, preparation and pre-execution checks passed. Exactly one preparation and one
+diagnostic were invoked. The single funding CLI returned exit code 1 with: `evmosd is not ready; please wait for
+first block: invalid height`. R6.2 durably captured its 3,721 stderr bytes, empty stdout, return code and timing.
+The startup loop accepted a responding status endpoint without requiring a positive committed height; the captured
+node log has no committed-block record. This supports a startup-readiness gap, not a compiler or gas-cap finding.
+Deployment, seeding, measured sending and the result checker were not reached. No retry occurred. Post-stop checks
+confirmed idleness, all 67 unchanged baseline hashes and an unchanged digest of the previous attempt directory.
+The new home and eleven partial artifacts remain retained. The review packet SHA-256 is
+`3e4043e657c4b6b6b288837a3a9bfd5810c151df5bef41469bf8e904d5b3a08f`; its 14 entries verify and exclude raw
+node/stack logs, key files and credentials. This approval is consumed; the earlier full 50M benchmark remains failed.
+
+**Current state (reverified 2026-10-18):** The primary compiler candidate is now
+[`KaJLabs/Lithic` draft PR #13](https://github.com/KaJLabs/Lithic/pull/13), fork head
+`f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce`. It has executable EVM/native compiler paths,
+native v11 token operations plus v12/v13/v14 string, synchronous-call and child-creation candidates, and isolated
+chain/store evidence. `lithic-v0.2.0-preview.3` is a prerelease, not a full production toolchain release.
+The newer source therefore supersedes the old declaration-only compiler status below. `lithdev` is still a
+placeholder in Lithic, and `lithls`, `lithtest`, `lithsec`, and `lithpkg` remain specification-only.
+
+The finite isolated full-block benchmark was already conditionally approved on 2026-10-01 by Amir Dev for
+Lithosphere Foundation. The recorded scope is 100 consecutive blocks at each 10/25/50/75/100% utilization point,
+warm/cold state, 1k/10k/100k holders/allowances/mixed state, required success/failure/log/deployment cases, and
+execution/commit/CPU/RSS/DB-I/O/growth measurements within 100M gas / 21M bytes per block. It uses only the dedicated
+synthetic chain and approved isolated host. This is not approval of economics, live Makalu activation or a release.
+The host identifier was recovered from the earlier operator records and its historical ED25519 fingerprint matched,
+but existing operator keys and the retained credential were initially rejected. The user supplied an updated local
+credential on 2026-10-18; pinned-host authentication and read-only inspection then passed. The dedicated host has
+13 CPUs, roughly 78 GB RAM, and 302 GiB free on its 343 GiB filesystem; no benchmark node or tracer is running.
+No benchmark node was started. All 13 existing preparation, pre-key isolation and deterministic review-package tests passed in WSL
+Python 3.12.3 against this source. These tests are not full-block results or source-pin/security closure.
+
+Newer local records in the original infrastructure working area supersede the published benchmark summary:
+the 50M full-benchmark result remains failed, and the latest R6.1 diagnostic on 2026-10-12 stopped when its single
+synthetic funding command failed without preserving the subprocess error. Its one-shot authorization was consumed.
+The prepared R6.2 amendment adds durable raw stdout/stderr/return-code/timing capture without changing that command,
+workload, gas, funding amounts or acceptance criteria. Fresh checks verified all 46 candidate manifest entries and
+passed all 66 offline tests on both Windows Python 3.13.7 and Linux Python 3.12.3. Candidate SHA-256:
+`fd5ce9dfe590f9a9e08d9e9a85dcdf1393fdd1c67936e525b51bb43683424eb6`; seven-file review packet SHA-256:
+`4df05e3244470e96e3013178377a3dbde8f57137e7fee3d765279b97669bae7a`. Execution templates remain pending Foundation
+review. No R6.2 staging, funding, diagnostic or full-block run occurred in this task. Private host/access records
+remain in the operator workspace.
+
+After access restoration, all 67 immutable server baseline hashes matched at `2026-10-18T17:38:32Z`; the host was
+idle. The original R6.2 packet still targeted the used R6.1 directory. A new review revision changes only its common
+module's destination to a fresh directory, with derived pins/templates and two actual-preparation guard tests.
+The funding runner, workload, baseline hashes and bounds remain unchanged. All 68 tests pass on Windows and Linux.
+Candidate SHA-256: `80cd58bd8fb52baf9f5f8eed33885bfcc7d008bf5e549f170952de1083943f45`; pins-object SHA-256:
+`739697ca3cc65c7e8565ff20df2ef4e5fa7989ed0f4cccff1191907aa799b860`. The review packet is retained privately with
+SHA-256 `99427251ece0c9fe9e7a65adf5700e81189f2a30f9932469ed9c09328295a0b3`. The existing runner names Amir Dev
+for Foundation approval; the exact reference covering this new revision was requested. Both templates remain pending.
+
+Primary evidence: Lithic `docs/IMPLEMENTATION_STATUS.md`, `docs/PRODUCTION_GAP_MATRIX.md`,
+`docs/ISOLATED_FULL_BLOCK_BENCHMARK_APPROVAL.md`, and `docs/LTH_R2_RESPONSE_2026_10_01.md` at the pinned draft head.
+LTH-06 source alignment/retest, R3 security acceptance, coordinated store cutover, signed Makalu evidence,
+remaining tools and a signed reproducible release are still open. RFC 0002 issue #204 still records only owner
+assignment; this draft evidence does not silently accept its stable language/release decisions.
+
+**Historical Lithosphere scaffold baseline:** All eight public binary boundaries were reviewed and merged with three-OS CI coverage.
 Four are deliberately specification-only because their required semantics have not been approved. PR #111 committed
 the workspace lockfile, added one declaration-front-end example, and merged checksummed, 14-day, non-release preview
 archives with explicit capability manifests and packaged-command checks on Linux, Windows, and macOS. The local draft
@@ -1071,6 +1105,13 @@ Evidence:
 
 | Date (PKT) | Surface | Result | Notes |
 | --- | --- | --- | --- |
+| 2026-10-19 | Lithic R6.3 readiness revision | OFFLINE PASS, FOUNDATION REVIEW OPEN | Real startup-to-funding seam reproduces the old failure; revised runner waits for a committed block within the existing deadline. All 76 tests pass on Windows/Linux; 58 manifest entries and 15 runtime pins verify; 67 baseline pins and funding/subsequent statements unchanged. Candidate SHA-256 `1200ec5b7959b72863f911c28c9da89e3796c3e33f8854d107265988fffcbfbb`; pins SHA-256 `8607dcbaea5ca4960755268d6a349f9c2413552f0c69af2a238c5fb28e649418`. No remote execution. |
+| 2026-10-19 | Approved Lithic R6.2 one-shot | STOPPED, NO RETRY | Approval `LITHIC-R6.2-FRESH-HOME-DIAG-APPROVAL-20261019-01`; staging/preparation/pre-execution passed. Funding CLI failed because the application needed its first block. Exact error evidence captured; deployment/measured stages not reached. Host idle, 67 baseline pins and prior home unchanged. Stop-review ZIP SHA-256 `3e4043e657c4b6b6b288837a3a9bfd5810c151df5bef41469bf8e904d5b3a08f`. |
+| 2026-10-18 | Lithic next-work verification | PREPARATION PASS, HOST INPUT OPEN | Draft #13 head `f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce` is retrievable; 13 preparation/package tests passed. Finite isolated full-block approval is already recorded, but the dedicated host identifier is missing from this workspace. No full-block benchmark or node launch occurred. |
+| 2026-10-18 | Lithic latest local state reconciliation | R6.2 OFFLINE PASS, ACCESS BLOCKED | Recovered the original operator working area, dedicated host and matching historical fingerprint. Existing SSH authentication is rejected. Latest R6.1 funding stop and consumed attempt are preserved; all 66 R6.2 tests passed on Windows/Linux, with original archives unchanged. No server workload ran. This supersedes the earlier missing-host entry. |
+| 2026-10-18 | Lithic benchmark access restoration | PASS, HOST IDLE | Updated user-supplied local credential authenticated against the pinned host. Benchmark workspace and expected CPU/RAM class are present; only SSH/local resolver listeners and no node/tracer processes were observed. No node or workload started. This closes the earlier access blocker; exact R6.2 disposition remains open. |
+| 2026-10-18 | Lithic R6.2 fresh-directory revision | PREPARED, FOUNDATION REVIEW OPEN | All 67 host baseline hashes match. The used-home reference was corrected in a new immutable candidate, preserving the funding runner and bounds. All 68 tests pass on Windows/Linux; 51 candidate and 11 review-packet entries verify. No staging or execution occurred. |
+| 2026-10-18 | Makalu infrastructure cleanup | COMPLETE | Private PR #34 merged as `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`; scoped routing/ingress checks and 17 health snapshots across 609 seconds passed without a node restart. Makalu advanced 17,924,445 to 17,925,099. Existing public Kamet TLS failures are separate from its healthy gateway origin. |
 | 2026-08-03 | Live Makalu config | PASS | HTTP 200; faucet and bridge enabled, swap disabled. |
 | 2026-08-03 | Live faucet inventory | BLOCKED | Native LITHO funded; all ten LEP100 assets below the ten-token minimum. |
 | 2026-08-03 | Live Quantt status | BLOCKED | HTTP 200; adapter deployed, `configured: false`. |
@@ -1950,3 +1991,58 @@ Append one entry whenever a material fact changes:
 - Remaining blocker or next action:
 - Updated by:
 ```
+
+### 2026-10-18 - MX-05 QUANTTS activated on Makalu
+
+- Deployed `14f0ad5a35912a74eacc7c9e7159aab8f5618e62` to the live Makalu API/explorer using immutable digests.
+- Public BTC snapshot, unsupported-symbol handling and Chromium/WebKit checks passed.
+- Changed MX-05 from external blocker to complete for market snapshots; no faucet, indexer or chain changes.
+- Evidence: `docs/integrations/quantt.md`, image runs `39141325314` and `39141328299`.
+
+### 2026-10-18 - MX-03 published Thanos baseline refreshed
+
+- Chrome Web Store version 1.0.10 is pinned to upstream source `e1e134b03b96c0e896fc3fa4d7080da1a30248a2`, release run `38638238001`.
+- Transaction-free preflight passed at `2026-10-18T15:41:42.458Z`: provider markers, sign-in route, unauthenticated rejection and chain ID 700777.
+- Real-extension browser tests, signed Makalu transaction and wallet-team acceptance remain pending. No transaction was submitted.
+
+### 2026-10-18 - MX-03 real extension checks and discovery repair
+
+- Tested official Chrome Web Store Thanos 1.0.10 in an isolated Chromium 153.0.8010.12 profile.
+- Reproduced an infinite explorer connector-registration loop, added a real-controller regression, and deployed the presentation-order fix. Added custom-network guidance and a switch after successful chain addition.
+- Connection/signature rejection, SIWE, nonce replay rejection, reload/popup/browser/API restart checks, sign-out and Ethereum-to-Makalu recovery passed.
+- Thanos-signed 0.001 LITHO self-transfer succeeded at block 17,922,574: `0x9a7a0798b87d76496d27163b022e233e4b4f2d94fd2b94aca50624cedd5f35da`.
+- Store 1.0.10 requires Makalu to be added manually in Settings followed by a wallet restart. Automatic addition is unsupported.
+- Independent wallet-team sign-off remains pending. Evidence: `docs/thanos-wallet-acceptance.md`.
+
+### 2026-10-18 - MX-06 distinct Makalu cleanup deployed and verified
+
+- Dev Infra ownership, immediate execution and independent KaJ Labs review were explicitly confirmed in the operator conversation. Private-infra PR #34 merged as `5e1d405895854bcbc9c93b39e1b40fb90d1afa32`.
+- Verified the active Makalu inventory, removed two dead standby routes, and restricted five raw sentry RPC ports to the gateway and loopback. Gateway/loopback access, outside-client blocking and P2P checks passed. Boot persistence was enabled after verification and the timed rollback was canceled.
+- All 17 health snapshots across 609 seconds passed; Makalu advanced 654 blocks while caught up and peered. Mainnet and Kamet origin heights also advanced. No node restart, consensus change or signing-state change occurred.
+- Public Kamet RPC TLS failure was reproduced before deployment; its TLS-verified origin remained healthy. This unrelated issue is recorded separately. Private host inventory and rollback details remain in the private infrastructure repository.
+
+### 2026-10-18 - MX-07 current source and approved next workload verified
+
+- Corrected the stale declaration-only compiler summary against the published Lithic draft head `f7c259ae0a8e5d9e5fb6e7b0b7cbac1428fac8ce`; executable compiler/runtime candidates exist, while full toolchain/release acceptance remains open.
+- Located the existing Foundation approval for the finite isolated full-block benchmark. Requested only the dedicated host identifier needed to resume that work; no additional approval was requested.
+- Ran all 13 existing preparation/isolation/package tests successfully on WSL Python 3.12.3. No synthetic validator keys, node start, full-block run, live-chain change or release occurred.
+
+### 2026-10-18 - MX-07 newer operator records and R6.2 verified
+
+- Found the original local infrastructure working area and recovered the benchmark host with a matching historical SSH fingerprint. Existing keys and the retained credential are rejected; restored operator access was requested.
+- Reconciled the newer consumed R6.1 funding failure and the prepared R6.2 diagnostics-only amendment. Verified its immutable candidate/review archives and reran all 66 offline tests successfully on Windows and Linux, preserving earlier evidence.
+- No remote command authenticated, candidate was staged or workload was rerun. Exact R6.2 review/execution disposition and live pin/isolation checks remain necessary before a new run; the old blanket approval is not relabeled as an unused one-shot authorization.
+
+### 2026-10-19 - MX-07 approved R6.2 attempt stopped with funding readiness evidence
+
+- Recorded Foundation approval `LITHIC-R6.2-FRESH-HOME-DIAG-APPROVAL-20261019-01` for the exact fresh-directory candidate/pins and conditional sequence. Only five changed shared candidate/pins/approval files were backed up and replaced; baseline files and old attempt state were preserved.
+- Staging, one preparation and pre-execution checks passed. Invoked the one diagnostic; its funding CLI failed with the first-block readiness error. The R6.2 amendment captured exact error bytes, return code and timing. No retry, deployment, seeding or measured work followed.
+- Verified shutdown/idleness, all 67 baseline hashes and the old directory digest. Retained the new directory and eleven partial artifacts. The verified stop-review packet contains 14 entries; SHA-256 `3e4043e657c4b6b6b288837a3a9bfd5810c151df5bef41469bf8e904d5b3a08f`.
+- The approval is consumed. A bounded first-committed-block readiness revision is the proposed next engineering change, requiring a new pinned review/disposition before another workload. No compiler/gas-cap acceptance or full-benchmark pass is claimed.
+
+### 2026-10-19 - MX-07 R6.3 readiness fix prepared and verified offline
+
+- Reproduced the first-block error against the unchanged R6.2 runner using its actual startup-through-funding statements. Updated readiness to require the expected chain and positive committed height within the existing 90-second startup deadline.
+- Added eight regression cases covering delayed readiness, unavailable RPC, exhausted/late deadlines, malformed status, wrong chain and watchdog stops. All 76 tests pass on both Windows and Linux after clean archive extraction; existing funding evidence and no-retry guards pass.
+- Built a separately pinned R6.3 candidate with a proposed fresh home and pending approval templates. Verified 58 manifest entries, 15 candidate-file hashes, unchanged 67 baseline pins and byte-identical funding/subsequent statements. Previous attempts and approval records remain untouched.
+- No staging, preparation or diagnostic was attempted. The consumed R6.2 approval is not reused; exact R6.3 Foundation disposition is the remaining execution gate. Live readiness and full benchmark/release acceptance remain open.

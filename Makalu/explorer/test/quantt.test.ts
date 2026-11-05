@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeQuanttInsight } from '@/lib/quantt';
+import { normalizeQuanttInsight, normalizeQuanttSnapshot } from '@/lib/quantt';
 
 describe('Quantt response normalization', () => {
   it('normalizes a direct response', () => {
@@ -22,5 +22,12 @@ describe('Quantt response normalization', () => {
       signal: 'neutral',
       score: null,
     });
+  });
+});
+
+describe('QUANTTS partner snapshots', () => {
+  it('reads the partner fields without inventing an AI signal or score', () => {
+    expect(normalizeQuanttSnapshot({ symbol: 'BTC', as_of: '2026-10-13T00:00:00Z', price: 82937.68, change_pct_24h: -0.59, volume_24h: 1013347548.6, metadata: { source: 'binance' } })).toMatchObject({ symbol: 'BTC', price: 82937.68, change_pct_24h: -0.59 });
+    expect(normalizeQuanttSnapshot({ detail: 'unknown symbol: LITHO' })).toBeNull();
   });
 });
