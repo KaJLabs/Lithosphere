@@ -1,0 +1,360 @@
+From 24e674de1bd4150025562aa6e393a672736feb65 Mon Sep 17 00:00:00 2001
+From: bachal-abro <mbachalabro1@gmail.com>
+Date: Wed, 30 Sep 2026 21:38:00 +0500
+Subject: [PATCH 2/4] feat(lithovm): isolate native lab store and round-trip
+ genesis
+
+---
+ app/app.go                                   |  4 ++
+ app/export.go                                |  3 +
+ app/keys.go                                  |  1 +
+ app/lithovm_store_disabled.go                | 23 +++++++
+ app/lithovm_store_disabled_test.go           | 21 ++++++
+ app/lithovm_store_lab.go                     | 46 +++++++++++++
+ app/lithovm_store_lab_test.go                | 70 ++++++++++++++++++++
+ x/evm/keeper/keeper.go                       |  2 +
+ x/evm/keeper/lithovm_candidate_apply_test.go |  4 +-
+ x/evm/keeper/lithovm_candidate_disabled.go   |  3 +
+ x/evm/keeper/lithovm_candidate_lab.go        |  9 ++-
+ x/evm/keeper/lithovm_candidate_lab_test.go   |  5 ++
+ 12 files changed, 189 insertions(+), 2 deletions(-)
+ create mode 100644 app/lithovm_store_disabled.go
+ create mode 100644 app/lithovm_store_disabled_test.go
+ create mode 100644 app/lithovm_store_lab.go
+ create mode 100644 app/lithovm_store_lab_test.go
+
+diff --git a/app/app.go b/app/app.go
+index 04b31d8..1cbd13e 100644
+--- a/app/app.go
++++ b/app/app.go
+@@ -446,6 +446,7 @@ func NewEvmos(
+ 		tracer, app.GetSubspace(evmtypes.ModuleName),
+ 	)
+ 	app.EvmKeeper = evmKeeper
++	app.EvmKeeper.SetLithoVMStoreKey(keys["lithovm"])
+ 
+ 	// Create IBC Keeper
+ 	app.IBCKeeper = ibckeeper.NewKeeper(
+@@ -926,6 +927,9 @@ func (app *Evmos) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abc
+ 	if err := validateLITHOGenesisSupply(app.appCodec, genesisState); err != nil {
+ 		return nil, err
+ 	}
++	if err := app.importLithoVMGenesis(ctx, genesisState); err != nil {
++		return nil, err
++	}
+ 
+ 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap()); err != nil {
+ 		panic(err)
+diff --git a/app/export.go b/app/export.go
+index f2f8306..fce3c8a 100644
+--- a/app/export.go
++++ b/app/export.go
+@@ -40,6 +40,9 @@ func (app *Evmos) ExportAppStateAndValidators(
+ 	if err != nil {
+ 		return servertypes.ExportedApp{}, err
+ 	}
++	if err := app.exportLithoVMGenesis(ctx, genState); err != nil {
++		return servertypes.ExportedApp{}, err
++	}
+ 	appState, err := json.MarshalIndent(genState, "", "  ")
+ 	if err != nil {
+ 		return servertypes.ExportedApp{}, err
+diff --git a/app/keys.go b/app/keys.go
+index 65aed94..e467c40 100644
+--- a/app/keys.go
++++ b/app/keys.go
+@@ -56,6 +56,7 @@ func StoreKeys() (
+ 		inflationtypes.StoreKey, erc20types.StoreKey,
+ 		epochstypes.StoreKey, vestingtypes.StoreKey,
+ 	}
++	storeKeys = append(storeKeys, lithovmLabStoreKeys()...)
+ 
+ 	keys := storetypes.NewKVStoreKeys(storeKeys...)
+ 
+diff --git a/app/lithovm_store_disabled.go b/app/lithovm_store_disabled.go
+new file mode 100644
+index 0000000..5865bc2
+--- /dev/null
++++ b/app/lithovm_store_disabled.go
+@@ -0,0 +1,23 @@
++//go:build !lithovm_chain_lab
++
++package app
++
++import (
++	"encoding/json"
++	"errors"
++
++	sdk "github.com/cosmos/cosmos-sdk/types"
++)
++
++func lithovmLabStoreKeys() []string { return nil }
++
++func (*Evmos) importLithoVMGenesis(_ sdk.Context, state map[string]json.RawMessage) error {
++	if _, present := state["lithovm"]; present {
++		return errors.New("native genesis requires the disabled lab build")
++	}
++	return nil
++}
++
++func (*Evmos) exportLithoVMGenesis(_ sdk.Context, _ map[string]json.RawMessage) error {
++	return nil
++}
+diff --git a/app/lithovm_store_disabled_test.go b/app/lithovm_store_disabled_test.go
+new file mode 100644
+index 0000000..e08632f
+--- /dev/null
++++ b/app/lithovm_store_disabled_test.go
+@@ -0,0 +1,21 @@
++//go:build !lithovm_chain_lab
++
++package app
++
++import (
++	"encoding/json"
++	sdk "github.com/cosmos/cosmos-sdk/types"
++	"testing"
++)
++
++func TestOrdinaryBuildHasNoLithoVMStoreAndRejectsItsGenesis(t *testing.T) {
++	keys, _, _ := StoreKeys()
++	if keys["lithovm"] != nil {
++		t.Fatal("ordinary build mounted native store")
++	}
++	if err := (&Evmos{}).importLithoVMGenesis(
++		sdk.Context{}, map[string]json.RawMessage{"lithovm": []byte(`{"version":1,"entries":[]}`)},
++	); err == nil {
++		t.Fatal("ordinary build accepted native genesis")
++	}
++}
+diff --git a/app/lithovm_store_lab.go b/app/lithovm_store_lab.go
+new file mode 100644
+index 0000000..059c5bc
+--- /dev/null
++++ b/app/lithovm_store_lab.go
+@@ -0,0 +1,46 @@
++//go:build lithovm_chain_lab
++
++package app
++
++import (
++	"encoding/json"
++	"errors"
++
++	sdk "github.com/cosmos/cosmos-sdk/types"
++	nativechain "lithic.local/native-chain-lab"
++)
++
++// Only the disabled lab build mounts this fresh native store. Existing chains
++// require a separately reviewed store upgrade before any such mount.
++func lithovmLabStoreKeys() []string { return []string{"lithovm"} }
++
++func (app *Evmos) importLithoVMGenesis(ctx sdk.Context, state map[string]json.RawMessage) error {
++	key := app.keys["lithovm"]
++	if key == nil {
++		return errors.New("native store was not mounted")
++	}
++	data, present := state["lithovm"]
++	if !present {
++		iterator := ctx.KVStore(key).Iterator(nil, nil)
++		notEmpty := iterator.Valid()
++		iterator.Close()
++		if notEmpty {
++			return errors.New("native genesis section missing for nonempty store")
++		}
++		return nil // Fresh lab genesis starts with an empty native store.
++	}
++	return nativechain.ImportNativeGenesis(ctx.KVStore(key), data)
++}
++
++func (app *Evmos) exportLithoVMGenesis(ctx sdk.Context, state map[string]json.RawMessage) error {
++	key := app.keys["lithovm"]
++	if key == nil {
++		return errors.New("native store was not mounted")
++	}
++	data, err := nativechain.ExportNativeGenesis(ctx.KVStore(key))
++	if err != nil {
++		return err
++	}
++	state["lithovm"] = data
++	return nil
++}
+diff --git a/app/lithovm_store_lab_test.go b/app/lithovm_store_lab_test.go
+new file mode 100644
+index 0000000..dea95e1
+--- /dev/null
++++ b/app/lithovm_store_lab_test.go
+@@ -0,0 +1,70 @@
++//go:build lithovm_chain_lab
++
++package app
++
++import (
++	"bytes"
++	"encoding/hex"
++	"encoding/json"
++	"fmt"
++	"strings"
++	"testing"
++
++	storetypes "cosmossdk.io/store/types"
++	"github.com/cosmos/cosmos-sdk/testutil"
++	"github.com/ethereum/go-ethereum/crypto"
++)
++
++func TestLithoVMLabStoreGenesisIsMountedAndEmptyRoundTrips(t *testing.T) {
++	keys, _, _ := StoreKeys()
++	key := keys["lithovm"]
++	if key == nil || key == keys["evm"] {
++		t.Fatal("lab native store missing or aliased to EVM")
++	}
++	ctx := testutil.DefaultContext(key, storetypes.NewTransientStoreKey("native-genesis-t"))
++	app := &Evmos{keys: keys}
++	state := make(map[string]json.RawMessage)
++	if err := app.exportLithoVMGenesis(ctx, state); err != nil || len(state["lithovm"]) == 0 {
++		t.Fatalf("empty export: %v", err)
++	}
++	if err := app.importLithoVMGenesis(ctx, state); err != nil {
++		t.Fatalf("empty import: %v", err)
++	}
++	if err := app.importLithoVMGenesis(ctx, map[string]json.RawMessage{"lithovm": []byte(`{"version":2,"entries":[]}`)}); err == nil {
++		t.Fatal("unsupported native genesis version was accepted")
++	}
++}
++
++func TestLithoVMLabStoreNonemptyExportImport(t *testing.T) {
++	keys, _, _ := StoreKeys()
++	ctx := testutil.DefaultContext(keys["lithovm"], storetypes.NewTransientStoreKey("native-export-t"))
++	app := &Evmos{keys: keys}
++	address := strings.Repeat("a", 40)
++	contractKey := []byte("lithovm/v1/contracts/" + address)
++	mapKey := []byte("lithovm/v2/maps/" + address + "/balances/" + strings.Repeat("0", 64))
++	storage := []byte(`{"version":1,"words":{},"strings":{},"maps":[]}`)
++	code := []byte{0}
++	record := []byte(fmt.Sprintf(`{"version":2,"bytecode":"0x%s","code_hash":"%s","storage":"0x%s"}`,
++		hex.EncodeToString(code), strings.ToLower(crypto.Keccak256Hash(code).Hex()), hex.EncodeToString(storage)))
++	word := make([]byte, 32)
++	word[31] = 7
++	ctx.KVStore(keys["lithovm"]).Set(contractKey, record)
++	ctx.KVStore(keys["lithovm"]).Set(mapKey, word)
++	if err := app.importLithoVMGenesis(ctx, map[string]json.RawMessage{}); err == nil {
++		t.Fatal("nonempty native store accepted missing genesis section")
++	}
++	state := make(map[string]json.RawMessage)
++	if err := app.exportLithoVMGenesis(ctx, state); err != nil {
++		t.Fatal(err)
++	}
++	freshKey := storetypes.NewKVStoreKey("lithovm")
++	freshCtx := testutil.DefaultContext(freshKey, storetypes.NewTransientStoreKey("native-import-t"))
++	fresh := &Evmos{keys: map[string]*storetypes.KVStoreKey{"lithovm": freshKey}}
++	if err := fresh.importLithoVMGenesis(freshCtx, state); err != nil {
++		t.Fatal(err)
++	}
++	if !bytes.Equal(freshCtx.KVStore(freshKey).Get(contractKey), record) ||
++		!bytes.Equal(freshCtx.KVStore(freshKey).Get(mapKey), word) {
++		t.Fatal("native state changed during app export/import")
++	}
++}
+diff --git a/x/evm/keeper/keeper.go b/x/evm/keeper/keeper.go
+index 387e399..f7ba3fb 100644
+--- a/x/evm/keeper/keeper.go
++++ b/x/evm/keeper/keeper.go
+@@ -34,6 +34,8 @@ type Keeper struct {
+ 	// - storing transaction Logs
+ 	// - storing Bloom filters by block height. Needed for the Web3 API.
+ 	storeKey storetypes.StoreKey
++	// Populated only in the disabled LithoVM lab build. Never alias the EVM store.
++	lithovmStoreKey storetypes.StoreKey
+ 
+ 	// key to access the transient store, which is reset on every block during Commit
+ 	transientKey storetypes.StoreKey
+diff --git a/x/evm/keeper/lithovm_candidate_apply_test.go b/x/evm/keeper/lithovm_candidate_apply_test.go
+index f210b4c..84546c3 100644
+--- a/x/evm/keeper/lithovm_candidate_apply_test.go
++++ b/x/evm/keeper/lithovm_candidate_apply_test.go
+@@ -73,7 +73,9 @@ func (suite *KeeperTestSuite) TestLithoVMCandidateSignedDeploySimulationAndCommi
+ 	suite.Require().Len(nativeResult, 40)
+ 	address := hex.EncodeToString(nativeResult[20:])
+ 	stateKey := []byte("lithovm/v1/contracts/" + address)
+-	key := suite.network.App.GetKey(evmostypes.StoreKey)
++	key := suite.network.App.GetKey("lithovm")
++	suite.Require().NotNil(key, "disabled candidate native store was not mounted")
++	suite.Require().False(ctx.KVStore(suite.network.App.GetKey(evmostypes.StoreKey)).Has(stateKey), "EVM store unexpectedly held native state")
+ 	suite.Require().False(ctx.KVStore(key).Has(stateKey), "simulation persisted native contract")
+ 	for _, budget := range []uint64{9999999, 10000000, 10000001, 15000000, 30000000} {
+ 		boundaryMsg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, evmostypes.EvmTxArgs{
+diff --git a/x/evm/keeper/lithovm_candidate_disabled.go b/x/evm/keeper/lithovm_candidate_disabled.go
+index ca8c96d..649349e 100644
+--- a/x/evm/keeper/lithovm_candidate_disabled.go
++++ b/x/evm/keeper/lithovm_candidate_disabled.go
+@@ -3,11 +3,14 @@
+ package keeper
+ 
+ import (
++	storetypes "cosmossdk.io/store/types"
+ 	"github.com/evmos/evmos/v20/x/evm/core/core"
+ 	"github.com/evmos/evmos/v20/x/evm/statedb"
+ 	"github.com/evmos/evmos/v20/x/evm/types"
+ )
+ 
++func (*Keeper) SetLithoVMStoreKey(storetypes.StoreKey) {}
++
+ // Ordinary chain builds do not install any LithoVM gateway.
+ func (*Keeper) lithovmCandidateHook(core.Message, *statedb.EVMConfig, bool) types.CallHook {
+ 	return nil
+diff --git a/x/evm/keeper/lithovm_candidate_lab.go b/x/evm/keeper/lithovm_candidate_lab.go
+index 843c4b4..45f0c6b 100644
+--- a/x/evm/keeper/lithovm_candidate_lab.go
++++ b/x/evm/keeper/lithovm_candidate_lab.go
+@@ -3,6 +3,8 @@
+ package keeper
+ 
+ import (
++	storetypes "cosmossdk.io/store/types"
++	"errors"
+ 	"github.com/ethereum/go-ethereum/common"
+ 	"github.com/evmos/evmos/v20/x/evm/core/core"
+ 	"github.com/evmos/evmos/v20/x/evm/core/vm"
+@@ -11,6 +13,8 @@ import (
+ 	nativechain "lithic.local/native-chain-lab"
+ )
+ 
++func (k *Keeper) SetLithoVMStoreKey(key storetypes.StoreKey) { k.lithovmStoreKey = key }
++
+ // The candidate is visible only with the lab build tag. Re-register on every
+ // gateway call because Evmos can replace its active precompile map in the
+ // ordinary precompile hook after an intervening call.
+@@ -19,6 +23,9 @@ func (k *Keeper) lithovmCandidateHook(msg core.Message, cfg *statedb.EVMConfig,
+ 		if recipient != nativechain.LabAddress {
+ 			return nil
+ 		}
+-		return nativechain.RegisterLabForMessage(evm, k.storeKey, msg, cfg.ChainConfig.ChainID, commit)
++		if k.lithovmStoreKey == nil {
++			return errors.New("native store is not mounted")
++		}
++		return nativechain.RegisterLabForMessage(evm, k.lithovmStoreKey, msg, cfg.ChainConfig.ChainID, commit)
+ 	}
+ }
+diff --git a/x/evm/keeper/lithovm_candidate_lab_test.go b/x/evm/keeper/lithovm_candidate_lab_test.go
+index 42f1ca6..7a81203 100644
+--- a/x/evm/keeper/lithovm_candidate_lab_test.go
++++ b/x/evm/keeper/lithovm_candidate_lab_test.go
+@@ -3,6 +3,7 @@
+ package keeper
+ 
+ import (
++	storetypes "cosmossdk.io/store/types"
+ 	"math/big"
+ 	"testing"
+ 
+@@ -21,6 +22,10 @@ func TestLithoVMCandidateHookIsTaggedAndReregisters(t *testing.T) {
+ 	evm := vm.NewEVM(vm.BlockContext{BlockNumber: big.NewInt(1), Time: big.NewInt(2)}, vm.TxContext{Origin: sender}, nil, &config, vm.Config{})
+ 	message := ethtypes.NewMessage(sender, &nativechain.LabAddress, 7, big.NewInt(0), 1000000, big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, false)
+ 	keeper := &Keeper{}
++	if err := keeper.lithovmCandidateHook(message, &statedb.EVMConfig{ChainConfig: &config}, true)(evm, sender, nativechain.LabAddress); err == nil {
++		t.Fatal("unmounted native store was accepted")
++	}
++	keeper.SetLithoVMStoreKey(storetypes.NewKVStoreKey("lithovm"))
+ 	cfg := &statedb.EVMConfig{ChainConfig: &config}
+ 	hook := keeper.lithovmCandidateHook(message, cfg, true)
+ 	if hook == nil {

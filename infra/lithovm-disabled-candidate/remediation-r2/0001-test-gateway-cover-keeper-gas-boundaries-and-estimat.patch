@@ -1,0 +1,73 @@
+From 45d051dc1fe2f0e9e585b09be50c1df80ec99e24 Mon Sep 17 00:00:00 2001
+From: bachal-abro <mbachalabro1@gmail.com>
+Date: Sun, 27 Sep 2026 13:52:44 +0500
+Subject: [PATCH 1/4] test(gateway): cover keeper gas boundaries and estimation
+
+---
+ x/evm/keeper/lithovm_candidate_apply_test.go | 42 ++++++++++++++++++++
+ 1 file changed, 42 insertions(+)
+
+diff --git a/x/evm/keeper/lithovm_candidate_apply_test.go b/x/evm/keeper/lithovm_candidate_apply_test.go
+index d398b1c..f210b4c 100644
+--- a/x/evm/keeper/lithovm_candidate_apply_test.go
++++ b/x/evm/keeper/lithovm_candidate_apply_test.go
+@@ -5,10 +5,12 @@ package keeper_test
+ import (
+ 	"bytes"
+ 	"encoding/hex"
++	"encoding/json"
+ 	"fmt"
+ 	"math/big"
+ 
+ 	"github.com/ethereum/go-ethereum/common"
++	"github.com/ethereum/go-ethereum/common/hexutil"
+ 	"github.com/ethereum/go-ethereum/crypto"
+ 	evmostypes "github.com/evmos/evmos/v20/x/evm/types"
+ 	nativechain "lithic.local/native-chain-lab"
+@@ -73,6 +75,46 @@ func (suite *KeeperTestSuite) TestLithoVMCandidateSignedDeploySimulationAndCommi
+ 	stateKey := []byte("lithovm/v1/contracts/" + address)
+ 	key := suite.network.App.GetKey(evmostypes.StoreKey)
+ 	suite.Require().False(ctx.KVStore(key).Has(stateKey), "simulation persisted native contract")
++	for _, budget := range []uint64{9999999, 10000000, 10000001, 15000000, 30000000} {
++		boundaryMsg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, evmostypes.EvmTxArgs{
++			To: &nativechain.LabAddress, Amount: big.NewInt(0), Input: payload, GasLimit: budget,
++		})
++		suite.Require().NoError(err)
++		boundaryResult, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, boundaryMsg, nil, false, cfg, txConfig)
++		suite.Require().NoError(err)
++		suite.Require().False(boundaryResult.Failed(), "budget %d: %s", budget, boundaryResult.VmError)
++		suite.Require().Equal(simulated.Ret, boundaryResult.Ret)
++		// Keeper minimum gas multiplier can depend on the supplied limit.
++		// The native bridge must not cause full-frame burn above its work cap.
++		suite.Require().Less(boundaryResult.GasUsed, budget)
++	}
++	// Exercise the RPC-facing keeper estimator, without a network RPC server.
++	from := suite.keyring.GetAddr(0)
++	for _, cap := range []uint64{10000000, 30000000, 50000000} {
++		for _, explicit := range []bool{false, true} {
++			args := evmostypes.TransactionArgs{From: &from, To: &nativechain.LabAddress, Data: (*hexutil.Bytes)(&payload)}
++			if explicit {
++				gas := hexutil.Uint64(cap)
++				args.Gas = &gas
++			}
++			encoded, err := json.Marshal(args)
++			suite.Require().NoError(err)
++			estimate, err := suite.network.App.EvmKeeper.EstimateGas(ctx, &evmostypes.EthCallRequest{Args: encoded, GasCap: cap})
++			suite.Require().NoError(err, "cap=%d explicit=%v", cap, explicit)
++			suite.Require().Empty(estimate.VmError)
++			suite.Require().Greater(estimate.Gas, uint64(0))
++			suite.Require().Less(estimate.Gas, uint64(1000000))
++			estimatedMsg, err := suite.factory.GenerateGethCoreMsg(sender.Priv, evmostypes.EvmTxArgs{
++				To: &nativechain.LabAddress, Amount: big.NewInt(0), Input: payload, GasLimit: estimate.Gas,
++			})
++			suite.Require().NoError(err)
++			replayed, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, estimatedMsg, nil, false, cfg, txConfig)
++			suite.Require().NoError(err)
++			suite.Require().False(replayed.Failed(), replayed.VmError)
++			suite.Require().Equal(simulated.Ret, replayed.Ret)
++			suite.Require().False(ctx.KVStore(key).Has(stateKey), "estimation persisted deployment")
++		}
++	}
+ 	committed, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, true, cfg, txConfig)
+ 	suite.Require().NoError(err)
+ 	suite.Require().False(committed.Failed(), committed.VmError)
