@@ -1,0 +1,2 @@
+RC3_TARGET_PROFILE.json -text
+release-controls/verify_l1_release_approval.py -text
