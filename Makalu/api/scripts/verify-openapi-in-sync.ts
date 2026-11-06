@@ -30,6 +30,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { explorerRouter } from '../src/routes.js';
 import { lithoRouter } from '../src/litho.js';
+import { nativeContractRouter } from '../src/native/contracts.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const openapiPath = resolve(__dirname, '..', '..', '..', 'docs', 'api-reference', 'openapi.yaml');
@@ -125,6 +126,7 @@ function parseOpenapiPaths(yaml: string): Endpoint[] {
 const codeRoutes: Endpoint[] = [
   ...collectRoutes(lithoRouter(), '/api/litho'),
   ...collectRoutes(explorerRouter(), '/api'),
+  ...collectRoutes(nativeContractRouter(), '/api/native'),
 ].map((r) => ({ method: r.method, path: stripPrefix(expressToOpenapi(r.path)) }));
 
 const yaml = readFileSync(openapiPath, 'utf8');

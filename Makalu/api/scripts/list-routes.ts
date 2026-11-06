@@ -15,6 +15,7 @@
  */
 import { explorerRouter } from '../src/routes.js';
 import { lithoRouter } from '../src/litho.js';
+import { nativeContractRouter } from '../src/native/contracts.js';
 
 interface Route {
   method: string;
@@ -48,6 +49,8 @@ function collect(router: unknown, prefix: string): Route[] {
 const routes: Route[] = [
   ...collect(lithoRouter(), '/api/litho'),
   ...collect(explorerRouter(), '/api'),
+  // collect() intentionally reads direct routes only; include the native mount.
+  ...collect(nativeContractRouter(), '/api/native'),
 ].sort((a, b) =>
   a.path === b.path ? a.method.localeCompare(b.method) : a.path.localeCompare(b.path)
 );
