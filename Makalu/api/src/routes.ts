@@ -5,6 +5,7 @@
  * Routes query the same PostgreSQL database that the indexer writes to.
  */
 import { Router, type Request, type Response } from 'express';
+import { nativeContractRouter, type NativeContractDependencies } from './native/contracts.js';
 import { bech32 } from 'bech32';
 import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 import { verifyMessage, isAddress, getAddress } from 'ethers';
@@ -1521,8 +1522,9 @@ function finiteNumberOrNull(value: unknown): number | null {
 
 // ── Router ──────────────────────────────────────────────────────────────────
 
-export function explorerRouter(): Router {
+export function explorerRouter(native?: NativeContractDependencies): Router {
   const r = Router();
+  r.use('/native', nativeContractRouter(native));
 
   // Mainnet launches with all value-moving integrations disabled. Defaults
   // remain enabled for the existing Makalu deployment, while an explicit false
