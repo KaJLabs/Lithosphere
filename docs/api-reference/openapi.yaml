@@ -40,6 +40,7 @@ tags:
   - name: Quantt
   - name: Meta
   - name: Litho (demo)
+  - name: Native (disabled candidate)
 
 components:
   securitySchemes:
@@ -100,6 +101,76 @@ components:
         total: { type: integer }
 
 paths:
+  /native/deployments/{hash}:
+    get:
+      tags: [Native (disabled candidate)]
+      summary: Observe host-generated native deployments from a canonical receipt.
+      description: Disabled by default (503). Trusted-RPC observation only; canonicalProofVerified remains false and source verification is independent. Decimal quantities are strings. No result is inferred from a submitted hash.
+      parameters:
+        - $ref: '#/components/parameters/TxHashPath'
+      responses:
+        '200':
+          description: lithovm-receipt-observation-v1 with included/failed state, block identity, deployments and typed events. Included registrations retain verificationState unverified.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonObject' }
+        '400': { description: Invalid canonical lowercase transaction hash. }
+        '404': { description: No configured-chain receipt; state unknown. }
+        '503': { description: Native profile disabled or trusted observation unavailable. }
+  /native/contracts/{address}/verify:
+    post:
+      tags: [Native (disabled candidate)]
+      summary: Rebuild native source against an independently retrieved block-bound KV record.
+      description: Disabled by default. Accepts no caller-supplied RPC, receipt or comparison record. Requires a canonical host registration; publishes source only after pinned-worker success and canonical-block rechecks. Source match is not consensus finality or state verification.
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string, pattern: '^0x[0-9a-f]{40}$' }
+          description: Canonical lowercase nonzero native contract address.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [transactionHash, request]
+              properties:
+                transactionHash: { type: string, pattern: '^0x[0-9a-f]{64}$' }
+                request:
+                  type: object
+                  description: Existing lithovm-verification-v1 bundle, including exact artifact and one source; total HTTP body at most 4 MiB. Worker validates every field and independent chain/code identity.
+                  required: [schemaVersion, chainId, contractAddress, codeHash, artifact, sources]
+      responses:
+        '200':
+          description: source_match with chain/address/deployment/block identity and exact source/rebuilt-code hashes; canonicalProofVerified false.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonObject' }
+        '400': { description: Invalid request fields or JSON. }
+        '413': { description: Source request exceeds 4 MiB. }
+        '422': { description: Source not verified; private compiler diagnostics are not returned. }
+        '503': { description: Native runtime profile disabled. }
+  /native/contracts/{address}/source:
+    get:
+      tags: [Native (disabled candidate)]
+      summary: Return a previously matched source while its observed block remains canonical.
+      parameters:
+        - name: address
+          in: path
+          required: true
+          schema: { type: string, pattern: '^0x[0-9a-f]{40}$' }
+          description: Canonical lowercase nonzero native contract address.
+      responses:
+        '200':
+          description: Saved registration, rebuild result and source request; verificationState source_match and canonicalProofVerified false. Cache-Control no-store.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JsonObject' }
+        '400': { description: Invalid native address. }
+        '404': { description: No saved source match. }
+        '503': { description: Native profile disabled or match cannot be confirmed canonical. }
   # ───── Blocks ─────────────────────────────────────────────────────────────
   /blocks:
     get:

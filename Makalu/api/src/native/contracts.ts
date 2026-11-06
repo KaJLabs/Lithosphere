@@ -1,4 +1,4 @@
-import { Router, json } from 'express';
+import { Router, json, type NextFunction, type Request, type Response } from 'express';
 import type { NativeWorkers, Observation, Registration, SourceMatch } from './worker.js';
 
 const hash = (value: unknown): value is string => typeof value === 'string' && /^0x[0-9a-f]{64}$/.test(value) && !/^0x0{64}$/.test(value);
@@ -125,6 +125,11 @@ export function nativeContractRouter(deps?: NativeContractDependencies): Router 
       if (!result) { res.status(404).json({ verificationState: 'unverified' }); return; }
       res.json(result);
     } catch { res.status(503).json({ error: 'native_source_unavailable' }); }
+  });
+  // Body-parser diagnostics can quote unpublished source; contain them here.
+  router.use((error: { status?: number }, _req: Request, res: Response, _next: NextFunction) => {
+    const status = error.status === 413 ? 413 : 400;
+    res.status(status).json({ error: status === 413 ? 'native_request_too_large' : 'invalid_native_json' });
   });
   return router;
 }

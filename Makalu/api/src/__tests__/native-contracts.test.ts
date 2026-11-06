@@ -57,6 +57,15 @@ describe('native canonical receipt and independent code boundary', () => {
       .send({ transactionHash: tx, request: fixture.verification, receipt: fixture.receipt, record: fixture.nativeRecord });
     expect(response.status).toBe(400); expect(s.deps.workers.verify).not.toHaveBeenCalled();
   });
+  it('does not expose unpublished source in JSON-parser diagnostics', async () => {
+    const s = setup();
+    const response = await request(s.app).post(`/native/contracts/${contract}/verify`)
+      .set('Content-Type', 'application/json').send('{"PRIVATE_UNPUBLISHED_SOURCE":');
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'invalid_native_json' });
+    expect(response.text).not.toContain('PRIVATE_UNPUBLISHED_SOURCE');
+    expect(s.deps.workers.verify).not.toHaveBeenCalled();
+  });
   it('binds optional source transaction metadata to the observed transaction', async () => {
     const s = setup();
     await expect(s.service.verify(contract, tx, { ...fixture.verification, transactionHash: `0x${'ff'.repeat(32)}` })).rejects.toThrow('identity');
