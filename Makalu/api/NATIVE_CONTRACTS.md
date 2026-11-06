@@ -45,6 +45,11 @@ tests the actual pinned decoder/verifier and full service boundary against the
 shared synthetic compiler/FFI fixture. It opens no RPC or database connection.
 The default API tests omit the existing database integration suite unless its
 explicit test environment is configured; that limitation must remain disclosed.
+The separate `NATIVE_TEST_PG_URL=... node scripts/native-repository-smoke.mjs REPORT.json`
+exercises the real migration and repository against disposable loopback
+PostgreSQL, including migration/insert replay, exact source roundtrip, chain
+isolation and orphan invalidation/replacement. It creates and removes only its
+own generated test schema. It does not use an installed explorer database.
 
 The original v17 review packet, R6.4 closeout and failed 50M result remain intact.
 No production deployment, LAX, MultX, bridge or Swap activation is included.
