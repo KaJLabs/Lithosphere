@@ -1,0 +1,11 @@
+contract NativeStatements {
+    pub fn choose(value: u64, limit: u64) -> u64 {
+        let doubled: u64 = value * 2;
+        if doubled < limit {
+            return doubled;
+        } else {
+            let fallback = limit + 1;
+            return fallback;
+        }
+    }
+}

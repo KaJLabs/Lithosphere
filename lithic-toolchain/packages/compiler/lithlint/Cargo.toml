@@ -1,0 +1,13 @@
+[package]
+name = "lithlint"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "lithlint — the Lithic linter and static analyzer (v0: naming + capability rules)."
+
+[[bin]]
+name = "lithlint"
+path = "src/main.rs"
+
+[dependencies]
+lithic-syntax = { path = "../lithic-syntax" }

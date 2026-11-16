@@ -1,0 +1,5 @@
+contract HelloLithic {
+    pub fn version() -> u256 {
+        return 1;
+    }
+}

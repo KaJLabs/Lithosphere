@@ -1,0 +1,6 @@
+contract NativeCaller {
+  pub fn invoke(target: address, selector: bytes32, value: u256) -> u256 {
+    call_contract(target, selector, value);
+    return value;
+  }
+}

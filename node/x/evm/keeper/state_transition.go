@@ -39,6 +39,18 @@ func (k *Keeper) NewEVM(
 	tracer vm.EVMLogger,
 	stateDB vm.StateDB,
 ) *vm.EVM {
+	return k.newEVMWithCandidate(ctx, msg, cfg, tracer, stateDB, false, false)
+}
+
+func (k *Keeper) newEVMWithCandidate(
+	ctx sdk.Context,
+	msg core.Message,
+	cfg *statedb.EVMConfig,
+	tracer vm.EVMLogger,
+	stateDB vm.StateDB,
+	installCandidate bool,
+	commit bool,
+) *vm.EVM {
 	blockCtx := vm.BlockContext{
 		CanTransfer: evmoscore.CanTransfer,
 		Transfer:    evmoscore.Transfer,
@@ -70,6 +82,11 @@ func (k *Keeper) NewEVM(
 		accessControl.GetCallHook(signer),
 		k.GetPrecompilesCallHook(ctx),
 	)
+	if installCandidate {
+		if hook := k.lithovmCandidateHook(msg, cfg, commit); hook != nil {
+			evmHooks.AddCallHooks(hook)
+		}
+	}
 	return vm.NewEVMWithHooks(evmHooks, blockCtx, txCtx, stateDB, cfg.ChainConfig, vmConfig)
 }
 
@@ -274,7 +291,7 @@ func (k *Keeper) ApplyMessageWithConfig(
 	)
 
 	stateDB := statedb.New(ctx, k, txConfig)
-	evm := k.NewEVM(ctx, msg, cfg, tracer, stateDB)
+	evm := k.newEVMWithCandidate(ctx, msg, cfg, tracer, stateDB, true, commit)
 
 	leftoverGas := msg.Gas()
 

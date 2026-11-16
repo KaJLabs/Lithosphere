@@ -1,0 +1,11 @@
+contract MutableCounter {
+  pub fn increment(value: u64, enabled: bool) -> u64 {
+    let mut current: u64 = value;
+    if enabled {
+      current = current + 1;
+      return current;
+    } else {
+      return current;
+    }
+  }
+}

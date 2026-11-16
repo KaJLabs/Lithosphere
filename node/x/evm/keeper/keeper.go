@@ -34,6 +34,8 @@ type Keeper struct {
 	// - storing transaction Logs
 	// - storing Bloom filters by block height. Needed for the Web3 API.
 	storeKey storetypes.StoreKey
+	// Populated only in the disabled LithoVM lab build. Never alias the EVM store.
+	lithovmStoreKey storetypes.StoreKey
 
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey

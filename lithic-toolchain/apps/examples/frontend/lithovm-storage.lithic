@@ -1,0 +1,14 @@
+contract NativeCounter {
+    state {
+        count: u64;
+    }
+
+    pub fn get() -> u64 {
+        return self.count;
+    }
+
+    pub fn set(value: u64) -> u64 {
+        self.count = value;
+        return self.count;
+    }
+}

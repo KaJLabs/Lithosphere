@@ -1,0 +1,6 @@
+contract NativePayout {
+    pub fn pay(recipient: address, amount: u256) -> u256 {
+        transfer_native(recipient, amount);
+        return amount;
+    }
+}

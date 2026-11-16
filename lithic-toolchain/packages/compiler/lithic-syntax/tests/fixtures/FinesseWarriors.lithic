@@ -1,0 +1,230 @@
+// FinesseWarriors.lithic — LEP100-6 NFT Collection on LithoVM
+// Standard: LEP100-6 (non-fungible, ERC721-equivalent)
+// Name: Finesse Warriors  |  Symbol: FW  |  Chain: lithosphere_700777-2
+// Compile: lithiclang.ai  →  LithoVM bytecode
+
+contract NonFungibleToken {
+
+    // ── Roles ─────────────────────────────────────────────────────────────────
+    const ADMIN_ROLE:  bytes32 = keccak256("ADMIN_ROLE");
+    const MINTER_ROLE: bytes32 = keccak256("MINTER_ROLE");
+    const PAUSER_ROLE: bytes32 = keccak256("PAUSER_ROLE");
+
+    // ── Persistent state ──────────────────────────────────────────────────────
+    state {
+        name:               string;
+        symbol:             string;
+        base_uri:           string;
+        paused:             bool;
+        next_token_id:      u256;
+        total_supply:       u256;
+        owners:             map<u256, address>;
+        balances:           map<address, u256>;
+        token_approvals:    map<u256, address>;
+        operator_approvals: map<address, map<address, bool>>;
+        roles:              map<bytes32, map<address, bool>>;
+        // AI-generated warrior trait JSON, set on ai_mint
+        traits:             map<u256, string>;
+    }
+
+    // ── Events ────────────────────────────────────────────────────────────────
+    event Transfer       { from: address, to: address, token_id: u256 }
+    event Approval       { owner: address, approved: address, token_id: u256 }
+    event ApprovalForAll { owner: address, operator: address, approved: bool }
+    event Paused         { account: address }
+    event Unpaused       { account: address }
+    event RoleGranted    { role: bytes32, account: address, sender: address }
+    event RoleRevoked    { role: bytes32, account: address, sender: address }
+    event TraitAssigned  { token_id: u256, traits: string }
+
+    // ── Constructor ───────────────────────────────────────────────────────────
+    pub fn init(_name: string, _symbol: string, _base_uri: string) {
+        self.name          = _name;
+        self.symbol        = _symbol;
+        self.base_uri      = _base_uri;
+        self.paused        = false;
+        self.next_token_id = 0;
+        self.total_supply  = 0;
+        _setup_role(ADMIN_ROLE,  msg.sender);
+        _setup_role(MINTER_ROLE, msg.sender);
+        _setup_role(PAUSER_ROLE, msg.sender);
+    }
+
+    // ── Access control ────────────────────────────────────────────────────────
+    fn _setup_role(role: bytes32, account: address) {
+        if !self.roles[role][account] {
+            self.roles[role][account] = true;
+            emit RoleGranted { role: role, account: account, sender: msg.sender };
+        }
+    }
+
+    pub fn has_role(role: bytes32, account: address) -> bool {
+        return self.roles[role][account];
+    }
+
+    pub fn grant_role(role: bytes32, account: address) {
+        assert(has_role(ADMIN_ROLE, msg.sender), "access denied");
+        _setup_role(role, account);
+    }
+
+    pub fn revoke_role(role: bytes32, account: address) {
+        assert(has_role(ADMIN_ROLE, msg.sender), "access denied");
+        if self.roles[role][account] {
+            self.roles[role][account] = false;
+            emit RoleRevoked { role: role, account: account, sender: msg.sender };
+        }
+    }
+
+    // ── Pause ─────────────────────────────────────────────────────────────────
+    pub fn pause() {
+        assert(has_role(PAUSER_ROLE, msg.sender), "access denied");
+        assert(!self.paused, "already paused");
+        self.paused = true;
+        emit Paused { account: msg.sender };
+    }
+
+    pub fn unpause() {
+        assert(has_role(PAUSER_ROLE, msg.sender), "access denied");
+        assert(self.paused, "not paused");
+        self.paused = false;
+        emit Unpaused { account: msg.sender };
+    }
+
+    pub fn set_base_uri(base: string) {
+        assert(has_role(ADMIN_ROLE, msg.sender), "access denied");
+        self.base_uri = base;
+    }
+
+    // ── LEP100-6 views ────────────────────────────────────────────────────────
+    pub fn owner_of(id: u256) -> address {
+        let o = self.owners[id];
+        assert(o != address(0), "nonexistent token");
+        return o;
+    }
+
+    pub fn balance_of(account: address) -> u256 {
+        assert(account != address(0), "zero address");
+        return self.balances[account];
+    }
+
+    pub fn token_uri(id: u256) -> string {
+        assert(self.owners[id] != address(0), "nonexistent token");
+        return concat(self.base_uri, to_string(id));
+    }
+
+    pub fn get_traits(id: u256) -> string {
+        assert(self.owners[id] != address(0), "nonexistent token");
+        return self.traits[id];
+    }
+
+    pub fn get_approved(id: u256) -> address {
+        assert(self.owners[id] != address(0), "nonexistent token");
+        return self.token_approvals[id];
+    }
+
+    pub fn is_approved_for_all(owner: address, operator: address) -> bool {
+        return self.operator_approvals[owner][operator];
+    }
+
+    fn _is_approved_or_owner(spender: address, id: u256) -> bool {
+        let o = owner_of(id);
+        return spender == o
+            || get_approved(id) == spender
+            || is_approved_for_all(o, spender);
+    }
+
+    // ── LEP100-6 mutators ─────────────────────────────────────────────────────
+    pub fn approve(to: address, id: u256) {
+        let o = owner_of(id);
+        assert(msg.sender == o || is_approved_for_all(o, msg.sender), "not authorized");
+        self.token_approvals[id] = to;
+        emit Approval { owner: o, approved: to, token_id: id };
+    }
+
+    pub fn set_approval_for_all(operator: address, approved: bool) {
+        assert(msg.sender != operator, "self-approval");
+        self.operator_approvals[msg.sender][operator] = approved;
+        emit ApprovalForAll { owner: msg.sender, operator: operator, approved: approved };
+    }
+
+    pub fn transfer_from(from: address, to: address, id: u256) {
+        assert(!self.paused, "paused");
+        assert(_is_approved_or_owner(msg.sender, id), "not approved");
+        assert(from == self.owners[id], "wrong owner");
+        assert(to != address(0), "zero address");
+        self.token_approvals[id] = address(0);
+        self.balances[from] -= 1;
+        self.balances[to]   += 1;
+        self.owners[id] = to;
+        emit Transfer { from: from, to: to, token_id: id };
+    }
+
+    pub fn safe_transfer_from(from: address, to: address, id: u256) {
+        transfer_from(from, to, id);
+    }
+
+    // Mint a specific token ID (permissioned)
+    pub fn mint(to: address, id: u256) {
+        assert(has_role(MINTER_ROLE, msg.sender), "access denied");
+        assert(!self.paused, "paused");
+        assert(to != address(0), "zero address");
+        assert(self.owners[id] == address(0), "already minted");
+        self.owners[id]    = to;
+        self.balances[to] += 1;
+        self.total_supply += 1;
+        emit Transfer { from: address(0), to: to, token_id: id };
+    }
+
+    // Auto-increment mint — returns new token ID
+    pub fn safe_mint(to: address) -> u256 {
+        assert(has_role(MINTER_ROLE, msg.sender), "access denied");
+        assert(!self.paused, "paused");
+        assert(to != address(0), "zero address");
+        let id = self.next_token_id;
+        self.next_token_id += 1;
+        self.owners[id]    = to;
+        self.balances[to] += 1;
+        self.total_supply += 1;
+        emit Transfer { from: address(0), to: to, token_id: id };
+        return id;
+    }
+
+    pub fn burn(id: u256) {
+        assert(!self.paused, "paused");
+        assert(_is_approved_or_owner(msg.sender, id), "not approved");
+        let o = self.owners[id];
+        self.token_approvals[id] = address(0);
+        self.balances[o]  -= 1;
+        self.total_supply -= 1;
+        self.owners[id] = address(0);
+        emit Transfer { from: o, to: address(0), token_id: id };
+    }
+
+    // ── AI-native: trait-generated mint ───────────────────────────────────────
+    // Generates and persists warrior traits at mint via Lithic's native AI primitive.
+    @ai_budget(max_cost = 500)
+    pub async fn ai_mint(to: address) -> u256 {
+        assert(has_role(MINTER_ROLE, msg.sender), "access denied");
+        assert(!self.paused, "paused");
+        assert(to != address(0), "zero address");
+
+        let id = self.next_token_id;
+        self.next_token_id += 1;
+
+        let result = await ai.request("trait-generator-v1", {
+            collection: self.name,
+            token_id:   id,
+            recipient:  to,
+            supply:     self.total_supply,
+        });
+
+        self.traits[id]    = result.traits_json;
+        self.owners[id]    = to;
+        self.balances[to] += 1;
+        self.total_supply += 1;
+
+        emit Transfer      { from: address(0), to: to, token_id: id };
+        emit TraitAssigned { token_id: id, traits: result.traits_json };
+        return id;
+    }
+}

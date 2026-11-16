@@ -1,0 +1,37 @@
+//go:build lithovm_chain_lab
+
+package app
+
+import (
+	"context"
+
+	storetypes "cosmossdk.io/store/types"
+	upgradetypes "cosmossdk.io/x/upgrade/types"
+	"github.com/cosmos/cosmos-sdk/baseapp"
+	"github.com/cosmos/cosmos-sdk/types/module"
+)
+
+// LITHO mainnet 9005 plan name (Makalu used the lab name lithovm-native-store-lab-v1).
+const lithovmStoreLabUpgradeName = "lithovm-native-store-v1"
+
+func nativeStoreLoaderForPlan(plan upgradetypes.Plan) (baseapp.StoreLoader, bool) {
+	if plan.Name != lithovmStoreLabUpgradeName || plan.Height <= 0 {
+		return nil, false
+	}
+	return upgradetypes.UpgradeStoreLoader(plan.Height, &storetypes.StoreUpgrades{
+		Added: []string{"lithovm"},
+	}), true
+}
+
+func (app *Evmos) registerLithoVMStoreUpgrade() {
+	app.UpgradeKeeper.SetUpgradeHandler(lithovmStoreLabUpgradeName,
+		func(ctx context.Context, _ upgradetypes.Plan, versions module.VersionMap) (module.VersionMap, error) {
+			return app.mm.RunMigrations(ctx, app.configurator, versions)
+		})
+}
+
+func (app *Evmos) configureLithoVMStoreLoader(plan upgradetypes.Plan) {
+	if loader, ok := nativeStoreLoaderForPlan(plan); ok {
+		app.SetStoreLoader(loader)
+	}
+}

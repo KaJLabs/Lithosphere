@@ -330,3 +330,7 @@ replace github.com/crypto-org-chain/cronos/memiavl => ../memiavl
 replace github.com/tidwall/wal => ../wal
 
 replace github.com/cometbft/cometbft => ../comet
+
+require lithic.local/native-chain-lab v0.0.0
+
+replace lithic.local/native-chain-lab => ../lithic-toolchain/integration/native-chain

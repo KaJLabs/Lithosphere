@@ -1,0 +1,33 @@
+name: Front-end checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  check:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - run: rustup toolchain install 1.96.0 --profile minimal --component rustfmt,clippy
+      - run: cargo +1.96.0 fmt --all -- --check
+      - run: cargo +1.96.0 clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo +1.96.0 test --workspace --locked
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit check apps/examples/frontend/hello.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit evm apps/examples/frontend/evm-constants.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit evm apps/examples/frontend/evm-identity.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-statements.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-storage.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-context.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-events.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-transfer.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-call.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-mutable-local.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-repeat.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-constants.lithic
+      - run: cargo +1.96.0 run --locked -p lithc -- --emit lithovm apps/examples/frontend/lithovm-failure.lithic
+      - run: cargo +1.96.0 run --locked -p lithfmt -- --check apps/examples/frontend/hello.lithic
+      - run: cargo +1.96.0 run --locked -p lithlint -- --deny-warnings apps/examples/frontend/hello.lithic

@@ -1,0 +1,12 @@
+contract Roles {
+  const LIMIT: u64 = 41;
+  const ADMIN_ROLE: bytes32 = keccak256("ADMIN_ROLE");
+
+  pub fn limit() -> u64 {
+    return LIMIT + 1;
+  }
+
+  pub fn admin_role() -> bytes32 {
+    return ADMIN_ROLE;
+  }
+}

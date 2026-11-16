@@ -446,6 +446,7 @@ func NewEvmos(
 		tracer, app.GetSubspace(evmtypes.ModuleName),
 	)
 	app.EvmKeeper = evmKeeper
+	app.EvmKeeper.SetLithoVMStoreKey(keys["lithovm"])
 
 	// Create IBC Keeper
 	app.IBCKeeper = ibckeeper.NewKeeper(
@@ -927,6 +928,10 @@ func (app *Evmos) InitChainer(ctx sdk.Context, req *abci.RequestInitChain) (*abc
 		return nil, err
 	}
 
+	if err := app.importLithoVMGenesis(ctx, genesisState); err != nil {
+		return nil, err
+	}
+
 	if err := app.UpgradeKeeper.SetModuleVersionMap(ctx, app.mm.GetVersionMap()); err != nil {
 		panic(err)
 	}
@@ -1193,6 +1198,7 @@ func initParamsKeeper(
 }
 
 func (app *Evmos) setupUpgradeHandlers() {
+	app.registerLithoVMStoreUpgrade()
 	// v20 upgrade handler
 	app.UpgradeKeeper.SetUpgradeHandler(
 		v20.UpgradeName,
@@ -1214,4 +1220,5 @@ func (app *Evmos) setupUpgradeHandlers() {
 	if app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
 		return
 	}
+	app.configureLithoVMStoreLoader(upgradeInfo)
 }

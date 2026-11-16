@@ -1,0 +1,11 @@
+contract NativeEvents {
+    event Changed {
+        account: address,
+        value: u64
+    }
+
+    pub fn change(account: address, value: u64) -> u64 {
+        emit Changed { account: account, value: value };
+        return value;
+    }
+}

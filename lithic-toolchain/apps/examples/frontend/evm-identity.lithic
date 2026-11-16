@@ -1,0 +1,9 @@
+contract Identity {
+    pub fn echo_u64(value: u64) -> u64 {
+        return value;
+    }
+
+    pub fn echo_address(value: address) -> address {
+        return value;
+    }
+}

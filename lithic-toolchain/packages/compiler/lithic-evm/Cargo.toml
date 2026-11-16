@@ -1,0 +1,16 @@
+[package]
+name = "lithic-evm"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Fail-closed Lithic to EVM artifact compiler"
+
+[dependencies]
+hex = "0.4"
+lithic-syntax = { path = "../lithic-syntax" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha3 = "0.10"
+
+[dev-dependencies]
+revm = { version = "19.7", default-features = false, features = ["std"] }

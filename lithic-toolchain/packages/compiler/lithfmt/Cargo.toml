@@ -1,0 +1,13 @@
+[package]
+name = "lithfmt"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "lithfmt — the Lithic source formatter (v0: safe whitespace normalisation)."
+
+[[bin]]
+name = "lithfmt"
+path = "src/main.rs"
+
+[dependencies]
+lithic-syntax = { path = "../lithic-syntax" }

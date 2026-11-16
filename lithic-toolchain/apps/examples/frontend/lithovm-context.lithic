@@ -1,0 +1,21 @@
+contract NativeContext {
+    pub fn sender() -> address {
+        return msg.sender;
+    }
+
+    pub fn transferred_value() -> u256 {
+        return msg.value;
+    }
+
+    pub fn current_height() -> u64 {
+        return block.height;
+    }
+
+    pub fn current_timestamp() -> u64 {
+        return block.timestamp;
+    }
+
+    pub fn current_chain() -> u64 {
+        return chain.id;
+    }
+}

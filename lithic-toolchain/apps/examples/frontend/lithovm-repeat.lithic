@@ -1,0 +1,9 @@
+contract Counter {
+  pub fn count(iterations: u64) -> u64 {
+    let mut current: u64 = 0;
+    repeat iterations {
+      current = current + 1;
+    }
+    return current;
+  }
+}

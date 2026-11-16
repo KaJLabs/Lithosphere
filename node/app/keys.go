@@ -56,6 +56,7 @@ func StoreKeys() (
 		inflationtypes.StoreKey, erc20types.StoreKey,
 		epochstypes.StoreKey, vestingtypes.StoreKey,
 	}
+	storeKeys = append(storeKeys, lithovmLabStoreKeys()...)
 
 	keys := storetypes.NewKVStoreKeys(storeKeys...)
 

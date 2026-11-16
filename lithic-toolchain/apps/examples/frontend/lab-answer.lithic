@@ -1,0 +1,5 @@
+contract Answer {
+    pub fn value() -> u64 {
+        return 42;
+    }
+}

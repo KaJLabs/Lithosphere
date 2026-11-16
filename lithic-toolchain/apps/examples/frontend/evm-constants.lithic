@@ -1,0 +1,13 @@
+contract ReleaseInfo {
+    pub fn toolchain_version() -> u64 {
+        return 1;
+    }
+
+    pub fn litho_chain_id() -> u64 {
+        return 9005;
+    }
+
+    pub fn ready() -> bool {
+        return true;
+    }
+}

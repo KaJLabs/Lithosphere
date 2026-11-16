@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+  "packages/vm/lithovm-lab",
+  "packages/compiler/lithic-evm",
+  "packages/compiler/lithic-lithovm",
+  "packages/compiler/lithic-syntax",
+  "packages/compiler/lithc",
+  "packages/compiler/lithfmt",
+  "packages/compiler/lithlint",
+  "packages/compiler/ir",
+  "packages/vm/lithovm",
+  "packages/vm/lithovm-host",
+  "packages/vm/lithovm-ffi",
+  "packages/vm/bytecode",
+  "packages/vm/receipts",
+  "packages/vm/zk-verifier",
+  "packages/standards/lep100-tests",
+]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
