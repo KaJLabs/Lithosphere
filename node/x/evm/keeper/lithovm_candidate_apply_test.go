@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 
+	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -38,6 +39,12 @@ func (suite *KeeperTestSuite) TestLithoVMCandidateApplyMessageHook() {
 	cfg, err := suite.network.App.EvmKeeper.EVMConfig(ctx, ctx.BlockHeader().ProposerAddress, suite.network.GetEIP155ChainID())
 	suite.Require().NoError(err)
 	txConfig := suite.network.App.EvmKeeper.TxConfig(ctx, common.Hash{})
+	// LMX-C3: before the store upgrade is applied the gateway address is an ordinary empty account,
+	// exactly as on rc3, so the same call succeeds without effect.
+	before, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
+	suite.Require().NoError(err)
+	suite.Require().False(before.Failed(), before.VmError)
+	suite.Require().NoError(suite.network.App.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: "lithovm-native-store-v1", Height: ctx.BlockHeight()}))
 	result, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result)
@@ -49,6 +56,10 @@ func (suite *KeeperTestSuite) TestLithoVMCandidateSignedDeploySimulationAndCommi
 	suite.enableFeemarket = true
 	defer func() { suite.enableFeemarket = false }()
 	suite.SetupTest()
+	{
+		ctx := suite.network.GetContext()
+		suite.Require().NoError(suite.network.App.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: "lithovm-native-store-v1", Height: ctx.BlockHeight()}))
+	}
 	code, err := hex.DecodeString(candidateCounterBytecode)
 	suite.Require().NoError(err)
 	arguments, err := hex.DecodeString(fmt.Sprintf("4c56414c01000101%064x", 7))

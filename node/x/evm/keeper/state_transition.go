@@ -82,7 +82,7 @@ func (k *Keeper) newEVMWithCandidate(
 		accessControl.GetCallHook(signer),
 		k.GetPrecompilesCallHook(ctx),
 	)
-	if installCandidate {
+	if installCandidate && k.lithovmActive(ctx) {
 		if hook := k.lithovmCandidateHook(msg, cfg, commit); hook != nil {
 			evmHooks.AddCallHooks(hook)
 		}

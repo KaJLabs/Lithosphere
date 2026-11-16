@@ -8,6 +8,7 @@ import (
 	storetypes "cosmossdk.io/store/types"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/cosmos/cosmos-sdk/baseapp"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 )
 
@@ -24,6 +25,13 @@ func nativeStoreLoaderForPlan(plan upgradetypes.Plan) (baseapp.StoreLoader, bool
 }
 
 func (app *Evmos) registerLithoVMStoreUpgrade() {
+	// LMX-C3: the gateway becomes active only from the block in which this upgrade was applied.
+	// The lookup uses its own gas meter so it never changes gas accounting of any transaction;
+	// before activation the new binary therefore executes exactly as rc3.
+	app.EvmKeeper.SetLithoVMActivation(func(ctx sdk.Context) bool {
+		done, err := app.UpgradeKeeper.GetDoneHeight(ctx.WithGasMeter(storetypes.NewInfiniteGasMeter()), lithovmStoreLabUpgradeName)
+		return err == nil && done > 0 && ctx.BlockHeight() >= done
+	})
 	app.UpgradeKeeper.SetUpgradeHandler(lithovmStoreLabUpgradeName,
 		func(ctx context.Context, _ upgradetypes.Plan, versions module.VersionMap) (module.VersionMap, error) {
 			return app.mm.RunMigrations(ctx, app.configurator, versions)

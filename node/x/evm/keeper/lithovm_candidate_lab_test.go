@@ -4,6 +4,7 @@ package keeper
 
 import (
 	storetypes "cosmossdk.io/store/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"math/big"
 	"testing"
 
@@ -61,5 +62,20 @@ func TestLithoVMCandidateHookIsTaggedAndReregisters(t *testing.T) {
 	p, ok = evm.Precompile(nativechain.LabAddress)
 	if !ok || !p.(nativechain.LabPrecompile).Transaction.Simulated {
 		t.Fatal("simulation mode missing")
+	}
+}
+
+func TestLithoVMActivationGateDefaultsInactive(t *testing.T) {
+	keeper := &Keeper{}
+	if keeper.lithovmActive(sdk.Context{}) {
+		t.Fatal("gateway active without an activation gate")
+	}
+	keeper.SetLithoVMActivation(func(sdk.Context) bool { return false })
+	if keeper.lithovmActive(sdk.Context{}) {
+		t.Fatal("gate false but active")
+	}
+	keeper.SetLithoVMActivation(func(sdk.Context) bool { return true })
+	if !keeper.lithovmActive(sdk.Context{}) {
+		t.Fatal("gate true but inactive")
 	}
 }

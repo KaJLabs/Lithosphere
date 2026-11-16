@@ -36,6 +36,9 @@ type Keeper struct {
 	storeKey storetypes.StoreKey
 	// Populated only in the disabled LithoVM lab build. Never alias the EVM store.
 	lithovmStoreKey storetypes.StoreKey
+	// Reports whether the native store upgrade has been applied at or before the current block
+	// (LMX-C3). Nil means inactive: a call to the gateway address then behaves as on rc3.
+	lithovmActivation func(sdk.Context) bool
 
 	// key to access the transient store, which is reset on every block during Commit
 	transientKey storetypes.StoreKey
