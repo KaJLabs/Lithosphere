@@ -69,3 +69,48 @@ The R4 build record is `client-work/LAX_NATIVE_MIGRATION_REVIEW_2026-10-16/R4_BU
 | Date | Status |
 |---|---|
 | 2026-11-16 | Steps 0 (sourcing and delta analysis) done. Step 1 next. |
+| 2026-11-16 | **Step 1 done**, commit `26df1f6`: the 12 LithoVM files copied, hooks applied, upgrade renamed `lithovm-native-store-v1`. Details below. |
+| 2026-11-16 | **Step 2 done**, reproducible. In the WSL clean LF checkout `/home/bachal/litho-mainnet-lithovm-20261116` (cloned from a bundle), `liblithovm_ffi.so` from `lithic-toolchain` `f7c259ae` built in 38 s with Rust 1.96.0. SHA-256 `b96a9028219b2abc8c4557bdf7cd74e2ffb096ed3b1ce962e17e4a40f9ad473c` is identical to Makalu R4 `makalu-native-r4/lib/liblithovm_ffi.so`. |
+| 2026-11-16 | **Step 3 running**: `mainnet-build/02_build_lithod.sh` (Go 1.26.10; tags `netgo,ledger,lithovm_chain_lab,lithovm_release`; rpath `$ORIGIN/../lib`; version `litho-l1-security-20261021-rc3-lithovm1`). |
+
+| 2026-11-16 | **Step 3 done**, build 655 s. Binary `dist-lithovm/litho-l1-security-20261021-rc3-lithovm1`, SHA-256 `661b607bd5717fd42a0fe37829efe26f19b3c54fc2204807e8e896e80451ba36`. NEEDED `liblithovm_ffi.so` and `libc.so.6`; RUNPATH `$ORIGIN/../lib`. `lib/liblithovm_ffi.so` `b96a9028…`. Built `-mod=readonly`, so the existing `go.sum` covered the native-chain dependencies. |
+| 2026-11-16 | **Step 4 done, PASS.** `go vet` is clean on the tagged `app` and `x/evm/keeper`. Tagged `app` tests pass: `TestLithoVMLabStoreGenesisIsMountedAndEmptyRoundTrips`, `TestLithoVMLabStoreNonemptyExportImport` and `TestLithoVMStoreUpgradeIsHeightAndPlanGated` (with the mainnet plan name). The tagged keeper test `TestLithoVMCandidateHookIsTaggedAndReregisters` passes. The suite (`04_suite_tests.sh`) passes `TestLithoVMCandidateApplyMessageHook` and `TestLithoVMCandidateSignedDeploySimulationAndCommit`, a real FFI deploy through `0x…f000`. Untagged rc3 guards pass: `TestOrdinaryBuildHasNoLithoVMStoreAndRejectsItsGenesis` and `TestLithoVMCandidateNotRegisteredByDefault`. The only finding was gofmt import order in `app/lithovm_upgrade_lab_test.go` (copied verbatim from the lab); fixed. |
+
+### Step 5 rehearsal design (in-place testnet on a copy of mainnet state, memiavl)
+
+The SDK `server.InPlaceTestnetCreator` exists in rc3's `sdk/server/start.go:634`, with the `--trigger-testnet-upgrade` flag. The app does not wire it up, so add a **rehearsal-only** `InitAppForTestnet` under a build tag `rehearsal`, never in the release binary. It must:
+- replace the validator set with one local validator (staking, slashing and distribution, as Gaia and Osmosis do);
+- set the upgrade plan at `LastBlockHeight + N` when the trigger is set.
+
+Then:
+1. Get a mainnet state copy with memiavl. State-sync a local rc3 node in WSL from the mainnet sentries' snapshots. RPC for the light client goes through SSH tunnels to the sentries' `127.0.0.1:27057`, because the public `rpc-mainnet` blocks `commit`.
+2. Run `in-place-testnet` with the old (rc3 + rehearsal) binary and `--trigger-testnet-upgrade lithovm-native-store-v1`. Produce blocks until it halts with UPGRADE NEEDED at H.
+3. Swap to the new binary (`lithovm1` + rehearsal). The `lithovm` store must be added under memiavl and blocks must continue.
+4. Restart after H and replay.
+5. Deploy LAX v12, recompiled with `INITIAL_HOLDER` = `0x8FDb…`, from a funded local account through `0x…f000`. Check `totalSupply` = 10^28, the holder balance and a transfer.
+
+### Step 1 details
+
+- Copied the 12 LithoVM files from `3cadea9`.
+- Applied the hunks to `x/evm/keeper/keeper.go` and `state_transition.go`; both applied cleanly. The `interfaces.go` hunk was not needed because rc3 already has `BlockedAddr`.
+- `app.go` hooks:
+  - `SetLithoVMStoreKey`
+  - InitChainer `importLithoVMGenesis`, placed after rc3's `validateLITHOGenesisSupply`
+  - `registerLithoVMStoreUpgrade`
+  - `configureLithoVMStoreLoader`
+- `keys.go` and `export.go` hooks added.
+- Added `lithic-toolchain` `f7c259ae` via `git archive`. Its tracked patch `68187bf0` touches docs only, so the code is exact.
+- `bridge.go` equals the Makalu R4 overlay byte for byte (only the build-tree rpath is removed).
+- `go.mod` gains the require and replace for `lithic.local/native-chain-lab`.
+
+Overlays not applied:
+- **`cmd/config.go`:** rc3 differs from the Makalu overlay only in `DisplayDenom` (CLI display, not consensus). Kept rc3's value.
+- **`utils.go`:** rc3 already equals the overlay.
+
+### Notes
+
+- **Don't run `wsl -- bash -c '...$VAR...'` from Git Bash.** The outer shell expands `$VAR` first, and MSYS rewrites `/mnt/...` paths. Run scripts with PowerShell: `wsl -d Ubuntu -- bash /mnt/d/.../script.sh`.
+- **Store loader under memiavl.** Mainnet rc3 runs memiavl (`memiavlstore.SetupMemIAVL`). The rehearsal must show that `UpgradeStoreLoader` adding `lithovm` works with memiavl. Makalu's lab chain may not have used memiavl, so check what Makalu runs.
+  - **Checked 2026-11-16:** Makalu `amir-val-01` runs with `[memiavl] enable = false` (plain IAVL, `application.db`). Mainnet runs memiavl: val-09 logs show memiavl snapshot rewrites.
+  - So the store-addition upgrade has **never been exercised on memiavl**. Cronos memiavl supports `StoreUpgrades.Added` through its `LoadVersionAndUpgrade`, but that is unproven here.
+  - This is the **primary rehearsal gate**. Rehearse on a copy of a memiavl mainnet node home and confirm: the upgrade at H, `lithovm` added, an app hash identical to a reference node for the first blocks after H, and restart/replay after H.
