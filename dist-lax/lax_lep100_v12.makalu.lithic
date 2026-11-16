@@ -1,0 +1,92 @@
+contract LithosphereAlgorithmic {
+    const DECIMALS: u64 = 18;
+    const MAX_SUPPLY: u256 = 10000000000000000000000000000;
+    const UNLIMITED: u256 = 115792089237316195423570985008687907853269984665640564039457584007913129639935;
+    const ZERO_ADDRESS: address = 0x0000000000000000000000000000000000000000;
+    const INITIAL_HOLDER: address = 0x5AaC0cf0AcF5927C8Bd4D18400350e020DE55F00;
+
+    state {
+        initialized: bool;
+        name: string;
+        symbol: string;
+        initial_holder: address;
+        total_supply: u256;
+        balances: map<address, u256>;
+        allowances: map<address, map<address, u256>>;
+    }
+
+    event Transfer { from: address, to: address, amount: u256 }
+    event Approval { owner: address, spender: address, amount: u256 }
+
+    pub fn name() -> string { return self.name; }
+    pub fn symbol() -> string { return self.symbol; }
+    pub fn decimals() -> u64 { return DECIMALS; }
+    pub fn total_supply() -> u256 { return self.total_supply; }
+    pub fn balance_of(account: address) -> u256 { return self.balances[account]; }
+    pub fn allowance(owner: address, spender: address) -> u256 {
+        return self.allowances[owner][spender];
+    }
+
+    pub fn initialize(initial_holder: address, name: string, symbol: string) -> bool {
+        require(self.initialized == false);
+        require((initial_holder == ZERO_ADDRESS) == false);
+        require(initial_holder == INITIAL_HOLDER);
+        self.initialized = true;
+        self.name = name;
+        self.symbol = symbol;
+        self.initial_holder = initial_holder;
+        self.total_supply = MAX_SUPPLY;
+        self.balances[initial_holder] = MAX_SUPPLY;
+        emit Transfer { from: ZERO_ADDRESS, to: initial_holder, amount: MAX_SUPPLY };
+        return true;
+    }
+
+    pub fn transfer(to: address, amount: u256) -> bool {
+        require((msg.sender == ZERO_ADDRESS) == false);
+        require((to == ZERO_ADDRESS) == false);
+        let from_balance: u256 = self.balances[msg.sender];
+        require(from_balance >= amount);
+        self.balances[msg.sender] = from_balance - amount;
+        self.balances[to] = self.balances[to] + amount;
+        emit Transfer { from: msg.sender, to: to, amount: amount };
+        return true;
+    }
+
+    pub fn approve(spender: address, amount: u256) -> bool {
+        require((msg.sender == ZERO_ADDRESS) == false);
+        require((spender == ZERO_ADDRESS) == false);
+        self.allowances[msg.sender][spender] = amount;
+        emit Approval { owner: msg.sender, spender: spender, amount: amount };
+        return true;
+    }
+
+    pub fn transfer_from(from: address, to: address, amount: u256) -> bool {
+        require((msg.sender == ZERO_ADDRESS) == false);
+        require((from == ZERO_ADDRESS) == false);
+        require((to == ZERO_ADDRESS) == false);
+        let allowed: u256 = self.allowances[from][msg.sender];
+        let from_balance: u256 = self.balances[from];
+        require(allowed >= amount);
+        require(from_balance >= amount);
+        if (allowed == UNLIMITED) == false {
+            self.allowances[from][msg.sender] = allowed - amount;
+            if amount >= 1 {
+                emit Approval { owner: from, spender: msg.sender, amount: allowed - amount };
+            }
+        }
+        self.balances[from] = from_balance - amount;
+        self.balances[to] = self.balances[to] + amount;
+        emit Transfer { from: from, to: to, amount: amount };
+        return true;
+    }
+
+    pub fn burn(amount: u256) -> bool {
+        require((msg.sender == ZERO_ADDRESS) == false);
+        let balance: u256 = self.balances[msg.sender];
+        require(balance >= amount);
+        self.balances[msg.sender] = balance - amount;
+        self.total_supply = self.total_supply - amount;
+        emit Transfer { from: msg.sender, to: ZERO_ADDRESS, amount: amount };
+        return true;
+    }
+}

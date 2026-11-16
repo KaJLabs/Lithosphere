@@ -1,0 +1,25 @@
+== gofmt (changed Go files)
+unformatted: app/lithovm_upgrade_lab_test.go
+== go vet (tagged)
+== tagged app LithoVM tests
+=== RUN   TestLithoVMLabStoreGenesisIsMountedAndEmptyRoundTrips
+--- PASS: TestLithoVMLabStoreGenesisIsMountedAndEmptyRoundTrips (0.00s)
+=== RUN   TestLithoVMLabStoreNonemptyExportImport
+--- PASS: TestLithoVMLabStoreNonemptyExportImport (0.00s)
+=== RUN   TestLithoVMStoreUpgradeIsHeightAndPlanGated
+--- PASS: TestLithoVMStoreUpgradeIsHeightAndPlanGated (0.00s)
+PASS
+ok  	github.com/evmos/evmos/v20/app	0.197s
+== tagged keeper LithoVM tests
+=== RUN   TestLithoVMCandidateHookIsTaggedAndReregisters
+--- PASS: TestLithoVMCandidateHookIsTaggedAndReregisters (0.00s)
+PASS
+ok  	github.com/evmos/evmos/v20/x/evm/keeper	0.100s
+== untagged (ordinary rc3 build) LithoVM guards
+--- PASS: TestOrdinaryBuildHasNoLithoVMStoreAndRejectsItsGenesis (0.00s)
+PASS
+ok  	github.com/evmos/evmos/v20/app	0.085s
+--- PASS: TestLithoVMCandidateNotRegisteredByDefault (0.00s)
+PASS
+ok  	github.com/evmos/evmos/v20/x/evm/keeper	0.094s
+RC=1

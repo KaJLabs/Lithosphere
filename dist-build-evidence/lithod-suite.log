@@ -1,0 +1,23 @@
+== gofmt -d app/lithovm_upgrade_lab_test.go
+diff app/lithovm_upgrade_lab_test.go.orig app/lithovm_upgrade_lab_test.go
+--- app/lithovm_upgrade_lab_test.go.orig
++++ app/lithovm_upgrade_lab_test.go
+@@ -10,8 +10,8 @@
+ 	"cosmossdk.io/store/rootmulti"
+ 	storetypes "cosmossdk.io/store/types"
+ 	upgradetypes "cosmossdk.io/x/upgrade/types"
+-	"github.com/cosmos/cosmos-sdk/baseapp"
+ 	dbm "github.com/cosmos/cosmos-db"
++	"github.com/cosmos/cosmos-sdk/baseapp"
+ )
+ 
+ func TestLithoVMStoreUpgradeIsHeightAndPlanGated(t *testing.T) {
+== suite: LithoVM candidate apply + signed deploy/commit
+=== RUN   TestKeeperTestSuite
+=== RUN   TestKeeperTestSuite/TestLithoVMCandidateApplyMessageHook
+=== RUN   TestKeeperTestSuite/TestLithoVMCandidateSignedDeploySimulationAndCommit
+--- PASS: TestKeeperTestSuite (1.01s)
+    --- PASS: TestKeeperTestSuite/TestLithoVMCandidateApplyMessageHook (0.14s)
+    --- PASS: TestKeeperTestSuite/TestLithoVMCandidateSignedDeploySimulationAndCommit (0.18s)
+PASS
+ok  	github.com/evmos/evmos/v20/x/evm/keeper	1.090s

@@ -1,0 +1,7 @@
+build seconds 655
+661b607bd5717fd42a0fe37829efe26f19b3c54fc2204807e8e896e80451ba36  /home/bachal/litho-mainnet-lithovm-20261116/dist-lithovm/litho-l1-security-20261021-rc3-lithovm1
+b96a9028219b2abc8c4557bdf7cd74e2ffb096ed3b1ce962e17e4a40f9ad473c  /home/bachal/litho-mainnet-lithovm-20261116/dist-lithovm/lib/liblithovm_ffi.so
+ 0x0000000000000001 (NEEDED)             Shared library: [liblithovm_ffi.so]
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x000000000000001d (RUNPATH)            Library runpath: [$ORIGIN/../lib]
+EXIT=0
