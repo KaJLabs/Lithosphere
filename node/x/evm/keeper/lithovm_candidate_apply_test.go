@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"cosmossdk.io/core/header"
 	upgradetypes "cosmossdk.io/x/upgrade/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -44,7 +45,7 @@ func (suite *KeeperTestSuite) TestLithoVMCandidateApplyMessageHook() {
 	before, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
 	suite.Require().NoError(err)
 	suite.Require().False(before.Failed(), before.VmError)
-	suite.Require().NoError(suite.network.App.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: "lithovm-native-store-v1", Height: ctx.BlockHeight()}))
+	suite.Require().NoError(suite.network.App.UpgradeKeeper.ApplyUpgrade(ctx.WithHeaderInfo(header.Info{Height: ctx.BlockHeight()}), upgradetypes.Plan{Name: "lithovm-native-store-v1", Height: ctx.BlockHeight()}))
 	result, err := suite.network.App.EvmKeeper.ApplyMessageWithConfig(ctx, msg, nil, false, cfg, txConfig)
 	suite.Require().NoError(err)
 	suite.Require().NotNil(result)
@@ -58,7 +59,7 @@ func (suite *KeeperTestSuite) TestLithoVMCandidateSignedDeploySimulationAndCommi
 	suite.SetupTest()
 	{
 		ctx := suite.network.GetContext()
-		suite.Require().NoError(suite.network.App.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: "lithovm-native-store-v1", Height: ctx.BlockHeight()}))
+		suite.Require().NoError(suite.network.App.UpgradeKeeper.ApplyUpgrade(ctx.WithHeaderInfo(header.Info{Height: ctx.BlockHeight()}), upgradetypes.Plan{Name: "lithovm-native-store-v1", Height: ctx.BlockHeight()}))
 	}
 	code, err := hex.DecodeString(candidateCounterBytecode)
 	suite.Require().NoError(err)
