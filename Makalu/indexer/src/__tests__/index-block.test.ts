@@ -118,8 +118,9 @@ describe('indexBlock', () => {
       return new Response(JSON.stringify({ result }));
     }) as typeof fetch;
     await indexBlock(14_961_748);
-    const deployment = captured.find(item => item.sql.includes("VALUES ($1, $2, $3, $4, 'lithovm', $5)"));
+    const deployment = captured.find(item => item.sql.includes("VALUES ($1, $2, $3, $4, 'lithovm', $5, $6)"));
     expect(deployment?.params?.slice(0, 4)).toEqual([lax, deployer, evmHash, 14_961_748]);
+    expect(deployment?.params?.[5]).toBe('2026-11-20T21:46:09Z');
     const transfer = captured.find(item => item.sql.includes('INSERT INTO token_transfers'));
     expect(transfer?.params).toEqual([evmHash, 1_000_000_000, lax, '0x0000000000000000000000000000000000000000', holder,
       '10000000000000000000000000000', 14_961_748, '2026-11-20T21:46:09Z']);

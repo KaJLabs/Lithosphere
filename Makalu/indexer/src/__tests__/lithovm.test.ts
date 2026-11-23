@@ -114,7 +114,9 @@ describe('indexLithicReceiptLogs', () => {
 
     const deployment = queries.find((q) => q.sql.includes('INSERT INTO contracts (address, creator'));
     expect(deployment?.params).toEqual([LAX, '0xbaa8feac6d01c3e75ca137da562c59b5b7eef293', DEPLOY_TX, 14_961_748,
-      '0xbf8236de51fb4c9595e95882ac2951d526e7ad20c53a59ca349288169e71c42c']);
+      '0xbf8236de51fb4c9595e95882ac2951d526e7ad20c53a59ca349288169e71c42c', '2026-11-20T21:46:09Z']);
+    // "Created" on the token page is the deploy block time, also when a row already exists.
+    expect(deployment?.sql).toContain('created_at = LEAST(contracts.created_at, EXCLUDED.created_at)');
     const transfer = queries.find((q) => q.sql.includes('INSERT INTO token_transfers'));
     // Log at receipt position 1, event at position 1 → 1,000,001,001.
     expect(transfer?.params).toEqual([DEPLOY_TX, 1_000_001_001, LAX,

@@ -42,7 +42,8 @@ const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL, PUBLIC_EVM_RPC_URL]
 const EVM_CHAIN_ID = parseConfiguredEvmChainId(process.env.LITHO_CHAIN_ID);
 const START_BLOCK = parseInt(process.env.START_BLOCK || process.env.INDEXER_START_BLOCK || '1');
 const LITHOVM_START_BLOCK = resolveLithovmStartBlock(EVM_CHAIN_ID, process.env.LITHOVM_START_BLOCK);
-const LITHOVM_BACKFILL_MARKER = 'lithovm_gateway_backfill_v1_completed';
+// v2: re-run once so contracts backfilled by v1 get their deploy block time as created_at.
+const LITHOVM_BACKFILL_MARKER = 'lithovm_gateway_backfill_v2_completed';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || process.env.INDEXER_BATCH_SIZE || '100');
 const POLL_MS = 1000; // Wait for the next block without adding six seconds of display lag.
 const CATCHUP_DELAY_MS = 100;   // Delay between batches during bulk sync

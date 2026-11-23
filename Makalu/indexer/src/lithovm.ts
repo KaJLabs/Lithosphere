@@ -260,17 +260,20 @@ export async function indexLithicReceiptLogs(
     if (!record) continue;
 
     for (const d of record.deployments) {
+      // created_at is shown as the token's "Created" date, so it is the deploy block
+      // time, not the time this row was indexed (which differs after a backfill).
       await client.query(
-        `INSERT INTO contracts (address, creator, creation_tx, creation_block, vm, code_hash)
-         VALUES ($1, $2, $3, $4, 'lithovm', $5)
+        `INSERT INTO contracts (address, creator, creation_tx, creation_block, vm, code_hash, created_at)
+         VALUES ($1, $2, $3, $4, 'lithovm', $5, $6)
          ON CONFLICT (address) DO UPDATE SET
            vm = 'lithovm',
            code_hash = EXCLUDED.code_hash,
            creator = COALESCE(contracts.creator, EXCLUDED.creator),
            creation_tx = COALESCE(contracts.creation_tx, EXCLUDED.creation_tx),
            creation_block = COALESCE(contracts.creation_block, EXCLUDED.creation_block),
+           created_at = LEAST(contracts.created_at, EXCLUDED.created_at),
            updated_at = NOW()`,
-        [d.contract, d.creator, hash, height, d.codeHash],
+        [d.contract, d.creator, hash, height, d.codeHash, blockTime],
       );
       result.deployments++;
     }
