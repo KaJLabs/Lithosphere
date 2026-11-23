@@ -87,6 +87,44 @@ describe('indexBlock', () => {
     expect(transaction?.params?.[7]).toBe('7');
     expect(transaction?.params?.[9]).toBe(21000);
   });
+  it('indexes LithoVM native deployments and Transfer events from the gateway log', async () => {
+    const evmHash = '0xf873b5ec0116fdeff9ea9283469115138212263d0395378d61d1c98485181ec5';
+    const deployer = '0xbaa8feac6d01c3e75ca137da562c59b5b7eef293';
+    const lax = '0x29147bebb1c49c3a54aa464137611fe708886df3';
+    const holder = '0xc2c32eb0601e01bd3c9573bf2f865aeecb38c73b';
+    const json = JSON.stringify({
+      Deployments: [{ codeHash: '0x' + 'bf'.repeat(32), contract: lax, creator: deployer, origin: { kind: 'transaction', nonce: '0' } }],
+      // Exact LVAL values of the mainnet LAX mint event.
+      Events: [{ contract: lax, name: 'Transfer', values: '0x4c56414c01000304000000000000000000000000000000000000000000000000000000000000000004000000000000000000000000c2c32eb0601e01bd3c9573bf2f865aeecb38c73b020000000000000000000000000000000000000000204fce5e3e25026110000000' }],
+    });
+    globalThis.fetch = vi.fn(async (url, init) => {
+      const method = init?.body ? JSON.parse(String(init.body)).method : '';
+      const result = method === 'eth_getTransactionByHash'
+        ? { hash: evmHash, from: deployer, to: '0x000000000000000000000000000000000000f000', value: '0x0', gasPrice: '0x1', gas: '0x83c4c0', nonce: '0x0', input: '0x36605535' }
+        : method === 'eth_getTransactionReceipt'
+          ? { status: '0x1', blockNumber: '0xe44c54', gasUsed: '0x83c4c0', logs: [{
+              address: '0x000000000000000000000000000000000000f000',
+              topics: ['0x093843f5e9eb40384e28a2de05071eb8158d09a803dec22fa5b5fb21a61e29a2'],
+              data: '0x' + Buffer.from(json, 'utf8').toString('hex'),
+              logIndex: '0x0',
+              blockNumber: '0x0',
+            }] }
+          : String(url).includes('/block_results')
+            ? { txs_results: [{ code: 0, gas_used: '8635911', events: [
+                { type: 'message', attributes: [{ key: 'action', value: '/ethermint.evm.v1.MsgEthereumTx' }] },
+                { type: 'ethereum_tx', attributes: [{ key: 'ethereumTxHash', value: evmHash }] },
+              ] }] }
+            : { block_id: { hash: 'abc' }, block: { header: { proposer_address: 'abc', time: '2026-11-20T21:46:09Z' }, data: { txs: [''] } } };
+      return new Response(JSON.stringify({ result }));
+    }) as typeof fetch;
+    await indexBlock(14_961_748);
+    const deployment = captured.find(item => item.sql.includes("VALUES ($1, $2, $3, $4, 'lithovm', $5)"));
+    expect(deployment?.params?.slice(0, 4)).toEqual([lax, deployer, evmHash, 14_961_748]);
+    const transfer = captured.find(item => item.sql.includes('INSERT INTO token_transfers'));
+    expect(transfer?.params).toEqual([evmHash, 1_000_000_000, lax, '0x0000000000000000000000000000000000000000', holder,
+      '10000000000000000000000000000', 14_961_748, '2026-11-20T21:46:09Z']);
+    expect(captured.some(item => item.sql === 'COMMIT')).toBe(true);
+  });
   it('continues indexing when a rejected transaction has malformed protobuf bytes', async () => {
     stubRpc({
       '/block?height=12050205': {

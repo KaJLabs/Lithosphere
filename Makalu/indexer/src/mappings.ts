@@ -5,6 +5,12 @@ import { createHash } from 'crypto';
 import { prefetchEvmTransactions, createSingleFlightTask, type EvmDetails } from './evm-prefetch.js';
 import { decodeTxMemo } from './tx-memo.js';
 import { discoverToken } from './token-discovery.js';
+import {
+  backfillLithicLogs,
+  discoverLithicToken,
+  indexLithicReceiptLogs,
+  resolveLithovmStartBlock,
+} from './lithovm.js';
 import { writeTransaction } from './transaction-inclusions.js';
 import { bech32 } from 'bech32';
 import pkg, { type PoolClient } from 'pg';
@@ -35,6 +41,8 @@ const PUBLIC_EVM_RPC_URL = (process.env.PUBLIC_EVM_RPC_URL || '').replace(/\/$/,
 const EVM_RPC_ENDPOINTS = [...new Set([EVM_RPC_URL, RPC_URL, PUBLIC_EVM_RPC_URL].filter(Boolean))];
 const EVM_CHAIN_ID = parseConfiguredEvmChainId(process.env.LITHO_CHAIN_ID);
 const START_BLOCK = parseInt(process.env.START_BLOCK || process.env.INDEXER_START_BLOCK || '1');
+const LITHOVM_START_BLOCK = resolveLithovmStartBlock(EVM_CHAIN_ID, process.env.LITHOVM_START_BLOCK);
+const LITHOVM_BACKFILL_MARKER = 'lithovm_gateway_backfill_v1_completed';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || process.env.INDEXER_BATCH_SIZE || '100');
 const POLL_MS = 1000; // Wait for the next block without adding six seconds of display lag.
 const CATCHUP_DELAY_MS = 100;   // Delay between batches during bulk sync
@@ -1026,6 +1034,50 @@ async function indexEvmTx(
   if (receipt?.logs?.length) {
     await indexTransferLogs(client, evmHash, height, blockTime, receipt.logs);
   }
+
+  // LithoVM native contracts: deployments and Transfer events arrive inside the
+  // gateway's LithoNativeLab log. Failed calls emit no log, so this is a no-op for them.
+  if (receipt?.logs?.length && result.code === 0 && receipt.status !== '0x0') {
+    const lithic = await indexLithicReceiptLogs(client, evmHash, height, blockTime, receipt.logs);
+    if (lithic.deployments > 0 || lithic.transfers > 0) {
+      logger.info({ evmHash: evmHash.substring(0, 16), height, ...lithic }, '[lithovm] Indexed native deployments/transfers');
+    }
+  }
+}
+
+// ─── LithoVM Gateway Backfill ─────────────────────────────────────────────────
+//
+// One-shot: blocks indexed before native-contract support have the gateway
+// transactions but not their deployments and Transfer events. Scan gateway logs
+// from the LithoVM activation height up to the indexed tip, then index each
+// transaction from its receipt. Marked complete only when every window and
+// transaction succeeded; re-runs are idempotent.
+async function backfillLithicGatewayLogs(): Promise<void> {
+  if (LITHOVM_START_BLOCK === null || EVM_RPC_ENDPOINTS.length === 0) return;
+  const marker = await getIndexerState(LITHOVM_BACKFILL_MARKER).catch(() => null);
+  if (marker === '1') return;
+  const tip = await pool.query<{ max: string | null }>('SELECT MAX(height) AS max FROM blocks');
+  const toBlock = parseInt(tip.rows[0]?.max ?? '0');
+  // Nothing indexed past activation yet: the live path will index those blocks.
+  if (!toBlock || toBlock < LITHOVM_START_BLOCK) return;
+
+  logger.info({ fromBlock: LITHOVM_START_BLOCK, toBlock }, '[lithovm] Gateway backfill starting');
+  const result = await backfillLithicLogs({
+    rpc: evmRpc,
+    db: {
+      query: (sql, params) => pool.query(sql, params as unknown[]),
+      connect: async () => {
+        const client = await pool.connect();
+        return { query: (sql: string, params?: unknown[]) => client.query(sql, params), release: () => client.release() };
+      },
+    },
+    fromBlock: LITHOVM_START_BLOCK,
+    toBlock,
+    window: 5_000,
+    log: (msg, data) => logger.warn(data ?? {}, msg),
+  });
+  logger.info({ fromBlock: LITHOVM_START_BLOCK, toBlock, ...result }, '[lithovm] Gateway backfill finished');
+  if (result.complete) await setIndexerState(LITHOVM_BACKFILL_MARKER, '1');
 }
 
 export interface DecodedTransfer {
@@ -1690,6 +1742,11 @@ async function main(): Promise<void> {
     logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[migration] token_transfers unique constraint failed');
   }
 
+  // Runtime migration: LithoVM native contract markers. Not wrapped in try/catch on
+  // purpose — block indexing writes these columns, so a failure must stop startup.
+  await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS vm VARCHAR(16)');
+  await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS code_hash VARCHAR(66)');
+
   // Runtime migration: native-balance refresh marker. The balance sweep
   // (refreshNativeBalances) keeps accounts.balance warm via eth_getBalance and
   // records the chain height it was last checked at, so the rolling sweep can
@@ -1763,15 +1820,38 @@ async function main(): Promise<void> {
     logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[indexer] NFT contract classification backfill failed');
   }
 
+  // LithoVM backfill: native deployments and transfers already on chain. Runs in the
+  // background (about a minute of eth_getLogs) so block ingestion does not pause;
+  // blocks indexed after it starts are covered by the live path in indexEvmTx.
+  void backfillLithicGatewayLogs().catch((err) => {
+    logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[lithovm] Gateway backfill failed; retried on next start');
+  });
+
   // Discovery runs independently so RPC metadata calls cannot delay block ingestion.
   await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS metadata_checked_at TIMESTAMPTZ');
   const discover = async () => {
-    const pending = await pool.query<{ address: string }>(
-      `SELECT address FROM contracts
+    const pending = await pool.query<{ address: string; vm: string | null }>(
+      `SELECT address, vm FROM contracts
        WHERE metadata_checked_at IS NULL OR metadata_checked_at < NOW() - INTERVAL '1 day'
        ORDER BY metadata_checked_at ASC NULLS FIRST, created_at DESC LIMIT 25`
     );
-    for (const { address } of pending.rows) {
+    for (const { address, vm } of pending.rows) {
+      if (vm === 'lithovm') {
+        // Native contracts have no EVM code; read through the gateway. A failed read
+        // (RPC outage or not a token) is retried in about an hour, not a day.
+        const native = await discoverLithicToken(address, evmRpc);
+        await pool.query(
+          `UPDATE contracts SET
+             name = COALESCE($2, name), symbol = COALESCE($3, symbol),
+             decimals = COALESCE($4, decimals), total_supply = COALESCE($5, total_supply),
+             contract_type = COALESCE($6, contract_type),
+             metadata_checked_at = CASE WHEN $7::boolean THEN NOW() ELSE NOW() - INTERVAL '23 hours' END
+           WHERE address = $1`,
+          [address, native?.name ?? null, native?.symbol ?? null, native?.decimals ?? null,
+           native?.totalSupply ?? null, native?.contractType ?? null, native !== null]
+        );
+        continue;
+      }
       const token = await discoverToken(address, evmRpc);
       await pool.query(
         `UPDATE contracts SET

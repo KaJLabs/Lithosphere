@@ -216,6 +216,9 @@ CREATE TABLE IF NOT EXISTS contracts (
     decimals INTEGER,
     total_supply VARCHAR(78),
     contract_type VARCHAR(50),
+    -- 'lithovm' for LithoVM native contracts (no EVM code; reached via gateway 0x…f000)
+    vm VARCHAR(16),
+    code_hash VARCHAR(66),
     source_code TEXT,
     abi JSONB,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
