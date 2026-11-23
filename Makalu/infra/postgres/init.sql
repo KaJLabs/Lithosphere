@@ -63,6 +63,9 @@ CREATE INDEX IF NOT EXISTS idx_tx_time_height ON transactions(timestamp DESC, bl
 CREATE INDEX IF NOT EXISTS idx_tx_type ON transactions(tx_type);
 CREATE INDEX IF NOT EXISTS idx_tx_sender_lower ON transactions(LOWER(sender));
 CREATE INDEX IF NOT EXISTS idx_tx_receiver_lower ON transactions(LOWER(receiver));
+-- Address transaction list (newest first, index-only paging and counting)
+CREATE INDEX IF NOT EXISTS idx_tx_sender_lower_ts ON transactions (LOWER(sender), "timestamp" DESC) INCLUDE (hash);
+CREATE INDEX IF NOT EXISTS idx_tx_receiver_lower_ts ON transactions (LOWER(receiver), "timestamp" DESC) INCLUDE (hash);
 
 -- ============================================================================
 -- EVM TRANSACTIONS TABLE
@@ -97,6 +100,9 @@ CREATE INDEX IF NOT EXISTS idx_evm_tx_from ON evm_transactions(from_address);
 CREATE INDEX IF NOT EXISTS idx_evm_tx_to ON evm_transactions(to_address);
 CREATE INDEX IF NOT EXISTS idx_evm_tx_from_lower ON evm_transactions(LOWER(from_address));
 CREATE INDEX IF NOT EXISTS idx_evm_tx_to_lower ON evm_transactions(LOWER(to_address));
+-- Address transaction list (newest first, index-only paging and counting)
+CREATE INDEX IF NOT EXISTS idx_evm_tx_from_lower_ts ON evm_transactions (LOWER(from_address), "timestamp" DESC) INCLUDE (cosmos_tx_hash);
+CREATE INDEX IF NOT EXISTS idx_evm_tx_to_lower_ts ON evm_transactions (LOWER(to_address), "timestamp" DESC) INCLUDE (cosmos_tx_hash);
 CREATE INDEX IF NOT EXISTS idx_evm_tx_contract ON evm_transactions(contract_address);
 CREATE INDEX IF NOT EXISTS idx_evm_tx_contract_lower ON evm_transactions(LOWER(contract_address));
 CREATE INDEX IF NOT EXISTS idx_evm_tx_block ON evm_transactions(block_height);

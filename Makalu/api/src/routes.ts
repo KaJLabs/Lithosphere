@@ -62,6 +62,73 @@ const HIDDEN_TOKEN_SYMBOLS = new Set<string>();
 const HIDDEN_TOKEN_ADDRESSES = new Set([
   '0x468022f17cafebd43c18f68d53c66a1a7f0e5249',
 ]);
+
+// ── Address transaction list ────────────────────────────────────────────────
+// The old query joined transactions to evm_transactions and filtered with OR across
+// both tables, which no index can serve: every call scanned and joined the 34M-row
+// tables and hit the 15 s timeout, even for empty addresses. These run one indexed
+// lookup per column, served from the covering (LOWER(addr), timestamp DESC) INCLUDE
+// (hash) indexes (see lib/ensure-indexes.ts), mostly as index-only scans.
+// $1 = lowercased address forms (0x and litho1).
+export const ADDRESS_TX_COUNT_SQL = `SELECT COUNT(*) AS count FROM (
+    SELECT hash FROM transactions WHERE LOWER(sender) = ANY($1)
+    UNION
+    SELECT hash FROM transactions WHERE LOWER(receiver) = ANY($1)
+    UNION
+    SELECT cosmos_tx_hash FROM evm_transactions WHERE LOWER(from_address) = ANY($1) AND cosmos_tx_hash IS NOT NULL
+    UNION
+    SELECT cosmos_tx_hash FROM evm_transactions WHERE LOWER(to_address) = ANY($1) AND cosmos_tx_hash IS NOT NULL
+  ) matched`;
+
+// $2 = limit, $3 = offset, $4 = offset + limit. Each lookup returns only its newest
+// $4 rows (one ordered index scan per address form; Postgres 16 cannot keep index
+// order across = ANY(array)), and the page is cut from their union. Ordering is
+// (timestamp DESC, hash DESC) everywhere so pages are stable within a block.
+export const ADDRESS_TX_PAGE_SQL = `WITH addrs AS (
+    SELECT DISTINCT addr FROM unnest($1::text[]) AS a(addr)
+  ),
+  matched AS (
+    SELECT m.hash, m.ts FROM addrs CROSS JOIN LATERAL (
+      SELECT hash, "timestamp" AS ts FROM transactions
+      WHERE LOWER(sender) = addrs.addr
+      ORDER BY "timestamp" DESC, hash DESC LIMIT $4) m
+    UNION ALL
+    SELECT m.hash, m.ts FROM addrs CROSS JOIN LATERAL (
+      SELECT hash, "timestamp" AS ts FROM transactions
+      WHERE LOWER(receiver) = addrs.addr
+      ORDER BY "timestamp" DESC, hash DESC LIMIT $4) m
+    UNION ALL
+    SELECT m.hash, m.ts FROM addrs CROSS JOIN LATERAL (
+      SELECT cosmos_tx_hash AS hash, "timestamp" AS ts FROM evm_transactions
+      WHERE LOWER(from_address) = addrs.addr AND cosmos_tx_hash IS NOT NULL
+      ORDER BY "timestamp" DESC, cosmos_tx_hash DESC LIMIT $4) m
+    UNION ALL
+    SELECT m.hash, m.ts FROM addrs CROSS JOIN LATERAL (
+      SELECT cosmos_tx_hash AS hash, "timestamp" AS ts FROM evm_transactions
+      WHERE LOWER(to_address) = addrs.addr AND cosmos_tx_hash IS NOT NULL
+      ORDER BY "timestamp" DESC, cosmos_tx_hash DESC LIMIT $4) m
+  ),
+  page AS (
+    SELECT hash, MAX(ts) AS ts FROM matched
+    GROUP BY hash
+    ORDER BY MAX(ts) DESC, hash DESC
+    LIMIT $2 OFFSET $3
+  )
+  SELECT t.*,
+    e.hash AS evm_hash,
+    e.input_data AS evm_input_data,
+    e.contract_address AS evm_contract_address,
+    e.from_address AS evm_from_address,
+    e.to_address AS evm_to_address,
+    e.value AS evm_value,
+    e.gas_price AS evm_gas_price,
+    e.nonce AS evm_nonce
+  FROM page p
+  JOIN transactions t ON t.hash = p.hash
+  LEFT JOIN LATERAL (
+    SELECT * FROM evm_transactions WHERE cosmos_tx_hash = t.hash LIMIT 1
+  ) e ON TRUE
+  ORDER BY p.ts DESC, p.hash DESC`;
 const RPC_URL = (process.env.RPC_URL || process.env.LITHO_RPC_URL || 'https://rpc.litho.ai').replace(/\/$/, '');
 const SYNCING_LAG_THRESHOLD = 30;
 const INCLUSIONS_ENABLED = process.env.TRANSACTION_INCLUSIONS_ENABLED === 'true';
@@ -2181,17 +2248,7 @@ export function explorerRouter(): Router {
       const addrs = forms.searchAddrs;
 
       const [countRows, rows] = await Promise.all([
-        query<CountRow>(
-          `SELECT COUNT(*) AS count
-           FROM (
-             SELECT DISTINCT t.hash
-             FROM transactions t
-             LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
-             WHERE LOWER(t.sender) = ANY($1) OR LOWER(t.receiver) = ANY($1)
-                OR LOWER(e.from_address) = ANY($1) OR LOWER(e.to_address) = ANY($1)
-           ) matched`,
-          [addrs]
-        ),
+        query<CountRow>(ADDRESS_TX_COUNT_SQL, [addrs]),
         query<TxRow & {
           evm_hash: string | null;
           evm_input_data: string | null;
@@ -2201,28 +2258,7 @@ export function explorerRouter(): Router {
           evm_value: string | null;
           evm_gas_price: string | null;
           evm_nonce: number | null;
-        }>(
-          `SELECT * FROM (
-             SELECT DISTINCT ON (t.hash)
-               t.*,
-               e.hash AS evm_hash,
-               e.input_data AS evm_input_data,
-               e.contract_address AS evm_contract_address,
-               e.from_address AS evm_from_address,
-               e.to_address AS evm_to_address,
-               e.value AS evm_value,
-               e.gas_price AS evm_gas_price,
-               e.nonce AS evm_nonce
-             FROM transactions t
-             LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash
-             WHERE LOWER(t.sender) = ANY($1) OR LOWER(t.receiver) = ANY($1)
-                OR LOWER(e.from_address) = ANY($1) OR LOWER(e.to_address) = ANY($1)
-             ORDER BY t.hash, t.timestamp DESC
-           ) sub
-           ORDER BY sub.timestamp DESC
-           LIMIT $2 OFFSET $3`,
-          [addrs, limit, offset]
-        ),
+        }>(ADDRESS_TX_PAGE_SQL, [addrs, limit, offset, offset + limit]),
       ]);
 
       const enrichedRows = await enrichEvmRows(rows);

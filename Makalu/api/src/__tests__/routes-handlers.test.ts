@@ -589,6 +589,38 @@ describe('GET /api/txs/:hash', () => {
   });
 });
 
+describe('GET /api/address/:address/txs', () => {
+  it('uses the per-column indexed lookups, not an OR across the joined tables', async () => {
+    const { ADDRESS_TX_COUNT_SQL, ADDRESS_TX_PAGE_SQL } = await import('../routes.js');
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (sql === ADDRESS_TX_COUNT_SQL) return [{ count: '1' }] as never;
+      if (sql === ADDRESS_TX_PAGE_SQL) {
+        return [{
+          hash: 'AB'.repeat(32), block_height: '100', tx_index: 0, tx_type: 'MsgSend',
+          sender: 'litho1sender', receiver: 'litho1receiver', amount: '5', denom: 'ulitho',
+          fee: '1', gas_used: '1', gas_wanted: '1', success: true, memo: '',
+          timestamp: new Date('2026-11-23T00:00:00Z'), evm_hash: null,
+        }] as never;
+      }
+      return [] as never;
+    });
+
+    const res = await request(makeApp()).get('/api/address/0x016d6ac743f3f4906a75e74af388e9a6c20e3133/txs?limit=10&offset=20');
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 1, limit: 10, offset: 20 });
+    expect(res.body.items).toHaveLength(1);
+    const page = mockQuery.mock.calls.find(([sql]) => sql === ADDRESS_TX_PAGE_SQL);
+    // $4 = offset + limit: each per-column lookup reads only that many newest rows.
+    expect(page?.[1]).toEqual([expect.arrayContaining(['0x016d6ac743f3f4906a75e74af388e9a6c20e3133']), 10, 20, 30]);
+    expect(mockQuery.mock.calls.some(([sql]) => sql === ADDRESS_TX_COUNT_SQL)).toBe(true);
+    for (const sql of [ADDRESS_TX_COUNT_SQL, ADDRESS_TX_PAGE_SQL]) {
+      expect(sql).not.toMatch(/OR\s+LOWER\(e\./);
+      expect(sql).not.toMatch(/LEFT JOIN evm_transactions e ON e\.cosmos_tx_hash = t\.hash\s+WHERE/);
+    }
+  });
+});
+
 describe('GET /api/txs/:hash/logs', () => {
   it('returns empty logs without hitting the DB when the hash is structurally invalid', async () => {
     // 0x-prefixed but too short → normalizeEvmTxHash returns null and the

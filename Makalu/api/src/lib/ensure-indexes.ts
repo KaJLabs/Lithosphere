@@ -32,6 +32,13 @@ const PERFORMANCE_INDEXES: string[] = [
   'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transfers_from_lower ON token_transfers(LOWER(from_address))',
   'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_transfers_to_lower ON token_transfers(LOWER(to_address))',
   'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_contracts_address_lower ON contracts(LOWER(address))',
+  // Address transaction list (/address/:address/txs): newest-first per address form,
+  // with the hash included so paging and counting are index-only scans. Each is a
+  // multi-GB build on mainnet (34M rows); built once, a no-op afterwards.
+  'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tx_sender_lower_ts ON transactions (LOWER(sender), "timestamp" DESC) INCLUDE (hash)',
+  'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_tx_receiver_lower_ts ON transactions (LOWER(receiver), "timestamp" DESC) INCLUDE (hash)',
+  'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_evm_tx_from_lower_ts ON evm_transactions (LOWER(from_address), "timestamp" DESC) INCLUDE (cosmos_tx_hash)',
+  'CREATE INDEX CONCURRENTLY IF NOT EXISTS idx_evm_tx_to_lower_ts ON evm_transactions (LOWER(to_address), "timestamp" DESC) INCLUDE (cosmos_tx_hash)',
 ];
 
 /**
