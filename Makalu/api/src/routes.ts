@@ -1840,8 +1840,13 @@ export function explorerRouter(): Router {
          FROM transactions t
          LEFT JOIN evm_transactions e ON e.cosmos_tx_hash = t.hash`;
 
+      // Cosmos hashes are stored as uppercase hex without 0x (the indexer uppercases
+      // the SHA-256), so a 0x-prefixed hash can only be an EVM hash: skip the Cosmos
+      // table and go straight to the indexed EVM lookup (step 3).
+      const isPrefixedEvmHash = /^0x[0-9a-fA-F]{64}$/.test(hash.trim());
+
       // 1. Try exact match in transactions table (Cosmos SHA256 hash)
-      const rows = await query<TxJoinRow>(
+      const rows = isPrefixedEvmHash ? [] : await query<TxJoinRow>(
         `${txJoinSql} WHERE t.hash = $1`,
         [hash.toUpperCase()]
       );
@@ -1854,9 +1859,12 @@ export function explorerRouter(): Router {
         return;
       }
 
-      // 2. Try case-insensitive match in transactions
-      const rows2 = await query<TxJoinRow>(
-        `${txJoinSql} WHERE LOWER(t.hash) = LOWER($1)`,
+      // 2. Try the hash exactly as given (a row stored in another case). This used to be
+      //    LOWER(t.hash) = LOWER($1), which no index covers: every EVM-hash lookup scanned
+      //    the whole transactions table (~14 s for 34M rows on mainnet) and often hit the
+      //    15 s statement timeout. An exact match uses the unique hash index.
+      const rows2 = isPrefixedEvmHash || hash === hash.toUpperCase() ? [] : await query<TxJoinRow>(
+        `${txJoinSql} WHERE t.hash = $1`,
         [hash]
       );
       if (rows2[0]) {

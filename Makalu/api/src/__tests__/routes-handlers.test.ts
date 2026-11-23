@@ -548,7 +548,7 @@ describe('GET /api/txs/:hash', () => {
   it('returns 404 when neither cosmos nor evm tables match a non-hex hash', async () => {
     mockQuery
       .mockResolvedValueOnce([]) // exact cosmos hash match (uppercased)
-      .mockResolvedValueOnce([]); // case-insensitive cosmos match
+      .mockResolvedValueOnce([]); // exact cosmos match as given
     // Third query is skipped because normalizeEvmTxHash('not-a-hash') === null
 
     const res = await request(makeApp()).get('/api/txs/not-a-hash');
@@ -556,6 +556,36 @@ describe('GET /api/txs/:hash', () => {
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ message: 'Transaction not found' });
     expect(mockQuery).toHaveBeenCalledTimes(2);
+  });
+
+  it('looks a 0x EVM hash up in evm_transactions only, never scanning transactions', async () => {
+    const evmHash = '0x' + 'ab'.repeat(32);
+    mockQuery.mockResolvedValue([]);
+    // DB miss falls through to the RPC fallback; make it answer "not found".
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: null }))));
+
+    const res = await request(makeApp()).get(`/api/txs/${evmHash}`);
+
+    expect(res.status).toBe(404);
+    const sqls = mockQuery.mock.calls.map(([sql]) => String(sql));
+    expect(sqls[0]).toContain('FROM evm_transactions WHERE LOWER(hash) = LOWER($1)');
+    expect(sqls.some((sql) => sql.includes('FROM transactions t'))).toBe(false);
+    vi.unstubAllGlobals();
+  });
+
+  it('never uses an unindexable LOWER(t.hash) comparison for Cosmos hashes', async () => {
+    mockQuery.mockResolvedValue([]);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(JSON.stringify({ jsonrpc: '2.0', id: 1, result: null }))));
+
+    await request(makeApp()).get('/api/txs/' + 'cd'.repeat(32));
+
+    const calls = mockQuery.mock.calls.map(([sql, params]) => ({ sql: String(sql), params }));
+    expect(calls.some((c) => c.sql.includes('LOWER(t.hash)'))).toBe(false);
+    // Lowercase input: uppercase exact match first, then the exact input.
+    expect(calls[0]).toMatchObject({ params: ['CD'.repeat(32)] });
+    expect(calls[0].sql).toContain('WHERE t.hash = $1');
+    expect(calls[1]).toMatchObject({ params: ['cd'.repeat(32)] });
+    vi.unstubAllGlobals();
   });
 });
 
