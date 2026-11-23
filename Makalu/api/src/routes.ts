@@ -80,6 +80,9 @@ export const ADDRESS_TX_COUNT_SQL = `SELECT COUNT(*) AS count FROM (
     SELECT cosmos_tx_hash FROM evm_transactions WHERE LOWER(to_address) = ANY($1) AND cosmos_tx_hash IS NOT NULL
   ) matched`;
 
+const ADDRESS_TX_COUNT_TTL_MS = 300_000;
+const ADDRESS_TX_COUNT_DEADLINE_MS = 3_000;
+
 // $2 = limit, $3 = offset, $4 = offset + limit. Each lookup returns only its newest
 // $4 rows (one ordered index scan per address form; Postgres 16 cannot keep index
 // order across = ANY(array)), and the page is cut from their union. Ordering is
@@ -2264,8 +2267,15 @@ export function explorerRouter(): Router {
       const forms = resolveAddressForms(address, linkedAddrs[0] ?? null);
       const addrs = forms.searchAddrs;
 
-      const [countRows, rows] = await Promise.all([
-        query<CountRow>(ADDRESS_TX_COUNT_SQL, [addrs]),
+      // The exact total is cached per address and bounded: busy addresses (100k+ txs)
+      // need seconds to count, so the page never waits on it. Paging does not depend
+      // on it either: one extra row tells whether another page exists.
+      const countKey = `address-tx-count:v2:${[...addrs].sort().join(',')}`;
+      const [exactTotal, fetched] = await Promise.all([
+        metricDeadline(loadCached(countKey, ADDRESS_TX_COUNT_TTL_MS, async () => {
+          const countRows = await query<CountRow>(ADDRESS_TX_COUNT_SQL, [addrs]);
+          return parseInt(countRows[0]?.count ?? '0', 10);
+        }), ADDRESS_TX_COUNT_DEADLINE_MS),
         query<TxRow & {
           evm_hash: string | null;
           evm_input_data: string | null;
@@ -2275,8 +2285,10 @@ export function explorerRouter(): Router {
           evm_value: string | null;
           evm_gas_price: string | null;
           evm_nonce: number | null;
-        }>(ADDRESS_TX_PAGE_SQL, [addrs, limit, offset, offset + limit]),
+        }>(ADDRESS_TX_PAGE_SQL, [addrs, limit + 1, offset, offset + limit + 1]),
       ]);
+      const hasMore = fetched.length > limit;
+      const rows = fetched.slice(0, limit);
 
       const enrichedRows = await enrichEvmRows(rows);
       const mappedRows = enrichedRows.map((row) => mapTx(row, row.evm_hash, {
@@ -2289,14 +2301,19 @@ export function explorerRouter(): Router {
         nonce: row.evm_nonce,
       }));
       const items = await enrichTokenInfoBatch(mappedRows);
-      const total = parseInt(countRows[0]?.count ?? '0', 10);
+      // Until the exact count is cached, estimate from the account's indexed tx
+      // counter (sender/receiver only), never below what paging has already shown.
+      const seen = offset + items.length + (hasMore ? 1 : 0);
+      const totalIsEstimate = exactTotal === null;
+      const total = exactTotal ?? Math.max(parseIntSafe(linkedAddrs[0]?.tx_count ?? 0), seen);
 
       res.json({
         items,
         total,
+        totalIsEstimate,
         limit,
         offset,
-        hasMore: offset + items.length < total,
+        hasMore,
       });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, '[api] /address/:address/txs error');

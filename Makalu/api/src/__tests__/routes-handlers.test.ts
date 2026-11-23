@@ -608,15 +608,42 @@ describe('GET /api/address/:address/txs', () => {
     const res = await request(makeApp()).get('/api/address/0x016d6ac743f3f4906a75e74af388e9a6c20e3133/txs?limit=10&offset=20');
 
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ total: 1, limit: 10, offset: 20 });
+    expect(res.body).toMatchObject({ total: 1, totalIsEstimate: false, limit: 10, offset: 20, hasMore: false });
     expect(res.body.items).toHaveLength(1);
     const page = mockQuery.mock.calls.find(([sql]) => sql === ADDRESS_TX_PAGE_SQL);
-    // $4 = offset + limit: each per-column lookup reads only that many newest rows.
-    expect(page?.[1]).toEqual([expect.arrayContaining(['0x016d6ac743f3f4906a75e74af388e9a6c20e3133']), 10, 20, 30]);
+    // One extra row decides hasMore; $4 = offset + limit + 1 bounds each per-column lookup.
+    expect(page?.[1]).toEqual([expect.arrayContaining(['0x016d6ac743f3f4906a75e74af388e9a6c20e3133']), 11, 20, 31]);
     expect(mockQuery.mock.calls.some(([sql]) => sql === ADDRESS_TX_COUNT_SQL)).toBe(true);
     for (const sql of [ADDRESS_TX_COUNT_SQL, ADDRESS_TX_PAGE_SQL]) {
       expect(sql).not.toMatch(/OR\s+LOWER\(e\./);
       expect(sql).not.toMatch(/LEFT JOIN evm_transactions e ON e\.cosmos_tx_hash = t\.hash\s+WHERE/);
+    }
+  });
+
+  it('answers with a page and an estimated total when the exact count is slow', async () => {
+    {
+      const { ADDRESS_TX_COUNT_SQL, ADDRESS_TX_PAGE_SQL } = await import('../routes.js');
+      const row = (i: number) => ({
+        hash: i.toString(16).toUpperCase().padStart(64, '0'), block_height: String(1000 - i), tx_index: 0,
+        tx_type: 'MsgSend', sender: 'litho1busy', receiver: 'litho1other', amount: '1', denom: 'ulitho',
+        fee: '1', gas_used: '1', gas_wanted: '1', success: true, memo: '',
+        timestamp: new Date(Date.UTC(2026, 10, 23, 0, 0, 0) - i * 1000), evm_hash: null,
+      });
+      mockQuery.mockImplementation(async (sql: string) => {
+        if (sql.includes('FROM accounts')) return [{ address: 'litho1busy', evm_address: '0x' + '11'.repeat(20), tx_count: '133322' }] as never;
+        if (sql === ADDRESS_TX_COUNT_SQL) return new Promise(() => {}) as never; // never finishes in time
+        if (sql === ADDRESS_TX_PAGE_SQL) return [row(1), row(2), row(3)] as never; // limit 2 + 1 extra
+        return [] as never;
+      });
+
+      // Real timers: the route waits at most its 3 s count deadline.
+      const started = Date.now();
+      const res = await request(makeApp()).get('/api/address/0x' + '11'.repeat(20) + '/txs?limit=2&offset=0');
+
+      expect(res.status).toBe(200);
+      expect(Date.now() - started).toBeLessThan(6_000);
+      expect(res.body.items).toHaveLength(2);
+      expect(res.body).toMatchObject({ hasMore: true, total: 133322, totalIsEstimate: true });
     }
   });
 });
