@@ -366,6 +366,35 @@ describe('GET /api/tokens', () => {
       contractAddress: null,
     });
   });
+
+  it('shows token holders without counting every EVM transaction', async () => {
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (sql.includes('FROM contracts') && sql.includes('DISTINCT ON')) {
+        return [{
+          address: '0x29147bebb1c49c3a54aa464137611fe708886df3', name: 'Lithosphere Algorithmic', symbol: 'LAX',
+          decimals: 18, total_supply: '10000000000000000000000000000', contract_type: 'token',
+          creator: '0xbaa8feac6d01c3e75ca137da562c59b5b7eef293', verified: false, deployer_verified_at: null,
+          created_at: new Date('2026-11-20T21:46:09Z'),
+        }] as never;
+      }
+      if (sql.includes('FROM accounts WHERE balance')) return [{ count: '17458' }] as never;
+      if (sql.includes('EXISTS (SELECT 1 FROM token_transfers)')) return [{ has_transfers: true, has_evm: true }] as never;
+      if (sql.includes('WITH flows AS')) {
+        return [{ contract_address: '0x29147bebb1c49c3a54aa464137611fe708886df3', holders: 1, transfers: 1 }] as never;
+      }
+      return [] as never;
+    });
+    mockSlowQuery.mockResolvedValue([{ count: '33987881' }] as never);
+
+    const res = await request(makeApp()).get('/api/tokens');
+
+    expect(res.status).toBe(200);
+    const lax = res.body.find((t: { symbol: string }) => t.symbol === 'LAX');
+    expect(lax).toMatchObject({ holders: 1, transfers: 1 });
+    expect(res.body[0]).toMatchObject({ symbol: 'LITHO', holders: 17458, transfers: 33987881 });
+    const sqls = mockQuery.mock.calls.map(([sql]) => String(sql));
+    expect(sqls.some((sql) => /COUNT\(\*\)[\s\S]*FROM evm_transactions/.test(sql))).toBe(false);
+  });
 });
 
 // ── /debug ──────────────────────────────────────────────────────────────────

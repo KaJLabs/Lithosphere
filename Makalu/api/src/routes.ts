@@ -287,26 +287,46 @@ function getAssetStandard(type: AssetType): string {
   }
 }
 
-async function getTokenTransferIndexStatus(): Promise<{
-  evmTxCount: number;
-  transferCount: number;
+export interface TokenTransferIndexStatus {
+  hasTransfers: boolean;
+  hasEvmTransactions: boolean;
   ready: boolean;
-}> {
-  const [transferRows, evmRows] = await Promise.all([
-    query<CountRow>('SELECT COUNT(*) AS count FROM token_transfers').catch(() => [{ count: '0' }]),
-    query<CountRow>('SELECT COUNT(*) AS count FROM evm_transactions').catch(() => [{ count: '0' }]),
-  ]);
+}
 
-  const transferCount = parseInt(transferRows[0]?.count ?? '0');
-  const evmTxCount = parseInt(evmRows[0]?.count ?? '0');
+/**
+ * Whether token holder/transfer figures can be trusted: if EVM txs exist but no
+ * transfer logs were indexed yet, the transfer index is incomplete and counts stay
+ * unknown. Only existence matters, so this uses EXISTS instead of COUNT(*): counting
+ * evm_transactions (34M rows on mainnet) took far longer than the token list's 1.5 s
+ * metric deadline, so the list showed holders: null for every token. Cached 60 s;
+ * a failed check is reported as not ready and is not cached.
+ */
+export async function getTokenTransferIndexStatus(): Promise<TokenTransferIndexStatus> {
+  try {
+    return await loadCached('token-transfer-index-status:v2', 60_000, async () => {
+      const rows = await query<{ has_transfers: boolean; has_evm: boolean }>(
+        `SELECT EXISTS (SELECT 1 FROM token_transfers) AS has_transfers,
+                EXISTS (SELECT 1 FROM evm_transactions) AS has_evm`
+      );
+      const hasTransfers = rows[0]?.has_transfers === true;
+      const hasEvmTransactions = rows[0]?.has_evm === true;
+      return { hasTransfers, hasEvmTransactions, ready: hasTransfers || !hasEvmTransactions };
+    });
+  } catch {
+    return { hasTransfers: false, hasEvmTransactions: false, ready: false };
+  }
+}
 
-  return {
-    evmTxCount,
-    transferCount,
-    // If EVM txs exist but there are still no transfer logs, the FT transfer
-    // index is incomplete and holder/transfer counts should stay unknown.
-    ready: transferCount > 0 || evmTxCount === 0,
-  };
+/**
+ * All-time transaction total. One cached aggregate shared by /stats/summary and the
+ * token list (LITHO transfers): COUNT(*) over ~34M rows exceeds the main pool's 15 s
+ * timeout, so it runs on the slow pool with a 5-minute TTL and stale-while-revalidate.
+ */
+function loadTotalTransactionCount(): Promise<number> {
+  return loadStatsAggregate(`count:transactions-total:${MODEL_CACHE_VERSION}`, STATS_COUNT_TTL_MS, async () => {
+    const rows = await slowQuery<CountRow>(`SELECT COUNT(*) AS count FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER}`);
+    return parseInt(rows[0]?.count ?? '0', 10);
+  });
 }
 
 async function getTokenStatsByContract(): Promise<Map<string, { holders: number; transfers: number }>> {
@@ -896,10 +916,7 @@ async function getStatsSummaryResponse(): Promise<StatsSummaryResponse> {
       getSyncSummary(),
       // Slow-drifting totals on a ~5M-row table — long TTL, shared across replicas.
       // slowQuery: COUNT(*) over the whole table can exceed the 15s pool timeout.
-      metricDeadline(loadStatsAggregate(`count:transactions-total:${MODEL_CACHE_VERSION}`, STATS_COUNT_TTL_MS, async () => {
-        const rows = await slowQuery<CountRow>(`SELECT COUNT(*) AS count FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER}`);
-        return parseInt(rows[0]?.count ?? '0', 10);
-      })),
+      metricDeadline(loadTotalTransactionCount()),
       // Distinct wallets across cosmos accounts + EVM tx participants. The outer
       // UNION already dedupes, so the inner DISTINCTs are redundant. Runs ~17s on
       // the slow pool (would 500 the endpoint on the 15s main pool) and is cached
@@ -2565,9 +2582,10 @@ export function explorerRouter(): Router {
         query<CountRow>(
           `SELECT COUNT(*) AS count FROM accounts WHERE balance IS NOT NULL AND balance <> '0'`
         ).catch(() => [{ count: '0' }]),
-        metricDeadline(loadCachedShared(`token-list:tx-count:${MODEL_CACHE_VERSION}`, STATS_COUNT_TTL_MS,
-          () => query<CountRow>(`SELECT COUNT(*) AS count FROM ${INCLUSION_SOURCE} ${INCLUSION_FILTER}`))),
-        metricDeadline(getTokenTransferIndexStatus()).then(value => value ?? { ready: false, evmTxCount: 0, transferCount: 0 }),
+        // Same cached total as /stats/summary (slow pool); the old main-pool COUNT(*)
+        // hit the 15 s timeout every time, so LITHO transfers was always null.
+        metricDeadline(loadTotalTransactionCount()).then(total => total === null ? null : [{ count: String(total) }]),
+        metricDeadline(getTokenTransferIndexStatus()).then(value => value ?? { hasTransfers: false, hasEvmTransactions: false, ready: false }),
       ]);
       const tokenStatsByAddress = tokenTransferIndex.ready
         ? await metricDeadline(loadCached('token-stats-by-contract', 30_000, getTokenStatsByContract))
@@ -2788,7 +2806,7 @@ export function explorerRouter(): Router {
       const isFungible = isFungibleContractType(c.contract_type, c.symbol);
       const tokenTransferIndex = isFungible
         ? await getTokenTransferIndexStatus()
-        : { evmTxCount: 0, transferCount: 0, ready: false };
+        : { hasTransfers: false, hasEvmTransactions: false, ready: false };
       const ZERO_ADDR = '0x0000000000000000000000000000000000000000';
       const [holderCount, transferCount] = isFungible && tokenTransferIndex.ready
         ? await Promise.all([
