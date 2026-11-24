@@ -3,6 +3,7 @@ import 'dotenv/config';
 import './tracing.js';
 import { createHash } from 'crypto';
 import { prefetchEvmTransactions, createSingleFlightTask, type EvmDetails } from './evm-prefetch.js';
+import { consumePrefetchedRange } from './block-pipeline.js';
 import { decodeTxMemo } from './tx-memo.js';
 import { discoverToken } from './token-discovery.js';
 import { nativeDeploymentCode, parseLithicInterface, type LithicAbi } from './lithic-interface.js';
@@ -46,6 +47,7 @@ const LITHOVM_START_BLOCK = resolveLithovmStartBlock(EVM_CHAIN_ID, process.env.L
 // v2: re-run once so contracts backfilled by v1 get their deploy block time as created_at.
 const LITHOVM_BACKFILL_MARKER = 'lithovm_gateway_backfill_v2_completed';
 const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || process.env.INDEXER_BATCH_SIZE || '100');
+const BLOCK_PREFETCH_CONCURRENCY = Number(process.env.BLOCK_PREFETCH_CONCURRENCY || '4');
 const POLL_MS = 1000; // Wait for the next block without adding six seconds of display lag.
 const CATCHUP_DELAY_MS = 100;   // Delay between batches during bulk sync
 const SYNCING_LAG_THRESHOLD = 30;
@@ -167,6 +169,15 @@ interface IndexerSyncSnapshot {
 
 export interface IndexBlockOptions {
   replaceExisting?: boolean;
+}
+
+interface PreparedBlock {
+  height: number;
+  blockData: RpcBlock;
+  rawTxs: string[];
+  txResults: TxResult[];
+  totalGas: number;
+  evmDetails: Map<string, EvmDetails<RpcEvmTx, RpcEvmReceipt>>;
 }
 
 let lastKnownChainTip = 0;
@@ -709,7 +720,7 @@ async function ensureChainConsistency(forceReset: boolean): Promise<void> {
 
 // ─── Block Indexing ───────────────────────────────────────────────────────────
 
-export async function indexBlock(height: number, options: IndexBlockOptions = {}): Promise<void> {
+export async function prepareBlock(height: number): Promise<PreparedBlock> {
   const [blockData, resultsData] = await Promise.all([
     rpcGet<RpcBlock>(`/block?height=${height}`),
     rpcGet<RpcBlockResults>(`/block_results?height=${height}`),
@@ -724,6 +735,16 @@ export async function indexBlock(height: number, options: IndexBlockOptions = {}
     .map(result => attr(result.events ?? [], 'ethereum_tx', 'ethereumTxHash'))
     .filter(Boolean);
   const evmDetails = await prefetchEvmTransactions<RpcEvmTx, RpcEvmReceipt>(hashes, evmRpc, 4, height, evmRpcBatch);
+  return { height, blockData, rawTxs, txResults, totalGas, evmDetails };
+}
+
+export async function indexBlock(
+  height: number,
+  options: IndexBlockOptions = {},
+  prepared?: PreparedBlock,
+): Promise<void> {
+  if (prepared && prepared.height !== height) throw new Error('Prepared block height does not match write height');
+  const { blockData, rawTxs, txResults, totalGas, evmDetails } = prepared ?? await prepareBlock(height);
 
   const client = await pool.connect();
   try {
@@ -1963,12 +1984,12 @@ async function main(): Promise<void> {
       const lag = chainTip - from;
       logger.info({ from: from + 1, to, lag }, 'cycle_sync_range');
 
-      for (let h = from + 1; h <= to; h++) {
-        await indexBlock(h);
+      await consumePrefetchedRange(from + 1, to, BLOCK_PREFETCH_CONCURRENCY, prepareBlock, async (h, prepared) => {
+        await indexBlock(h, {}, prepared);
         await setLastIndexedBlock(h);
         await setLastIndexedEvmBlock(h);
         gLag.set(Math.max(0, chainTip - h));
-      }
+      });
 
       // Periodic maintenance
       if (Date.now() - lastValidatorRefresh > 600_000) {

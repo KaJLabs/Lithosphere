@@ -58,9 +58,26 @@ function stubRpc(responses: Record<string, unknown>) {
   }) as typeof fetch;
 }
 
-const { indexBlock } = await import('../mappings.js');
+const { indexBlock, prepareBlock } = await import('../mappings.js');
 
 describe('indexBlock', () => {
+  it('prepares RPC data without database writes and consumes it without refetching', async () => {
+    stubRpc({
+      '/block?height=100': {
+        block_id: { hash: 'abc' },
+        block: { header: { proposer_address: 'abc', time: '2026-11-24T00:00:00Z' }, data: { txs: [] } },
+      },
+      '/block_results?height=100': { txs_results: [] },
+    });
+    const prepared = await prepareBlock(100);
+    expect(captured).toEqual([]);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    await expect(indexBlock(101, {}, prepared)).rejects.toThrow('Prepared block height');
+    expect(captured).toEqual([]);
+    await indexBlock(100, {}, prepared);
+    expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+    expect(captured.at(-1)?.sql).toBe('COMMIT');
+  });
   it.each(['0x1', '0x0'])('uses receipt deployment and effective fee data, status=%s', async (status) => {
     const contract = '0x' + 'cd'.repeat(20);
     const evmHash = '0x' + 'ab'.repeat(32);
