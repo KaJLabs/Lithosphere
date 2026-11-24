@@ -47,6 +47,12 @@ validated against the requested transaction hash and block. Missing entries
 fall back to bounded individual requests. Database writes and checkpoints remain
 ordered. Native metadata discovery stays outside block-ingestion transactions.
 
+Block preparation overlaps across up to four heights. The next block's RPC
+reads can run while the current block commits, but database writes and both
+checkpoints advance one height at a time. A failed read or write stops the range;
+later prepared blocks cannot advance the cursor. `BLOCK_PREFETCH_CONCURRENCY`
+defaults to 4 and is bounded to 1–4. A value of 1 reduces RPC pressure.
+
 The sync banner distinguishes chain tip, indexed block and the block containing
 the latest indexed transaction. Its approximate duration is blocks behind times
 recent block duration. It describes the amount of chain history still to index,
@@ -67,8 +73,10 @@ RPC receipt capabilities. It sends no transactions. `LITHIC_CHECK_RPC` can selec
 another endpoint that serves mainnet history.
 
 The live check on November 25, 2026 (Karachi time) confirmed deployment block
-14,961,748, 18 decimals and 10,000,000,000 LAX. The public explorer had seven
-holders and seven transfers; an observed summary was one block behind the chain.
+14,961,748, 18 decimals and 10,000,000,000 LAX. The original public explorer
+reported seven holders and seven transfers. After correcting the detail query
+to count positive balances, it reports six holders and seven transfers, matching
+the token list. An initial summary was one block behind the chain.
 These are observations, not fixed production values or a future throughput guarantee.
 
 Protocol references: the supplied `lithic-integration-docs.zip` and the pinned
