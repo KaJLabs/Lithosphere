@@ -1,3 +1,4 @@
+import TokenIcon from '@/components/TokenIcon';
 import { useWeb3Modal, useWeb3ModalAccount, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -424,7 +425,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                                       ? `${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`
                                       : formatSupply(tx.tokenTransferAmount))
                                   : formatValue(tx.value, tx.denom)}
-                                tokenAddress={tx.contractAddress}
+                                tokenAddress={tx.tokenTransferAmount ? tx.contractAddress : undefined}
                               />
                             </div>
                           </div>
@@ -472,7 +473,7 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                         <div className="mt-2 grid grid-cols-2 gap-2 text-sm text-white/65">
                           <div>
                             Voting Power:{' '}
-                            <span className="text-white">{v.votingPower} LITHO</span>
+                            <span className="text-white"><FormattedValueElement formattedStr={`${v.votingPower} LITHO`} /></span>
                           </div>
                           <div>
                             Commission:{' '}
@@ -519,8 +520,8 @@ function HomeContent({ initialStats, initialValidators }: HomeProps) {
                         className="rounded-2xl border border-white/10 bg-black/25 p-4"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-1">
-                          <Link href={`/token/${token.contractAddress || 'native'}`} className="font-medium hover:text-emerald-300 transition">
-                            {token.symbol}
+                          <Link href={`/token/${token.contractAddress || 'native'}`} className="inline-flex items-center gap-1 font-medium hover:text-emerald-300 transition">
+                            <TokenIcon symbol={token.symbol} address={token.type === "native" ? "native" : token.contractAddress} /> {token.symbol}
                           </Link>
                           <div className="text-sm text-white/60">
                             Holders {token.holders != null ? formatNumber(token.holders) : '—'}

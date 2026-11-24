@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import TokenIcon from '@/components/TokenIcon';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState } from 'react';
@@ -9,27 +10,6 @@ import { EXPLORER_TITLE, POLL_INTERVAL } from '@/lib/constants';
 import { formatNumber, formatSupply, preferLitho, truncateAddressSmart } from '@/lib/format';
 
 import type { ApiToken } from '@/lib/types';
-
-const AVATAR_COLORS = [
-  'bg-emerald-500',
-  'bg-violet-500',
-  'bg-amber-500',
-  'bg-rose-500',
-  'bg-sky-500',
-  'bg-pink-500',
-  'bg-teal-500',
-  'bg-indigo-500',
-  'bg-orange-500',
-  'bg-cyan-500',
-];
-
-function getAvatarColor(symbol: string): string {
-  let hash = 0;
-  for (let i = 0; i < symbol.length; i++) {
-    hash = symbol.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 const ITEMS_PER_PAGE = 25;
 
@@ -194,7 +174,7 @@ export default function TokensPage() {
                   <tbody>
                     {pageTokens.map((token, idx) => {
                       const tokenHref = token.contractAddress
-                        ? `/token/${token.contractAddress}`
+                        ? `/token/${token.runtime === 'lithic' ? preferLitho(token.contractAddress) : token.contractAddress}`
                         : `/token/native`;
 
                       return (
@@ -211,15 +191,7 @@ export default function TokensPage() {
                           {/* Token (avatar + symbol + name) */}
                           <td className="px-4 py-4">
                             <Link href={tokenHref} className="flex items-center gap-3 group">
-                              {token.type === 'native' ? (
-                                <img src="/litho-logo.png" alt={token.symbol} className="w-8 h-8 rounded-full object-contain" />
-                              ) : (
-                                <div
-                                  className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white ${getAvatarColor(token.symbol)}`}
-                                >
-                                  {token.symbol.charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                          <TokenIcon symbol={token.symbol} address={token.contractAddress ?? "native"} logoUrl={token.logoUrl} className="w-8 h-8" />
                               <div>
                                 <span className="text-sm font-semibold text-white group-hover:text-emerald-300 transition">
                                   {token.symbol}
@@ -251,7 +223,7 @@ export default function TokensPage() {
                               <Link
                                 href={`/address/${preferLitho(token.contractAddress)}`}
                                 className="text-emerald-300 hover:text-emerald-200 font-mono transition"
-                                title={`${preferLitho(token.contractAddress)}\n${token.contractAddress}`}
+                                title={preferLitho(token.contractAddress)}
                               >
                                 {truncateAddressSmart(preferLitho(token.contractAddress))}
                               </Link>
@@ -270,7 +242,7 @@ export default function TokensPage() {
               <div className="md:hidden p-4 space-y-3">
                 {pageTokens.map((token, idx) => {
                   const cardHref = token.contractAddress
-                    ? `/token/${token.contractAddress}`
+                    ? `/token/${token.runtime === 'lithic' ? preferLitho(token.contractAddress) : token.contractAddress}`
                     : `/token/native`;
 
                   return (
@@ -281,15 +253,7 @@ export default function TokensPage() {
                     >
                       <div className="flex min-w-0 items-center justify-between gap-3 mb-3">
                         <div className="flex min-w-0 items-center gap-3">
-                          {token.type === 'native' ? (
-                            <img src="/litho-logo.png" alt={token.symbol} className="w-10 h-10 shrink-0 rounded-full object-contain" />
-                          ) : (
-                            <div
-                              className={`w-10 h-10 shrink-0 rounded-full flex items-center justify-center text-sm font-bold text-white ${getAvatarColor(token.symbol)}`}
-                            >
-                              {token.symbol.charAt(0).toUpperCase()}
-                            </div>
-                          )}
+                          <TokenIcon symbol={token.symbol} address={token.contractAddress ?? "native"} logoUrl={token.logoUrl} className="w-10 h-10" />
                           <div className="min-w-0">
                             <div className="truncate text-sm font-semibold text-white">{token.symbol}<VerifiedTokenBadge verified={token.verifiedBadge} /></div>
                             <div className="truncate text-xs text-white/40">{token.name}</div>

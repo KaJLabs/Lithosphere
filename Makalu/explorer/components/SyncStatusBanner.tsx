@@ -11,6 +11,11 @@ interface SyncStatusBannerProps {
 export default function SyncStatusBanner({ stats, className = '' }: SyncStatusBannerProps) {
   if (!stats || (!stats.isSyncing && !stats.inconsistentBlocks)) return null;
 
+  const lagSeconds = stats.avgBlockTime != null && stats.avgBlockTime > 0
+    ? Math.ceil(stats.syncLagBlocks * stats.avgBlockTime) : null;
+  const lagTime = lagSeconds == null ? null
+    : `${Math.floor(lagSeconds / 60)}m ${lagSeconds % 60}s`;
+
   const latestTxLabel = stats.latestTransactionHeight > 0
     ? `#${formatNumber(stats.latestTransactionHeight)}`
     : 'Waiting for indexed txs';
@@ -30,13 +35,13 @@ export default function SyncStatusBanner({ stats, className = '' }: SyncStatusBa
           </div>
           <h2 className="mt-2 text-xl font-semibold">
             {(stats.inconsistentBlocks ?? 0) > 0
-              ? `${NETWORK.shortName} explorer is repairing and catching up.`
-              : `${NETWORK.shortName} explorer is still indexing the chain.`}
+              ? `${NETWORK.shortName} explorer is repairing indexed data.`
+              : `${NETWORK.shortName} explorer is catching up.`}
           </h2>
           <p className="mt-2 text-sm leading-6 text-white/70">
             Indexed block #{formatNumber(stats.tipHeight)} of chain #{formatNumber(stats.chainTipHeight)}.
-            {' '}Latest indexed transaction: {latestTxLabel}. Until catch-up finishes, the Blocks view can legitimately
-            be ahead of the Transactions view because many recent indexed blocks may contain zero transactions.
+            {' '}Explorer data may be delayed while indexing catches up.
+            {' '}The transaction height below is the block containing the latest indexed transaction.
           </p>
           <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/55">
             <span>Latest indexed block time: {latestBlockTime}</span>
@@ -49,17 +54,18 @@ export default function SyncStatusBanner({ stats, className = '' }: SyncStatusBa
 
         <div className="grid min-w-[220px] gap-3 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-white/45">Lag</div>
+            <div className="text-xs uppercase tracking-wide text-white/45">Blocks behind</div>
             <div className="mt-1 text-lg font-semibold text-amber-200">
               {formatNumber(stats.syncLagBlocks)}
             </div>
+            {lagTime && <div className="mt-1 text-sm text-white/55">Approximately {lagTime} of chain history</div>}
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
             <div className="text-[11px] uppercase tracking-wide text-white/45">Indexed Block</div>
             <div className="mt-1 text-lg font-semibold">#{formatNumber(stats.tipHeight)}</div>
           </div>
           <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-            <div className="text-[11px] uppercase tracking-wide text-white/45">Latest Tx</div>
+            <div className="text-xs uppercase tracking-wide text-white/45">Block with latest transaction</div>
             <div className="mt-1 text-lg font-semibold">{latestTxLabel}</div>
           </div>
         </div>

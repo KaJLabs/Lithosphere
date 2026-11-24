@@ -437,7 +437,7 @@ export default function TransactionDetailPage() {
                         {tx.tokenSymbol ? (
                           <FormattedValueElement
                             formattedStr={`${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`}
-                            tokenAddress={tx.contractAddress}
+                            tokenAddress={tx.tokenTransferAmount ? tx.contractAddress : undefined}
                           />
                         ) : tx.contractAddress ? (
                           <span className="flex items-center gap-1.5">

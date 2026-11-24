@@ -157,7 +157,7 @@ export default function BlockDetailPage() {
         <span className="text-sm">
           <FormattedValueElement 
             formattedStr={formatValue(tx.value, tx.denom)}
-            tokenAddress={tx.contractAddress}
+            tokenAddress={tx.tokenTransferAmount ? tx.contractAddress : undefined}
           />
         </span>
       ),

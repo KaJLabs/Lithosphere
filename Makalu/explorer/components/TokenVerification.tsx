@@ -1,3 +1,4 @@
+import VerificationMark from './VerificationMark';
 import { useWeb3Modal, useWeb3ModalProvider } from '@web3modal/ethers/react';
 import { BrowserProvider } from 'ethers';
 import { useState } from 'react';
@@ -5,8 +6,7 @@ import { NETWORK } from '@/lib/network';
 import type { ApiTokenDetail } from '@/lib/types';
 
 export function VerifiedTokenBadge({ verified }: { verified?: boolean }) {
-  return verified ? <span className="ml-2 inline-flex rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-xs text-[var(--color-text-primary)]"
-    title="Contract source and deployer wallet ownership verified.">✓ Verified</span> : null;
+  return verified ? <VerificationMark /> : null;
 }
 
 export default function TokenVerification({ token, onVerified }: { token: ApiTokenDetail; onVerified: () => void }) {
@@ -14,7 +14,7 @@ export default function TokenVerification({ token, onVerified }: { token: ApiTok
   const { walletProvider } = useWeb3ModalProvider();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  if (token.type === 'native') return null;
+  if (token.type === 'native' || token.official) return null;
   async function verify() {
     setError(null);
     if (!walletProvider) { await open(); return; }

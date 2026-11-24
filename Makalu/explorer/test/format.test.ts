@@ -196,7 +196,7 @@ describe('native display units (1 LITHO = 10,000 Strat = 100 Mafic)', () => {
   it('formats fractional Strat', () => {
     expect(formatStrat('7')).toBe('0.00000000000007 Strat');
     expect(formatGasPrice('7')).toBe('0.0000000000000007 Mafic/gas');
-    expect(formatGasPrice('8035714285')).toBe('0.0000008035714285 Mafic/gas');
+    expect(formatGasPrice('8035714285')).toBe('0.000000804 Mafic/gas');
   });
 
   it('handles zero / null', () => {

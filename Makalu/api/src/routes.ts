@@ -9,6 +9,7 @@ import { bech32 } from 'bech32';
 import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 import { verifyMessage, isAddress, getAddress } from 'ethers';
 import { query, slowQuery } from './db.js';
+import { findDegensIcon, isOfficialToken } from './token-icons.js';
 import { logger } from './lib/logger.js';
 import { audit } from './lib/audit.js';
 import { loadCachedShared } from './lib/shared-cache.js';
@@ -2051,6 +2052,7 @@ export function explorerRouter(): Router {
       // Decode log topics where possible
       const logs = (r2.logs ?? []).map((log, idx) => ({
         index: parseInt(log.logIndex, 16) || idx,
+        blockHeight: parseHexInteger(typeof r2.blockNumber === 'string' ? r2.blockNumber : null),
         address: log.address,
         topics: log.topics,
         data: log.data,
@@ -2082,9 +2084,9 @@ export function explorerRouter(): Router {
         // Check if this address is a token contract
         const tokenInfo = await query<{
           name: string | null; symbol: string | null; decimals: number | null;
-          total_supply: string | null; contract_type: string | null;
+          total_supply: string | null; contract_type: string | null; vm: string | null;
         }>(
-          `SELECT name, symbol, decimals, total_supply, contract_type
+          `SELECT to_jsonb(contracts)->>'vm' AS vm, name, symbol, decimals, total_supply, contract_type
            FROM contracts
            WHERE LOWER(address) = ANY($1)
            LIMIT 1`,
@@ -2101,6 +2103,7 @@ export function explorerRouter(): Router {
             return;
           }
           result.isContract = true;
+          result.runtime = tokenInfo[0].vm === 'lithovm' ? 'lithic' : 'evm';
           result.isToken = !!(
             tokenInfo[0].symbol
             || tokenInfo[0].contract_type === 'token'
@@ -2117,10 +2120,10 @@ export function explorerRouter(): Router {
 
       // 2. Check if it's a known contract address
       const contractRows = await query<{
-        address: string; name: string | null; symbol: string | null;
+        address: string; name: string | null; symbol: string | null; vm: string | null;
         decimals: number | null; total_supply: string | null; contract_type: string | null;
       }>(
-        `SELECT address, name, symbol, decimals, total_supply, contract_type
+        `SELECT to_jsonb(contracts)->>'vm' AS vm, address, name, symbol, decimals, total_supply, contract_type
          FROM contracts
          WHERE LOWER(address) = ANY($1)
          LIMIT 1`,
@@ -2144,6 +2147,7 @@ export function explorerRouter(): Router {
           txCount: 0,
           lastSeen: new Date().toISOString(),
           isContract: true,
+          runtime: c.vm === 'lithovm' ? 'lithic' : 'evm',
           isToken: !!(c.symbol || c.contract_type === 'token' || c.contract_type === 'nft'),
           tokenName: c.name,
           tokenSymbol: c.symbol,
@@ -2566,6 +2570,7 @@ export function explorerRouter(): Router {
     try {
       // Query contracts table for deployed tokens, fall back to known tokens
       const contractTokens = await query<{
+        runtime: string | null;
         address: string;
         name: string | null;
         symbol: string | null;
@@ -2581,10 +2586,10 @@ export function explorerRouter(): Router {
         // differ only by EVM-address casing — a checksummed seeded row and a
         // lowercased indexer-detected row. Collapse them with DISTINCT ON, keeping
         // the checksummed (seeded) row, which carries the canonical name/symbol.
-        `SELECT address, name, symbol, decimals, total_supply, contract_type, creator, verified, deployer_verified_at, created_at
+        `SELECT runtime, address, name, symbol, decimals, total_supply, contract_type, creator, verified, deployer_verified_at, created_at
          FROM (
            SELECT DISTINCT ON (lower(address))
-                  address, name, symbol, decimals, total_supply, contract_type, creator, verified, deployer_verified_at, created_at
+                  CASE WHEN to_jsonb(contracts)->>'vm' = 'lithovm' THEN 'lithic' ELSE 'evm' END AS runtime, address, name, symbol, decimals, total_supply, contract_type, creator, verified, deployer_verified_at, created_at
            FROM contracts
            WHERE contract_type = 'token' OR (symbol IS NOT NULL AND contract_type IS DISTINCT FROM 'nft')
            ORDER BY lower(address), (address = lower(address)), created_at ASC
@@ -2635,7 +2640,9 @@ export function explorerRouter(): Router {
             holders: isFungible && tokenTransferIndex.ready && tokenStatsByAddress ? (stats?.holders ?? 0) : null,
             transfers: isFungible && tokenTransferIndex.ready && tokenStatsByAddress ? (stats?.transfers ?? 0) : null,
             contractAddress: c.address,
-            verifiedBadge: c.verified === true && c.deployer_verified_at != null,
+            runtime: c.runtime ?? 'evm',
+            official: isOfficialToken(c.address, Number(process.env.LITHO_CHAIN_ID)),
+            verifiedBadge: (c.verified === true && c.deployer_verified_at != null) || isOfficialToken(c.address, Number(process.env.LITHO_CHAIN_ID)),
             deployerVerified: c.deployer_verified_at != null,
           };
         }),
@@ -2757,6 +2764,18 @@ export function explorerRouter(): Router {
 
   // ── Token detail by contract address (or "native" for LITHO) ────────
 
+  r.get('/tokens/:address/icon', async (req: Request, res: Response) => {
+    const address = normalizeContractAddress(req.params.address);
+    if (!/^0x[0-9a-f]{40}$/i.test(address)) { res.sendStatus(404); return; }
+    try {
+      const rows = await query<{ symbol: string | null }>('SELECT symbol FROM contracts WHERE LOWER(address) = $1', [address.toLowerCase()]);
+      const symbol = rows[0]?.symbol;
+      const icon = symbol ? await findDegensIcon(address, Number(process.env.LITHO_CHAIN_ID || '700777'), symbol) : null;
+      res.setHeader('Cache-Control', icon ? 'public, max-age=600' : 'public, max-age=60');
+      if (icon) res.redirect(302, icon); else res.sendStatus(404);
+    } catch { res.sendStatus(404); }
+  });
+
   r.get('/tokens/:address', async (req: Request, res: Response) => {
     try {
       // Accept the Lithosphere bech32 form as well as 0x — the explorer links
@@ -2797,13 +2816,14 @@ export function explorerRouter(): Router {
       // LEP100 token by contract address
       const addrLower = address.toLowerCase();
       const rows = await query<{
+        runtime: string | null; code_hash: string | null; abi: unknown[] | null;
         address: string; name: string | null; symbol: string | null;
         decimals: number | null; total_supply: string | null;
         contract_type: string | null; creator: string | null;
         creation_tx: string | null; creation_block: string | null;
         verified: boolean | null; deployer_verified_at: Date | null; created_at: Date;
       }>(
-        `SELECT address, name, symbol, decimals, total_supply, contract_type, creator,
+        `SELECT CASE WHEN to_jsonb(contracts)->>'vm' = 'lithovm' THEN 'lithic' ELSE 'evm' END AS runtime, to_jsonb(contracts)->>'code_hash' AS code_hash, abi, address, name, symbol, decimals, total_supply, contract_type, creator,
                 creation_tx, creation_block, verified, deployer_verified_at, created_at
          FROM contracts WHERE LOWER(address) = $1`,
         [addrLower]
@@ -2828,11 +2848,13 @@ export function explorerRouter(): Router {
       const [holderCount, transferCount] = isFungible && tokenTransferIndex.ready
         ? await Promise.all([
             query<CountRow>(
-              `SELECT COUNT(DISTINCT addr) AS count FROM (
-                 SELECT from_address AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
-                 UNION
-                 SELECT to_address   AS addr FROM token_transfers WHERE LOWER(contract_address) = $1
-               ) h WHERE addr != $2`,
+              `SELECT COUNT(*) AS count FROM (
+                 SELECT addr FROM (
+                   SELECT to_address AS addr, value::numeric AS amount FROM token_transfers WHERE LOWER(contract_address) = $1
+                   UNION ALL
+                   SELECT from_address AS addr, -value::numeric AS amount FROM token_transfers WHERE LOWER(contract_address) = $1
+                 ) flows WHERE addr != $2 GROUP BY addr HAVING SUM(amount) > 0
+               ) holders`,
               [addrLower, ZERO_ADDR]
             ).catch(() => [{ count: '0' }]),
             query<CountRow>(
@@ -2843,6 +2865,9 @@ export function explorerRouter(): Router {
         : [[{ count: '0' }], [{ count: '0' }]];
 
       res.json({
+        runtime: c.runtime ?? 'evm',
+        codeHash: c.code_hash, abi: c.runtime === 'lithic' ? c.abi : undefined,
+        official: isOfficialToken(c.address, Number(process.env.LITHO_CHAIN_ID)),
         address: c.address,
         name: c.name ?? 'Unknown Token',
         symbol: c.symbol ?? 'Unknown',
@@ -2860,7 +2885,7 @@ export function explorerRouter(): Router {
         description: null,
         verified: c.verified ?? false,
         deployerVerified: c.deployer_verified_at != null,
-        verifiedBadge: c.verified === true && c.deployer_verified_at != null,
+        verifiedBadge: (c.verified === true && c.deployer_verified_at != null) || isOfficialToken(c.address, Number(process.env.LITHO_CHAIN_ID)),
       });
     } catch (err) {
       logger.error({ err: err instanceof Error ? err.message : String(err) }, '[api] /tokens/:address error');

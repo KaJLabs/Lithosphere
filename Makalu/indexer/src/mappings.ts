@@ -5,6 +5,7 @@ import { createHash } from 'crypto';
 import { prefetchEvmTransactions, createSingleFlightTask, type EvmDetails } from './evm-prefetch.js';
 import { decodeTxMemo } from './tx-memo.js';
 import { discoverToken } from './token-discovery.js';
+import { nativeDeploymentCode, parseLithicInterface, type LithicAbi } from './lithic-interface.js';
 import {
   backfillLithicLogs,
   discoverLithicToken,
@@ -722,7 +723,7 @@ export async function indexBlock(height: number, options: IndexBlockOptions = {}
     .filter(result => (attr(result.events ?? [], 'message', 'action') || '').split('.').pop() === 'MsgEthereumTx')
     .map(result => attr(result.events ?? [], 'ethereum_tx', 'ethereumTxHash'))
     .filter(Boolean);
-  const evmDetails = await prefetchEvmTransactions<RpcEvmTx, RpcEvmReceipt>(hashes, evmRpc, 16, height);
+  const evmDetails = await prefetchEvmTransactions<RpcEvmTx, RpcEvmReceipt>(hashes, evmRpc, 4, height, evmRpcBatch);
 
   const client = await pool.connect();
   try {
@@ -939,6 +940,30 @@ async function evmRpc<T>(method: string, params: unknown[]): Promise<T | null> {
   }
 
   return null;
+}
+
+/** Read bounded JSON-RPC batches, correlating replies by ID (servers can reorder
+ * them). Missing/failed entries fall back to the normal endpoint retry path. */
+async function evmRpcBatch<T>(method: string, params: unknown[][]): Promise<Array<T | null>> {
+  const output: Array<T | null> = params.map(() => null);
+  const endpoint = EVM_RPC_ENDPOINTS[0];
+  if (!endpoint) return output;
+  for (let offset = 0; offset < params.length; offset += 64) {
+    const requests = params.slice(offset, offset + 64).map((p, i) => ({ jsonrpc: '2.0', id: offset + i + 1, method, params: p }));
+    try {
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requests), signal: AbortSignal.timeout(10_000) });
+      if (!response.ok) continue;
+      const replies = await response.json() as Array<{ id: number; result?: T; error?: unknown }>;
+      if (!Array.isArray(replies)) continue;
+      for (const reply of replies) {
+        if (Number.isInteger(reply.id) && reply.id > offset && reply.id <= offset + requests.length && !reply.error) {
+          output[reply.id - 1] = reply.result ?? null;
+        }
+      }
+    } catch { /* The prefetcher retries missing entries individually. */ }
+  }
+  return output;
 }
 
 export function topicToAddress(topic: string | undefined): string | null {
@@ -1831,16 +1856,34 @@ async function main(): Promise<void> {
   // Discovery runs independently so RPC metadata calls cannot delay block ingestion.
   await pool.query('ALTER TABLE contracts ADD COLUMN IF NOT EXISTS metadata_checked_at TIMESTAMPTZ');
   const discover = async () => {
-    const pending = await pool.query<{ address: string; vm: string | null }>(
-      `SELECT address, vm FROM contracts
+    const pending = await pool.query<{ address: string; vm: string | null; creation_tx: string | null; code_hash: string | null; abi: LithicAbi[] | null; bytecode: string | null }>(
+      `SELECT c.address, c.vm, c.creation_tx, c.code_hash, c.abi,
+              COALESCE(c.bytecode, (SELECT t.bytecode FROM contracts t WHERE t.code_hash = c.code_hash AND t.bytecode IS NOT NULL LIMIT 1)) AS bytecode
+       FROM contracts c
        WHERE metadata_checked_at IS NULL OR metadata_checked_at < NOW() - INTERVAL '1 day'
        ORDER BY metadata_checked_at ASC NULLS FIRST, created_at DESC LIMIT 25`
     );
-    for (const { address, vm } of pending.rows) {
+    for (const { address, vm, creation_tx, code_hash, abi, bytecode } of pending.rows) {
       if (vm === 'lithovm') {
         // Native contracts have no EVM code; read through the gateway. A failed read
         // (RPC outage or not a token) is retried in about an hour, not a day.
-        const native = await discoverLithicToken(address, evmRpc);
+        let nativeAbi = abi ?? undefined;
+        try {
+          let code = bytecode;
+          if (!code && creation_tx && code_hash) {
+            const tx = await evmRpc<{ input: string }>('eth_getTransactionByHash', [creation_tx]);
+            code = tx ? nativeDeploymentCode(tx.input, code_hash) : null;
+          }
+          if (code) {
+            nativeAbi = parseLithicInterface(code);
+            await pool.query('UPDATE contracts SET bytecode = $2, abi = $3 WHERE address = $1', [address, code, JSON.stringify(nativeAbi)]);
+          }
+        } catch (err) {
+          logger.warn({ address, err: String(err) }, '[lithovm] Interface unavailable; will retry');
+          await pool.query("UPDATE contracts SET metadata_checked_at = NOW() - INTERVAL '23 hours 59 minutes' WHERE address = $1", [address]);
+          continue;
+        }
+        const native = await discoverLithicToken(address, evmRpc, nativeAbi);
         await pool.query(
           `UPDATE contracts SET
              name = COALESCE($2, name), symbol = COALESCE($3, symbol),

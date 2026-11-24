@@ -77,6 +77,7 @@ export interface ApiTx {
 }
 
 export interface EvmLog {
+  blockHeight?: number | null;
   index: number;
   address: string;
   topics: string[];
@@ -95,6 +96,8 @@ export interface ApiPrice {
 }
 
 export interface ApiToken {
+  runtime?: 'evm' | 'lithic';
+  logoUrl?: string | null;
   verifiedBadge?: boolean;
   deployerVerified?: boolean;
   symbol: string;
@@ -156,6 +159,7 @@ export interface ApiAddressTxList {
 }
 
 export interface ApiAddress {
+  runtime?: 'evm' | 'lithic';
   address: string;
   evmAddress?: string;
   cosmosAddress?: string;
@@ -174,6 +178,11 @@ export interface ApiAddress {
 }
 
 export interface ApiTokenDetail {
+  runtime?: 'evm' | 'lithic';
+  codeHash?: string | null;
+  abi?: unknown[] | null;
+  official?: boolean;
+  logoUrl?: string | null;
   verifiedBadge?: boolean;
   deployerVerified?: boolean;
   address: string;

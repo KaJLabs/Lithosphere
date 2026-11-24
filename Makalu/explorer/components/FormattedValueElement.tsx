@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import TokenIcon from './TokenIcon';
 
 import { isBech32Address, isEvmAddress } from '@/lib/format';
 
@@ -20,9 +21,10 @@ export function FormattedValueElement({ formattedStr, tokenAddress }: FormattedV
         <span className="min-w-0 [overflow-wrap:anywhere]">{amount}</span>
         <Link
           href={linkHref}
-          className="shrink-0 text-emerald-400 hover:text-emerald-300 transition"
+          className="inline-flex shrink-0 items-center gap-1 text-emerald-400 hover:text-emerald-300 transition"
           onClick={(e) => e.stopPropagation()}
         >
+          <TokenIcon symbol={symbol} address={tokenAddress || (symbol === 'LITHO' ? 'native' : undefined)} />
           {symbol}
         </Link>
       </span>

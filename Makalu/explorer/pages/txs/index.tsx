@@ -204,12 +204,12 @@ export default function TransactionsPage() {
                                 formattedStr={tx.tokenSymbol
                                   ? `${formatSupply(tx.tokenTransferAmount)} ${tx.tokenSymbol}`
                                   : formatSupply(tx.tokenTransferAmount)}
-                                tokenAddress={tx.contractAddress}
+                                tokenAddress={tx.tokenTransferAmount ? tx.contractAddress : undefined}
                               />
                             ) : (
                               <FormattedValueElement
                                 formattedStr={formatValue(tx.value, tx.denom)}
-                                tokenAddress={tx.contractAddress}
+                                tokenAddress={tx.tokenTransferAmount ? tx.contractAddress : undefined}
                               />
                             )}
                           </span>

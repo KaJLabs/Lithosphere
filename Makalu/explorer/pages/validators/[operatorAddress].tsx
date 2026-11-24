@@ -1,3 +1,4 @@
+import { FormattedValueElement } from '@/components/FormattedValueElement';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
@@ -93,7 +94,7 @@ export default function ValidatorDetailPage() {
           </div>
           <div className="text-left md:text-right">
             <div className="text-sm text-[var(--color-text-muted)]">Voting Power · Rank #{data.rank || '—'}</div>
-            <div className="text-2xl font-bold">{data.votingPower} LITHO</div>
+            <div className="text-2xl font-bold"><FormattedValueElement formattedStr={`${data.votingPower} LITHO`} /></div>
             <div className="mt-1 text-xs text-[var(--color-text-muted)]">{votingPowerPercentage.toFixed(2)}% of active voting power</div>
           </div>
         </div>
@@ -165,7 +166,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="card p-5">
       <div className="text-sm text-[var(--color-text-muted)] mb-1">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+      <div className="text-lg font-semibold">{value.endsWith(" LITHO") ? <FormattedValueElement formattedStr={value} /> : value}</div>
     </div>
   );
 }
@@ -185,7 +186,7 @@ function Detail({ label, value, mono, link, copy }: { label: string; value: stri
 }
 
 function Signal({ label, value, tone = '' }: { label: string; value: string; tone?: string }) {
-  return <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] p-3"><div className="text-xs text-[var(--color-text-muted)]">{label}</div><div className={`mt-1 break-all text-sm font-semibold ${tone}`}>{value}</div></div>;
+  return <div className="rounded-lg border border-[var(--color-border-light)] bg-[var(--color-bg-primary)] p-3"><div className="text-xs text-[var(--color-text-muted)]">{label}</div><div className={`mt-1 break-all text-sm font-semibold ${tone}`}>{value.endsWith(" LITHO") ? <FormattedValueElement formattedStr={value} /> : value}</div></div>;
 }
 
 function HealthGauge({ value }: { value: number | null }) {

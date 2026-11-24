@@ -649,6 +649,16 @@ describe('GET /api/address/:address/txs', () => {
 });
 
 describe('GET /api/txs/:hash/logs', () => {
+  it('uses the receipt block height when native event logs report zero', async () => {
+    const receipt = { blockNumber: '0xe44c54', logs: [{ logIndex: '0x0', blockNumber: '0x0',
+      address: '0x000000000000000000000000000000000000f000', topics: [], data: '0x' }] };
+    globalThis.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ result: receipt }), {
+      headers: { 'Content-Type': 'application/json' },
+    })) as typeof fetch;
+    const res = await request(makeApp()).get('/api/txs/0x' + '12'.repeat(32) + '/logs');
+    expect(res.body.logs[0].blockHeight).toBe(Number(BigInt(receipt.blockNumber)));
+    expect(res.body.raw.logs[0].blockNumber).toBe('0x0');
+  });
   it('returns empty logs without hitting the DB when the hash is structurally invalid', async () => {
     // 0x-prefixed but too short → normalizeEvmTxHash returns null and the
     // startsWith('0x') branch skips the DB lookup. isEvmTxHash then rejects

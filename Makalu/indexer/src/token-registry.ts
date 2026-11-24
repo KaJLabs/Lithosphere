@@ -66,8 +66,8 @@ const LEGACY_STALE_TOKEN_ADDRESSES = [
 const REGISTRIES = new Map<number, readonly SeedToken[]>([
   [MAKALU_EVM_CHAIN_ID, MAKALU_TOKENS],
   [KAMET_EVM_CHAIN_ID, KAMET_TOKENS],
-  // Mainnet has no approved LAX or other LEP100 deployment yet. Keep this
-  // explicit so testnet addresses cannot leak into the production explorer.
+  // Mainnet token metadata is discovered on chain, including native Lithic
+  // deployments. Never seed testnet contract addresses into production.
   [LITHO_MAINNET_EVM_CHAIN_ID, []],
 ]);
 

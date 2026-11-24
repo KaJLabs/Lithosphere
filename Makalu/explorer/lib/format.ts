@@ -78,7 +78,17 @@ function formatNativeUnit(amount: string | null | undefined, decimals: number, u
 /** Display specification: 1 LITHO = 10,000 Strat = 100 Mafic. Native ulitho has 18 decimals. */
 export const formatStrat = (amount: string | null | undefined): string => formatNativeUnit(amount, 14, 'Strat');
 export const formatMafic = (amount: string | null | undefined): string => formatNativeUnit(amount, 16, 'Mafic');
-export const formatGasPrice = (amount: string | null | undefined): string => `${formatMafic(amount)}/gas`;
+export function formatGasPrice(amount: string | null | undefined): string {
+  try {
+    const raw = BigInt(amount || '0');
+    if (raw < 0n) return 'Unavailable';
+    // Ceiling at three significant digits keeps small prices visible and never
+    // understates a fee estimate. Exact base units remain available to callers.
+    const scale = 10n ** BigInt(Math.max(0, raw.toString().length - 3));
+    const rounded = ((raw + scale - 1n) / scale) * scale;
+    return `${formatMafic(rounded.toString())}/gas`;
+  } catch { return 'Unavailable'; }
+}
 
 export function formatGas(gas: string | null | undefined): string {
   if (!gas) return '-';

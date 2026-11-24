@@ -1,4 +1,6 @@
 import Head from 'next/head';
+import TokenIcon from '@/components/TokenIcon';
+import VerificationMark from '@/components/VerificationMark';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useState, useCallback, useEffect } from 'react';
@@ -43,7 +45,7 @@ function getTokenStandardLabel(tokenDetail: ApiTokenDetail | null | undefined): 
 }
 
 function getTokenTypeLabel(tokenDetail: ApiTokenDetail | null | undefined): string {
-  return isNftTokenDetail(tokenDetail) ? 'LEP100-6 Collection' : 'LEP-100 Token';
+  return tokenDetail?.runtime === 'lithic' ? 'LEP-100 Lithic' : isNftTokenDetail(tokenDetail) ? 'LEP100-6 Collection' : 'LEP-100 Token';
 }
 
 function formatOptionalSupply(raw: string | null | undefined, decimals: number): string {
@@ -349,7 +351,7 @@ function TxTable({
                     <span className="block min-w-0 text-sm text-white/80">
                       <FormattedValueElement
                         formattedStr={formatValue(tx.value, tx.denom)}
-                        tokenAddress={tx.contractAddress}
+                        tokenAddress={tx.tokenTransferAmount ? tx.contractAddress : undefined}
                       />
                     </span>
                   </div>
@@ -743,26 +745,8 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
 
   return (
     <div className="p-6 space-y-6">
-      {/* Verification badge */}
-      <div className="flex items-center gap-3">
-        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium ${
-          verified
-            ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-300'
-            : 'border-yellow-400/30 bg-yellow-400/10 text-yellow-300'
-        }`}>
-          {verified ? (
-            <>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" /></svg>
-              Contract Source Verified
-            </>
-          ) : (
-            <>
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-5a.75.75 0 01.75.75v4.5a.75.75 0 01-1.5 0v-4.5A.75.75 0 0110 5zm0 10a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" /></svg>
-              Contract Not Verified
-            </>
-          )}
-        </div>
-      </div>
+      {verified && <VerificationMark label="Contract source verified" />}
+      {!verified && <p className="text-sm text-[var(--color-text-secondary)]">Contract source has not been verified. Review the contract before interacting.</p>}
 
       {/* Contract overview */}
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] overflow-hidden">
@@ -771,9 +755,9 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
           <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4 min-w-0">
             <div className="sm:w-44 shrink-0 text-sm text-white/45">Contract Address</div>
             <div className="flex-1 min-w-0 text-sm text-white font-mono break-all break-words">
-              {addr}
+              {preferLitho(addr)}
               <span className="inline-block ml-2 align-middle">
-                <CopyBtn text={addr} />
+                <CopyBtn text={preferLitho(addr)} />
               </span>
             </div>
           </div>
@@ -781,8 +765,8 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
             <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 px-5 py-4">
               <div className="sm:w-44 shrink-0 text-sm text-white/45">Creator</div>
               <div className="flex-1 text-sm">
-                <Link href={`/address/${tokenDetail.creator}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
-                  {tokenDetail.creator}
+                <Link href={`/address/${tokenDetail.runtime === 'lithic' ? preferLitho(tokenDetail.creator) : tokenDetail.creator}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
+                  {tokenDetail.runtime === 'lithic' ? preferLitho(tokenDetail.creator) : tokenDetail.creator}
                 </Link>
               </div>
             </div>
@@ -814,7 +798,9 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
           {isNft ? 'Contract ABI' : 'Contract ABI (LEP-100 Standard)'}
         </div>
         <div className="p-5">
-          {isNft ? (
+          {tokenDetail?.runtime === 'lithic' ? (
+            <pre className="overflow-auto text-xs">{JSON.stringify(tokenDetail.abi ?? [], null, 2)}</pre>
+          ) : isNft ? (
             <div className="rounded-xl bg-black/30 border border-white/5 p-4 text-sm text-white/50">
               ABI preview in this explorer is currently wired for LEP-100 contracts. Use source verification or an external ABI tool for this LEP100-6 collection.
             </div>
@@ -832,6 +818,7 @@ function ContractTab({ addr, tokenDetail }: { addr: string; tokenDetail: ApiToke
 /* ── Interact tab (token contract) ─────────────────────────────────── */
 
 function InteractTab({ addr: _addr, tokenDetail }: { addr: string; tokenDetail: ApiTokenDetail | null }) {
+  if (tokenDetail?.runtime === 'lithic') return <div className="p-6 text-sm text-white/60">Use a Lithic-compatible wallet to interact with this contract.</div>;
   if (isNftTokenDetail(tokenDetail)) {
     return (
       <div className="p-6">
@@ -1096,11 +1083,9 @@ function TokenContractLayout({
         <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-2">
           {isToken && (
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-violet-500 flex items-center justify-center text-lg font-bold text-white">
-                {tokenSymbol.charAt(0).toUpperCase()}
-              </div>
+              <TokenIcon symbol={tokenSymbol} address={tokenDetail?.contractAddress ?? account.address} className="w-10 h-10" />
               <div>
-                <h1 className="text-2xl font-semibold">{tokenName}</h1>
+                <h1 className="flex items-center gap-2 text-2xl font-semibold">{tokenName}{tokenDetail?.verifiedBadge && <VerificationMark />}</h1>
                 <span className="text-sm text-white/50">{tokenSymbol}</span>
               </div>
             </div>
@@ -1119,7 +1104,7 @@ function TokenContractLayout({
                   : 'border-violet-400/30 bg-violet-400/10 text-violet-300')
                 : 'border-blue-400/30 bg-blue-400/10 text-blue-300'
             }`}>
-              {isToken ? getTokenTypeLabel(tokenDetail) : 'Contract'}
+              {isToken ? getTokenTypeLabel(tokenDetail) : account.runtime === 'lithic' ? 'Lithic' : 'Contract'}
             </span>
           </div>
         </div>
@@ -1166,7 +1151,7 @@ function TokenContractLayout({
             <span className="inline-block ml-2 align-middle">
               <CopyBtn text={preferLitho(account.address)} />
             </span>
-            {altAddressFormat(preferLitho(account.address)) && (
+            {account.runtime !== 'lithic' && tokenDetail?.runtime !== 'lithic' && altAddressFormat(preferLitho(account.address)) && (
               <div className="mt-1.5 text-xs text-white/40">
                 <span className="text-white/30">EVM format: </span>
                 {altAddressFormat(preferLitho(account.address))}
@@ -1181,8 +1166,8 @@ function TokenContractLayout({
           <div className="flex flex-col sm:flex-row sm:items-start gap-1 sm:gap-4 py-4 border-b border-white/5">
             <div className="sm:w-40 shrink-0 text-sm text-white/45">Creator</div>
             <div className="flex-1 text-sm">
-              <Link href={`/address/${tokenDetail.creator}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
-                {tokenDetail.creator}
+              <Link href={`/address/${tokenDetail.runtime === 'lithic' ? preferLitho(tokenDetail.creator) : tokenDetail.creator}`} className="font-mono text-emerald-300 hover:text-emerald-200 transition break-all">
+                {tokenDetail.runtime === 'lithic' ? preferLitho(tokenDetail.creator) : tokenDetail.creator}
               </Link>
             </div>
           </div>
@@ -1271,7 +1256,7 @@ function WalletLayout({
   // Litho-first: the bech32 form is always primary, so the page reads the same
   // whether it was reached via /address/litho1… or /address/0x….
   const primaryAddress = preferLitho(account.address);
-  const altAddress = altAddressFormat(primaryAddress) ?? null;
+  const altAddress = account.runtime === 'lithic' ? null : altAddressFormat(primaryAddress) ?? null;
   const altAddressLabel = altAddress?.startsWith('0x') ? 'EVM' : 'Lithosphere';
   const balanceSource = account.balanceSource;
   const hasBalance = hasDisplayBalance(account.balance, balanceSource);

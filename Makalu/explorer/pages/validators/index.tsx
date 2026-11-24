@@ -1,4 +1,5 @@
 import Head from 'next/head';
+import { FormattedValueElement } from '@/components/FormattedValueElement';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
@@ -135,7 +136,7 @@ export default function ValidatorsPage() {
                   <tr key={validator.address}>
                     <td className="text-[var(--color-text-muted)]">{index + 1}</td>
                     <td><div className="flex items-center gap-3"><ValidatorMark name={validator.moniker} /><div><Link href={`/validators/${encodeURIComponent(validator.address)}`} className="font-medium hover:underline">{validator.moniker || validator.address}</Link><div className="font-mono text-xs text-[var(--color-text-muted)]">{validator.address.slice(0, 14)}…{validator.address.slice(-6)}</div></div></div></td>
-                    <td className="font-mono">{validator.votingPower} LITHO</td>
+                    <td className="font-mono"><FormattedValueElement formattedStr={`${validator.votingPower} LITHO`} /></td>
                     <td>{value == null ? '—' : <HealthBar value={value} />}</td>
                     <td>{validator.commission || '—'}</td><td>{validator.missedBlocks ?? '—'}</td>
                     <td><div className="flex flex-wrap items-center gap-2"><span className={statusIsActive(validator) ? 'badge-success' : validator.jailed ? 'badge-error' : 'badge-neutral'}>{validator.jailed ? 'Jailed' : validator.status}</span><ValidatorBadge validator={validator} /></div></td>
@@ -151,7 +152,7 @@ export default function ValidatorsPage() {
   );
 }
 
-function Metric({ label, value, detail }: { label: string; value: string; detail: string }) { return <div className="card p-4"><div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{label}</div><div className="mt-2 text-xl font-semibold">{value}</div><div className="mt-1 text-xs text-[var(--color-text-secondary)]">{detail}</div></div>; }
+function Metric({ label, value, detail }: { label: string; value: string; detail: string }) { return <div className="card p-4"><div className="text-xs uppercase tracking-wider text-[var(--color-text-muted)]">{label}</div><div className="mt-2 text-xl font-semibold">{value.endsWith(" LITHO") ? <FormattedValueElement formattedStr={value} /> : value}</div><div className="mt-1 text-xs text-[var(--color-text-secondary)]">{detail}</div></div>; }
 function ValidatorMark({ name }: { name: string }) { return <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-blue-500/25 to-cyan-400/10 text-xs font-bold text-blue-400">{(name || 'V').slice(0, 2).toUpperCase()}</span>; }
 function HealthBar({ value }: { value: number }) { const color = value >= 99 ? 'bg-emerald-500' : value >= 95 ? 'bg-amber-500' : 'bg-red-500'; return <div className="flex items-center gap-2"><div className="h-1.5 w-20 rounded-full bg-[var(--color-bg-tertiary)]"><div className={`h-1.5 rounded-full ${color}`} style={{ width: `${Math.max(2, Math.min(100, value))}%` }} /></div><span className="text-xs">{value.toFixed(2)}%</span></div>; }
 function UptimeGauge({ value }: { value: number | null }) { const shown = value ?? 0; const color = shown >= 99 ? '#10b981' : shown >= 95 ? '#f59e0b' : '#ef4444'; return <div className="relative h-28 w-28 shrink-0"><svg viewBox="0 0 120 120" className="-rotate-90"><circle cx="60" cy="60" r="50" fill="none" stroke="var(--color-bg-tertiary)" strokeWidth="10" /><circle cx="60" cy="60" r="50" fill="none" stroke={color} strokeWidth="10" strokeLinecap="round" pathLength="100" strokeDasharray={`${shown} 100`} /></svg><div className="absolute inset-0 grid place-items-center text-center"><span className="text-lg font-bold">{value == null ? '—' : `${value.toFixed(1)}%`}</span></div></div>; }

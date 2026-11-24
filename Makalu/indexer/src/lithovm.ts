@@ -15,6 +15,7 @@
 //   - gateway logs report blockNumber 0x0 (receipt top-level blockNumber is correct),
 //   - eth_call through the gateway needs a non-zero `from`.
 import { Interface, getAddress, keccak256, toUtf8Bytes } from 'ethers';
+import { isLithicToken, type LithicAbi } from './lithic-interface.js';
 
 export const LITHOVM_GATEWAY = '0x000000000000000000000000000000000000f000';
 /** keccak256("LithoNativeLab(bytes)") */
@@ -299,6 +300,9 @@ export async function indexLithicReceiptLogs(
            vm = 'lithovm'`,
         [contract],
       );
+      if (BigInt(transfer.from) === 0n || BigInt(transfer.to) === 0n) {
+        await client.query('UPDATE contracts SET metadata_checked_at = NULL WHERE address = $1', [contract]);
+      }
       result.transfers++;
     }
   }
@@ -351,8 +355,9 @@ export interface LithicTokenMetadata {
  * A native contract is a fungible token when the token functions answer with the
  * token return types (decimals is u64 on LithoVM). Metadata never grants a verified badge.
  */
-export async function discoverLithicToken(address: string, rpc: LithicRpc): Promise<LithicTokenMetadata | null> {
+export async function discoverLithicToken(address: string, rpc: LithicRpc, abi?: LithicAbi[]): Promise<LithicTokenMetadata | null> {
   if (!ADDRESS_RE.test(address)) return null;
+  if (abi && !isLithicToken(abi)) return null;
   const [name, symbol, decimals, supply, balance] = await Promise.all([
     lithicRead(rpc, address, 'name()'),
     lithicRead(rpc, address, 'symbol()'),
