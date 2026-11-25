@@ -17,7 +17,7 @@ export function FormattedValueElement({ formattedStr, tokenAddress }: FormattedV
       ? `/address/${symbol}`
       : (tokenAddress ? `/token/${tokenAddress}` : '/token/native');
     return (
-      <span className="inline-flex max-w-full flex-wrap items-baseline gap-x-1 font-mono">
+      <span className="inline-flex max-w-full flex-wrap items-center gap-x-1 font-mono">
         <span className="min-w-0 [overflow-wrap:anywhere]">{amount}</span>
         <Link
           href={linkHref}
@@ -25,7 +25,7 @@ export function FormattedValueElement({ formattedStr, tokenAddress }: FormattedV
           onClick={(e) => e.stopPropagation()}
         >
           <TokenIcon symbol={symbol} address={tokenAddress || (symbol === 'LITHO' ? 'native' : undefined)} />
-          {symbol}
+          <span>{symbol}</span>
         </Link>
       </span>
     );

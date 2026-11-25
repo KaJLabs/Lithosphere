@@ -9,7 +9,7 @@ import { bech32 } from 'bech32';
 import { randomBytes, createHmac, timingSafeEqual } from 'node:crypto';
 import { verifyMessage, isAddress, getAddress } from 'ethers';
 import { query, slowQuery } from './db.js';
-import { findDegensIcon, isOfficialToken } from './token-icons.js';
+import { findDegensIcon, isOfficialToken, officialTokenIcon } from './token-icons.js';
 import { logger } from './lib/logger.js';
 import { audit } from './lib/audit.js';
 import { loadCachedShared } from './lib/shared-cache.js';
@@ -2768,9 +2768,16 @@ export function explorerRouter(): Router {
     const address = normalizeContractAddress(req.params.address);
     if (!/^0x[0-9a-f]{40}$/i.test(address)) { res.sendStatus(404); return; }
     try {
+      const chainId = Number(process.env.LITHO_CHAIN_ID || '700777');
+      const officialIcon = officialTokenIcon(address, chainId);
+      if (officialIcon) {
+        res.setHeader('Cache-Control', 'public, max-age=600');
+        res.redirect(302, officialIcon);
+        return;
+      }
       const rows = await query<{ symbol: string | null }>('SELECT symbol FROM contracts WHERE LOWER(address) = $1', [address.toLowerCase()]);
       const symbol = rows[0]?.symbol;
-      const icon = symbol ? await findDegensIcon(address, Number(process.env.LITHO_CHAIN_ID || '700777'), symbol) : null;
+      const icon = symbol ? await findDegensIcon(address, chainId, symbol) : null;
       res.setHeader('Cache-Control', icon ? 'public, max-age=600' : 'public, max-age=60');
       if (icon) res.redirect(302, icon); else res.sendStatus(404);
     } catch { res.sendStatus(404); }

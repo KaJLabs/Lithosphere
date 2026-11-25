@@ -2,8 +2,9 @@ import 'dotenv/config';
 // Must come before any pg / http / fetch imports — see tracing.ts.
 import './tracing.js';
 import { createHash } from 'crypto';
-import { prefetchEvmTransactions, createSingleFlightTask, type EvmDetails } from './evm-prefetch.js';
+import { prefetchEvmTransactions, type EvmDetails } from './evm-prefetch.js';
 import { consumePrefetchedRange } from './block-pipeline.js';
+import { createMaintenanceScheduler, consistencyWindowSql, nextAuditWindow } from './maintenance.js';
 import { decodeTxMemo } from './tx-memo.js';
 import { discoverToken } from './token-discovery.js';
 import { nativeDeploymentCode, parseLithicInterface, type LithicAbi } from './lithic-interface.js';
@@ -17,7 +18,7 @@ import { writeTransaction } from './transaction-inclusions.js';
 import { bech32 } from 'bech32';
 import pkg, { type PoolClient } from 'pg';
 const { Pool } = pkg;
-import { Gauge, register, collectDefaultMetrics } from 'prom-client';
+import { Gauge, Histogram, register, collectDefaultMetrics } from 'prom-client';
 import express from 'express';
 import { readBuildInfo, buildVersionResponse } from './lib/build-info.js';
 import { logger, cycleIdStore, newCycleId } from './lib/logger.js';
@@ -54,9 +55,10 @@ const SYNCING_LAG_THRESHOLD = 30;
 const INCLUSIONS_ENABLED = process.env.TRANSACTION_INCLUSIONS_ENABLED === 'true';
 const INCLUSION_CHAIN_ID = INCLUSIONS_ENABLED ? process.env.TRANSACTION_INCLUSION_CHAIN_ID?.trim() : undefined;
 if (INCLUSIONS_ENABLED && !/^[A-Za-z0-9_.-]+$/.test(INCLUSION_CHAIN_ID || '')) throw new Error('Transaction inclusions require an explicit chain ID');
-const CONSISTENCY_REPAIR_INTERVAL_MS = 300_000;
+const CONSISTENCY_REPAIR_INTERVAL_MS = 10_000;
 const SYNC_SNAPSHOT_REFRESH_MS = 30_000;
-const CONSISTENCY_REPAIR_BATCH = 250;
+const CONSISTENCY_AUDIT_WINDOW = 10_000;
+const CONSISTENCY_REPAIR_BATCH = 4;
 
 // ─── DB Pool ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +73,20 @@ const pool = new Pool({
 });
 pool.on('error', (err) => logger.error({ err: err.message }, '[db] Pool error'));
 
+// Historical reads must not exhaust ingestion's five connections, spawn
+// parallel scans, or run without a deadline as chain history grows.
+const maintenancePool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 1,
+  application_name: 'lithoscan-indexer-maintenance',
+  statement_timeout: 10_000,
+  idleTimeoutMillis: 30_000,
+  connectionTimeoutMillis: 10_000,
+  options: '-c max_parallel_workers_per_gather=0',
+  ssl: process.env.DATABASE_URL?.includes('sslmode=disable') ? false : { rejectUnauthorized: false },
+});
+maintenancePool.on('error', err => logger.warn({ err: err.message }, '[db] Maintenance pool error'));
+
 // ─── Prometheus ───────────────────────────────────────────────────────────────
 
 collectDefaultMetrics({ prefix: 'litho_indexer_' });
@@ -79,6 +95,8 @@ const gChain   = new Gauge({ name: 'litho_indexer_chain_height',       help: 'Ch
 const gMaxTxBlock = new Gauge({ name: 'litho_indexer_max_transaction_block', help: 'Latest indexed transaction block height' });
 const gInconsistentBlocks = new Gauge({ name: 'litho_indexer_inconsistent_block_count', help: 'Indexed blocks whose transaction count does not match the transactions table' });
 const gLag = new Gauge({ name: 'litho_indexer_chain_lag_blocks', help: 'Block lag between the chain tip and the indexed blocks table tip' });
+const maintenanceDuration = new Gauge({ name: 'litho_indexer_maintenance_duration_seconds', help: 'Last duration of each maintenance job', labelNames: ['task'] });
+const phaseDuration = new Histogram({ name: 'litho_indexer_phase_duration_seconds', help: 'RPC preparation and ordered commit durations', labelNames: ['phase'], buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30] });
 
 const BUILD_INFO = readBuildInfo();
 
@@ -157,7 +175,7 @@ interface IndexerSyncSnapshot {
   maxTransactionBlock: number;
   latestBlockTimestamp: string | null;
   latestTransactionTimestamp: string | null;
-  inconsistentBlockCount: number;
+  inconsistentBlockCount: number | null;
   lagBlocks: number;
   isSyncing: boolean;
   lastResetReason: string | null;
@@ -188,7 +206,7 @@ let syncSnapshot: IndexerSyncSnapshot = {
   maxTransactionBlock: 0,
   latestBlockTimestamp: null,
   latestTransactionTimestamp: null,
-  inconsistentBlockCount: 0,
+  inconsistentBlockCount: null,
   lagBlocks: 0,
   isSyncing: false,
   lastResetReason: null,
@@ -377,63 +395,73 @@ export function toIsoString(value: Date | string | null | undefined): string | n
   return Number.isNaN(d.getTime()) ? null : d.toISOString();
 }
 
-const INCONSISTENT_BLOCKS_CTE = `
-  WITH tx_counts AS (
-    SELECT block_height::bigint AS height, COUNT(*)::bigint AS tx_count
-    FROM ${INCLUSIONS_ENABLED ? 'transaction_inclusions' : 'transactions'}
-    ${INCLUSIONS_ENABLED ? `WHERE chain_id='${INCLUSION_CHAIN_ID}'` : ''}
-    GROUP BY block_height
-  ),
-  inconsistent_blocks AS (
-    SELECT b.height::bigint AS height
-    FROM blocks b
-    LEFT JOIN tx_counts t ON t.height = b.height::bigint
-    WHERE COALESCE(t.tx_count, 0) <> COALESCE(b.num_txs, 0)
-    UNION
-    SELECT t.height
-    FROM tx_counts t
-    LEFT JOIN blocks b ON b.height::bigint = t.height
-    WHERE b.height IS NULL
-  )
-`;
-
+// A durable rolling audit covers history without rescanning the entire chain.
+// Unknown remains null until a complete pass; partial checks never imply zero.
 let consistencyCountCache: number | null = null;
-let consistencyCountCheckedAt = 0;
-let consistencyCountPending: Promise<number> | null = null;
-async function getInconsistentBlockCount(): Promise<number> {
-  const refresh = (): Promise<number> => {
-    if (!consistencyCountPending) {
-      consistencyCountPending = pool.query<{ count: string }>(`
-    ${INCONSISTENT_BLOCKS_CTE}
-    SELECT COUNT(*) AS count FROM inconsistent_blocks
-  `).then(rows => {
-        consistencyCountCache = parseIntSafe(rows.rows[0]?.count);
-        consistencyCountCheckedAt = Date.now();
-        return consistencyCountCache;
-      }).finally(() => { consistencyCountPending = null; });
-    }
-    return consistencyCountPending;
+let auditProgress: { cursor: number; tip: number; count: number } | null = null;
+const preparedRepairs: PreparedBlock[] = [];
+
+export async function auditConsistency(): Promise<void> {
+  if (preparedRepairs.length > 0) return;
+  if (!auditProgress) {
+    const rows = await maintenancePool.query<{ key: string; value: string }>(
+      "SELECT key, value FROM indexer_state WHERE key LIKE 'consistency_audit_%'",
+    );
+    const state = new Map(rows.rows.map(row => [row.key, row.value]));
+    auditProgress = {
+      cursor: parseIntSafe(state.get('consistency_audit_cursor')),
+      tip: parseIntSafe(state.get('consistency_audit_tip')),
+      count: parseIntSafe(state.get('consistency_audit_count')),
+    };
+    const completed = state.get('consistency_audit_completed_count');
+    if (completed !== undefined) consistencyCountCache = parseIntSafe(completed);
+  }
+  const committedTip = Math.max(0, (await getLastIndexedBlock()) - 1);
+  const tip = auditProgress.cursor > 0 ? Math.min(auditProgress.tip, committedTip) : committedTip;
+  const window = nextAuditWindow(auditProgress.cursor, tip, CONSISTENCY_AUDIT_WINDOW);
+  if (!window) return;
+  const chain = INCLUSIONS_ENABLED ? INCLUSION_CHAIN_ID : undefined;
+  const scan = async (from: number, to: number) => {
+    const result = await maintenancePool.query<InconsistentHeightRow>(
+      consistencyWindowSql(chain), chain ? [from, to, chain] : [from, to],
+    );
+    return result.rows.map(row => parseIntSafe(row.height)).filter(h => h > 0);
   };
-  // Startup establishes a real count. Later snapshots reuse that diagnostic
-  // and refresh it at the existing repair cadence, without blocking indexing.
-  if (consistencyCountCache === null)
-    return refresh();
-  if (Date.now() - consistencyCountCheckedAt >= CONSISTENCY_REPAIR_INTERVAL_MS)
-    void refresh().catch(err => logger.warn({ err }, '[indexer] consistency diagnostic refresh failed'));
-  return consistencyCountCache;
+  // Recent activity gets checked on every pass, independent of the history cursor.
+  const recent = await scan(Math.max(1, committedTip - 2047), committedTip);
+  const historical = await scan(window.from, window.to);
+  const count = (auditProgress.cursor > 0 ? auditProgress.count : 0) + historical.length;
+  if (window.complete) consistencyCountCache = count;
+  else if (recent.length || historical.length) {
+    consistencyCountCache = Math.max(consistencyCountCache ?? 0, recent.length, historical.length);
+  }
+  const updates = [
+    ['consistency_audit_cursor', String(window.next)],
+    ['consistency_audit_tip', String(tip)],
+    ['consistency_audit_count', String(window.complete ? 0 : count)],
+    ...(window.complete ? [['consistency_audit_completed_count', String(count)]] : []),
+  ];
+  await pool.query(`INSERT INTO indexer_state (key, value, updated_at)
+    SELECT key, value, NOW() FROM jsonb_to_recordset($1::jsonb) AS x(key text, value text)
+    ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()`,
+    [JSON.stringify(updates.map(([key, value]) => ({ key, value }))) ]);
+  auditProgress = { cursor: window.next, tip, count: window.complete ? 0 : count };
+  // Fetch repair data off the writer path. The loop below alone commits it,
+  // so historical replacement cannot race normal block writes/checkpoints.
+  const heights = [...new Set([...recent, ...historical])].slice(0, CONSISTENCY_REPAIR_BATCH);
+  for (const height of heights) preparedRepairs.push(await prepareBlock(height));
 }
 
-async function findInconsistentBlockHeights(limit: number): Promise<number[]> {
-  const rows = await pool.query<InconsistentHeightRow>(`
-    ${INCONSISTENT_BLOCKS_CTE}
-    SELECT height::text AS height
-    FROM inconsistent_blocks
-    ORDER BY height ASC
-    LIMIT $1
-  `, [limit]);
-  return rows.rows
-    .map((row) => parseIntSafe(row.height))
-    .filter((height) => height > 0);
+export async function commitPreparedRepair(): Promise<void> {
+  const prepared = preparedRepairs[0];
+  if (!prepared) return;
+  await indexBlock(prepared.height, { replaceExisting: true }, prepared);
+  preparedRepairs.shift();
+  await Promise.all([
+    setIndexerState('last_repair_at', new Date().toISOString()),
+    setIndexerState('last_repair_count', '1'),
+  ]);
+  logger.info({ height: prepared.height }, '[indexer] Consistency repair committed');
 }
 
 async function refreshSyncSnapshot(chainTip = lastKnownChainTip): Promise<IndexerSyncSnapshot> {
@@ -449,12 +477,12 @@ async function refreshSyncSnapshot(chainTip = lastKnownChainTip): Promise<Indexe
   ] = await Promise.all([
     getLastIndexedBlock().catch(() => 0),
     pool.query<HeightWithTimeRow>(
-      'SELECT COALESCE(MAX(height), 0)::text AS height, MAX(block_time) AS block_time FROM blocks'
+      'SELECT height::text AS height, block_time FROM blocks ORDER BY height DESC LIMIT 1'
     ).catch(() => ({ rows: [] as HeightWithTimeRow[] })),
     pool.query<HeightWithTimeRow>(
       `SELECT block_height::text AS height, timestamp FROM ${INCLUSIONS_ENABLED ? 'transaction_inclusions' : 'transactions'} ${INCLUSIONS_ENABLED ? `WHERE chain_id='${INCLUSION_CHAIN_ID}'` : ''} ORDER BY block_height DESC, tx_index DESC LIMIT 1`
     ).catch(() => ({ rows: [] as HeightWithTimeRow[] })),
-    getInconsistentBlockCount().catch(() => 0),
+    Promise.resolve(consistencyCountCache),
     getIndexerState('last_reset_reason').catch(() => null),
     getIndexerState('last_reset_at').catch(() => null),
     getIndexerState('last_repair_at').catch(() => null),
@@ -488,39 +516,10 @@ async function refreshSyncSnapshot(chainTip = lastKnownChainTip): Promise<Indexe
 
   gIndexed.set(lastIndexedBlock);
   gMaxTxBlock.set(maxTransactionBlock);
-  gInconsistentBlocks.set(inconsistentBlockCount);
+  if (inconsistentBlockCount !== null) gInconsistentBlocks.set(inconsistentBlockCount);
   gLag.set(lagBlocks);
 
   return syncSnapshot;
-}
-
-async function repairInconsistentBlocks(limit = CONSISTENCY_REPAIR_BATCH): Promise<number> {
-  const heights = await findInconsistentBlockHeights(limit);
-  if (heights.length === 0) {
-    await setIndexerState('last_repair_count', '0');
-    return 0;
-  }
-
-  logger.warn({ count: heights.length }, '[indexer] Repairing inconsistent block(s)');
-  let repaired = 0;
-  for (const height of heights) {
-    try {
-      await indexBlock(height, { replaceExisting: true });
-      repaired += 1;
-    } catch (err) {
-      logger.warn(
-        { height, err: err instanceof Error ? err.message : String(err) },
-        '[indexer] Consistency repair failed',
-      );
-    }
-  }
-
-  await Promise.all([
-    setIndexerState('last_repair_at', new Date().toISOString()),
-    setIndexerState('last_repair_count', String(repaired)),
-  ]);
-
-  return repaired;
 }
 
 async function resetIndexedData(reason: string): Promise<void> {
@@ -1526,11 +1525,9 @@ async function refreshValidators(): Promise<void> {
 
 async function recordNetworkStats(): Promise<void> {
   try {
-    const [tx, acc, ct] = await Promise.all([
-      pool.query<{ count: string }>('SELECT COUNT(*) count FROM transactions'),
-      pool.query<{ count: string }>('SELECT COUNT(*) count FROM accounts'),
-      pool.query<{ count: string }>('SELECT COUNT(*) count FROM contracts'),
-    ]);
+    const tx = await maintenancePool.query<{ count: string }>('SELECT COUNT(*) count FROM transactions');
+    const acc = await maintenancePool.query<{ count: string }>('SELECT COUNT(*) count FROM accounts');
+    const ct = await maintenancePool.query<{ count: string }>('SELECT COUNT(*) count FROM contracts');
     await pool.query(
       `INSERT INTO network_stats (total_transactions, total_accounts, total_contracts)
        VALUES ($1, $2, $3)`,
@@ -1818,15 +1815,12 @@ async function main(): Promise<void> {
   await ensureChainConsistency(shouldForceReset);
   await seedStaticData();
   await refreshSyncSnapshot();
-  await repairInconsistentBlocks();
-  await refreshSyncSnapshot();
 
   // Targeted EVM backfill: re-process only blocks that have transactions but no EVM records.
   // This avoids resetting to 0 and re-processing all 85k+ blocks on every restart.
   try {
-    const evmCount = await pool.query('SELECT COUNT(*) AS count FROM evm_transactions');
-    const evmTotal = parseInt(evmCount.rows[0]?.count ?? '0');
-    if (evmTotal === 0) {
+    const evmExists = await pool.query('SELECT 1 FROM evm_transactions LIMIT 1');
+    if (evmExists.rows.length === 0) {
       const txBlocks = await pool.query(
         `SELECT DISTINCT block_height FROM transactions ORDER BY block_height`
       );
@@ -1947,20 +1941,34 @@ async function main(): Promise<void> {
   runDiscovery();
   setInterval(runDiscovery, 15_000).unref();
 
-  // Initial validator load
-  await refreshValidators();
+  const maintenance = createMaintenanceScheduler([
+    { name: 'validators', intervalMs: 600_000, run: refreshValidators },
+    { name: 'stats', intervalMs: 300_000, run: recordNetworkStats },
+    { name: 'integrity', intervalMs: CONSISTENCY_REPAIR_INTERVAL_MS, run: auditConsistency },
+    { name: 'snapshot', intervalMs: SYNC_SNAPSHOT_REFRESH_MS, run: () => refreshSyncSnapshot() },
+    { name: 'balances', intervalMs: 60_000, run: () => refreshNativeBalances(lastKnownChainTip) },
+  ], (task, durationMs, error) => {
+    maintenanceDuration.set({ task }, durationMs / 1000);
+    if (error) logger.warn({ task, durationMs, err: error instanceof Error ? error.message : String(error) }, '[maintenance] failed; retry next interval');
+    else if (durationMs > 2000) logger.info({ task, durationMs }, '[maintenance] slow task');
+  });
 
-  let lastValidatorRefresh = Date.now();
-  let lastStatsRefresh     = Date.now();
-  let lastConsistencyRepair = Date.now();
-  let lastSyncSnapshotRefresh = Date.now();
-  let lastNativeBalanceRefresh = 0; // 0 → run on the first cycle so holder counts warm up immediately
-  const nativeBalanceTask = createSingleFlightTask(err => logger.warn({ err: err instanceof Error ? err.message : String(err) }, '[balances] background refresh failed'));
+  const prepareMeasured = async (height: number) => {
+    const started = Date.now();
+    try { return await prepareBlock(height); }
+    finally {
+      const durationMs = Date.now() - started;
+      phaseDuration.observe({ phase: 'rpc' }, durationMs / 1000);
+      if (durationMs > 5000) logger.warn({ height, durationMs }, '[indexer] Slow block RPC preparation');
+    }
+  };
 
   while (true) {
     const cycleId = newCycleId();
     await cycleIdStore.run({ cycleId }, async () => {
     try {
+      maintenance.tick();
+      await commitPreparedRepair();
       const status = await rpcGet<RpcStatus>('/status');
       const chainTip = parseInt(status.sync_info.latest_block_height);
       lastKnownChainTip = chainTip;
@@ -1972,10 +1980,6 @@ async function main(): Promise<void> {
       gLag.set(Math.max(0, chainTip - from));
 
       if (from >= chainTip) {
-        if (Date.now() - lastSyncSnapshotRefresh > SYNC_SNAPSHOT_REFRESH_MS) {
-          await refreshSyncSnapshot(chainTip);
-          lastSyncSnapshotRefresh = Date.now();
-        }
         // Fully caught up — wait for next block
         await new Promise(r => setTimeout(r, POLL_MS));
         return;
@@ -1984,37 +1988,14 @@ async function main(): Promise<void> {
       const lag = chainTip - from;
       logger.info({ from: from + 1, to, lag }, 'cycle_sync_range');
 
-      await consumePrefetchedRange(from + 1, to, BLOCK_PREFETCH_CONCURRENCY, prepareBlock, async (h, prepared) => {
+      await consumePrefetchedRange(from + 1, to, BLOCK_PREFETCH_CONCURRENCY, prepareMeasured, async (h, prepared) => {
+        const started = Date.now();
         await indexBlock(h, {}, prepared);
         await setLastIndexedBlock(h);
         await setLastIndexedEvmBlock(h);
         gLag.set(Math.max(0, chainTip - h));
+        phaseDuration.observe({ phase: 'commit' }, (Date.now() - started) / 1000);
       });
-
-      // Periodic maintenance
-      if (Date.now() - lastValidatorRefresh > 600_000) {
-        await refreshValidators();
-        lastValidatorRefresh = Date.now();
-      }
-      if (Date.now() - lastStatsRefresh > 300_000) {
-        await recordNetworkStats();
-        lastStatsRefresh = Date.now();
-      }
-      if (Date.now() - lastNativeBalanceRefresh > 60_000) {
-        const balanceChainTip = lastKnownChainTip;
-        nativeBalanceTask.run(async () => {
-          await refreshNativeBalances(balanceChainTip);
-          lastNativeBalanceRefresh = Date.now();
-        });
-      }
-      if (Date.now() - lastConsistencyRepair > CONSISTENCY_REPAIR_INTERVAL_MS) {
-        await repairInconsistentBlocks();
-        lastConsistencyRepair = Date.now();
-      }
-      if (Date.now() - lastSyncSnapshotRefresh > SYNC_SNAPSHOT_REFRESH_MS || to >= chainTip) {
-        await refreshSyncSnapshot(chainTip);
-        lastSyncSnapshotRefresh = Date.now();
-      }
 
       // Back off only when caught up; aggressively sync when behind
       const delay = CATCHUP_DELAY_MS;

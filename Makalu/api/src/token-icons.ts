@@ -1,6 +1,14 @@
 const cache = new Map<string, { value: string | null; expires: number }>();
 const pending = new Map<string, Promise<string | null>>();
 
+/** First-party Ignite asset, pinned locally so profile rendering does not
+ * depend on an external discovery service. Symbols never grant identity. */
+export function officialTokenIcon(address: string, chainId: number): string | null {
+  const lax = chainId === 9005 ? '0x29147bebb1c49c3a54aa464137611fe708886df3'
+    : chainId === 700777 ? '0x1cde2ca6c2ab8622003ebe06e382bc07850d4b8d' : null;
+  return lax && address.toLowerCase() === lax ? '/tokens/lax.png' : null;
+}
+
 export function selectDegensIcon(items: unknown, address: string, chainId: number): string | null {
   if (!Array.isArray(items)) return null;
   for (const item of items) {

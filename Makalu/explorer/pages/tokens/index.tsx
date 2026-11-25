@@ -193,8 +193,8 @@ export default function TokensPage() {
                             <Link href={tokenHref} className="flex items-center gap-3 group">
                           <TokenIcon symbol={token.symbol} address={token.contractAddress ?? "native"} logoUrl={token.logoUrl} className="w-8 h-8" />
                               <div>
-                                <span className="text-sm font-semibold text-white group-hover:text-emerald-300 transition">
-                                  {token.symbol}
+                                <span className="inline-flex max-w-full items-center gap-1 text-sm font-semibold text-white group-hover:text-emerald-300 transition">
+                                  <span className="min-w-0 truncate">{token.symbol}</span>
                                   <VerifiedTokenBadge verified={token.verifiedBadge} />
                                 </span>
                                 <div className="text-xs text-white/40">{token.name}</div>
@@ -255,7 +255,7 @@ export default function TokensPage() {
                         <div className="flex min-w-0 items-center gap-3">
                           <TokenIcon symbol={token.symbol} address={token.contractAddress ?? "native"} logoUrl={token.logoUrl} className="w-10 h-10" />
                           <div className="min-w-0">
-                            <div className="truncate text-sm font-semibold text-white">{token.symbol}<VerifiedTokenBadge verified={token.verifiedBadge} /></div>
+                            <div className="flex min-w-0 items-center gap-1 text-sm font-semibold text-white"><span className="min-w-0 truncate">{token.symbol}</span><VerifiedTokenBadge verified={token.verifiedBadge} /></div>
                             <div className="truncate text-xs text-white/40">{token.name}</div>
                           </div>
                         </div>
