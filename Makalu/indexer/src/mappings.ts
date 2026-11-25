@@ -94,6 +94,7 @@ const gIndexed = new Gauge({ name: 'litho_indexer_last_indexed_block', help: 'La
 const gChain   = new Gauge({ name: 'litho_indexer_chain_height',       help: 'Chain tip height' });
 const gMaxTxBlock = new Gauge({ name: 'litho_indexer_max_transaction_block', help: 'Latest indexed transaction block height' });
 const gInconsistentBlocks = new Gauge({ name: 'litho_indexer_inconsistent_block_count', help: 'Indexed blocks whose transaction count does not match the transactions table' });
+gInconsistentBlocks.set(Number.NaN); // A partial historical audit cannot establish zero.
 const gLag = new Gauge({ name: 'litho_indexer_chain_lag_blocks', help: 'Block lag between the chain tip and the indexed blocks table tip' });
 const maintenanceDuration = new Gauge({ name: 'litho_indexer_maintenance_duration_seconds', help: 'Last duration of each maintenance job', labelNames: ['task'] });
 const phaseDuration = new Histogram({ name: 'litho_indexer_phase_duration_seconds', help: 'RPC preparation and ordered commit durations', labelNames: ['phase'], buckets: [0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 30] });
@@ -399,7 +400,14 @@ export function toIsoString(value: Date | string | null | undefined): string | n
 // Unknown remains null until a complete pass; partial checks never imply zero.
 let consistencyCountCache: number | null = null;
 let auditProgress: { cursor: number; tip: number; count: number } | null = null;
+let pendingRepairHeights: number[] = [];
 const preparedRepairs: PreparedBlock[] = [];
+
+async function preparePendingRepairs(): Promise<void> {
+  for (const height of pendingRepairHeights.slice(0, CONSISTENCY_REPAIR_BATCH)) {
+    preparedRepairs.push(await prepareBlock(height));
+  }
+}
 
 export async function auditConsistency(): Promise<void> {
   if (preparedRepairs.length > 0) return;
@@ -408,13 +416,24 @@ export async function auditConsistency(): Promise<void> {
       "SELECT key, value FROM indexer_state WHERE key LIKE 'consistency_audit_%'",
     );
     const state = new Map(rows.rows.map(row => [row.key, row.value]));
+    const completed = state.get('consistency_audit_completed_count');
+    if (completed !== undefined) consistencyCountCache = parseIntSafe(completed);
+    const queued: unknown = JSON.parse(state.get('consistency_audit_repairs') ?? '[]');
+    if (!Array.isArray(queued) || !queued.every(h => Number.isSafeInteger(h) && h > 0)) {
+      throw new Error('Invalid durable consistency repair queue');
+    }
+    pendingRepairHeights = queued;
     auditProgress = {
       cursor: parseIntSafe(state.get('consistency_audit_cursor')),
       tip: parseIntSafe(state.get('consistency_audit_tip')),
       count: parseIntSafe(state.get('consistency_audit_count')),
     };
-    const completed = state.get('consistency_audit_completed_count');
-    if (completed !== undefined) consistencyCountCache = parseIntSafe(completed);
+  }
+  // Drain every mismatch in a window before moving on. Keeping only the first
+  // four would defer the remainder until the next full historical sweep.
+  if (pendingRepairHeights.length > 0) {
+    await preparePendingRepairs();
+    return;
   }
   const committedTip = Math.max(0, (await getLastIndexedBlock()) - 1);
   const tip = auditProgress.cursor > 0 ? Math.min(auditProgress.tip, committedTip) : committedTip;
@@ -435,10 +454,12 @@ export async function auditConsistency(): Promise<void> {
   else if (recent.length || historical.length) {
     consistencyCountCache = Math.max(consistencyCountCache ?? 0, recent.length, historical.length);
   }
+  const discoveredRepairs = [...new Set([...recent, ...historical])];
   const updates = [
     ['consistency_audit_cursor', String(window.next)],
     ['consistency_audit_tip', String(tip)],
     ['consistency_audit_count', String(window.complete ? 0 : count)],
+    ['consistency_audit_repairs', JSON.stringify(discoveredRepairs)],
     ...(window.complete ? [['consistency_audit_completed_count', String(count)]] : []),
   ];
   await pool.query(`INSERT INTO indexer_state (key, value, updated_at)
@@ -446,16 +467,19 @@ export async function auditConsistency(): Promise<void> {
     ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value, updated_at=NOW()`,
     [JSON.stringify(updates.map(([key, value]) => ({ key, value }))) ]);
   auditProgress = { cursor: window.next, tip, count: window.complete ? 0 : count };
+  pendingRepairHeights = discoveredRepairs;
   // Fetch repair data off the writer path. The loop below alone commits it,
   // so historical replacement cannot race normal block writes/checkpoints.
-  const heights = [...new Set([...recent, ...historical])].slice(0, CONSISTENCY_REPAIR_BATCH);
-  for (const height of heights) preparedRepairs.push(await prepareBlock(height));
+  await preparePendingRepairs();
 }
 
 export async function commitPreparedRepair(): Promise<void> {
   const prepared = preparedRepairs[0];
   if (!prepared) return;
   await indexBlock(prepared.height, { replaceExisting: true }, prepared);
+  const remaining = pendingRepairHeights.filter(height => height !== prepared.height);
+  await setIndexerState('consistency_audit_repairs', JSON.stringify(remaining));
+  pendingRepairHeights = remaining;
   preparedRepairs.shift();
   await Promise.all([
     setIndexerState('last_repair_at', new Date().toISOString()),

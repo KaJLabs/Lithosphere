@@ -64,23 +64,30 @@ describe('integrity maintenance at the writer boundary', () => {
   it('audits bounded history, prepares repairs without writes, then commits without moving the live checkpoint', async () => {
     mockQueryImpl = async (sql, params) => {
       if (sql.includes("key = 'last_indexed_block'")) return { rows: [{ value: '10011' }] };
-      if (sql.includes('FULL OUTER JOIN') && params?.[0] === 1) return { rows: [{ height: '99' }] };
+      if (sql.includes('FULL OUTER JOIN') && params?.[0] === 1) return { rows: [99, 100, 101, 102, 103, 104].map(height => ({ height: String(height) })) };
       return { rows: [] };
     };
-    stubRpc({
-      '/block?height=99': { block_id: { hash: 'repair' }, block: { header: { proposer_address: 'a', time: '2026-11-25T00:00:00Z' }, data: { txs: [] } } },
-      '/block_results?height=99': { txs_results: [] },
-    });
+    stubRpc(Object.fromEntries([99, 100, 101, 102, 103, 104].flatMap(height => [
+      [`/block?height=${height}`, { block_id: { hash: 'repair' }, block: { header: { proposer_address: 'a', time: '2026-11-25T00:00:00Z' }, data: { txs: [] } } }],
+      [`/block_results?height=${height}`, { txs_results: [] }],
+    ])));
     await auditConsistency();
     const scans = captured.filter(q => q.sql.includes('FULL OUTER JOIN'));
     expect(scans.map(q => q.params)).toEqual([[7963, 10010], [1, 10000]]);
     expect(captured.some(q => q.sql.includes('INSERT INTO blocks'))).toBe(false);
     expect(captured.some(q => q.sql.includes('consistency_audit_') && q.sql.includes('SELECT'))).toBe(true);
+    expect(captured.find(q => q.sql.includes('jsonb_to_recordset'))?.params?.[0]).toContain('consistency_audit_repairs');
     const rpcCalls = vi.mocked(globalThis.fetch).mock.calls.length;
     await commitPreparedRepair();
     expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(rpcCalls);
     expect(captured.some(q => q.sql.includes('INSERT INTO blocks') && q.params?.[0] === 99)).toBe(true);
     expect(captured.some(q => q.sql.includes("VALUES ('last_indexed_block'"))).toBe(false);
+    for (let i = 0; i < 3; i++) await commitPreparedRepair();
+    await auditConsistency();
+    expect(captured.filter(q => q.sql.includes('FULL OUTER JOIN'))).toHaveLength(2);
+    expect(vi.mocked(globalThis.fetch).mock.calls.length).toBe(rpcCalls + 4);
+    await commitPreparedRepair();
+    await commitPreparedRepair();
     await auditConsistency();
     expect(captured.filter(q => q.sql.includes('FULL OUTER JOIN')).at(-1)?.params).toEqual([10001, 10010]);
   });
