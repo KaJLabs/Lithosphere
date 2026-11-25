@@ -25,12 +25,13 @@ export async function prefetchEvmTransactions<T extends { hash?: string; blockNu
   concurrency = 4,
   height?: number,
   readBatch?: <V>(method: string, params: unknown[][]) => Promise<Array<V | null>>,
+  receiptFromTransaction?: (transaction: T) => R | null,
 ): Promise<Map<string, EvmDetails<T, R>>> {
-  const unique = [...new Set(hashes.filter(hash => typeof hash === 'string' && hash.length > 0))];
+  let unique = [...new Set(hashes.filter(hash => typeof hash === 'string' && hash.length > 0))];
   const results = new Map<string, EvmDetails<T, R>>();
   const limit = Math.min(4, Math.max(1, Number.isFinite(concurrency) ? Math.floor(concurrency) : 1));
   const blockTransactions = new Map<string, T>();
-  if (unique.length > 1 && height !== undefined && Number.isSafeInteger(height) && height > 0) {
+  if (unique.length > 0 && (unique.length > 1 || receiptFromTransaction) && height !== undefined && Number.isSafeInteger(height) && height > 0) {
     try {
       const block = await readRpc<{ number: string; transactions: T[] }>(
         'eth_getBlockByNumber', ['0x' + height.toString(16), true],
@@ -45,6 +46,15 @@ export async function prefetchEvmTransactions<T extends { hash?: string; blockNu
     } catch {
       blockTransactions.clear();
     }
+  }
+  if (receiptFromTransaction) {
+    for (const hash of unique) {
+      const tx = blockTransactions.get(hash.toLowerCase());
+      const receipt = tx ? receiptFromTransaction(tx) : null;
+      if (tx && receipt) results.set(hash, { tx, receipt });
+    }
+    unique = unique.filter(hash => !results.has(hash));
+    if (unique.length === 0) return results;
   }
   const receiptOnly = unique.every(hash => blockTransactions.has(hash.toLowerCase()));
   if (receiptOnly && unique.length > 1 && height !== undefined

@@ -93,6 +93,32 @@ describe('integrity maintenance at the writer boundary', () => {
   });
 });
 
+describe('repair queue after a process restart', () => {
+  it('resumes saved repairs before another audit and persists each successful removal', async () => {
+    const { register } = await import('prom-client');
+    register.clear();
+    vi.resetModules();
+    const restarted = await import('../mappings.js');
+    mockQueryImpl = async sql => sql.includes("key LIKE 'consistency_audit_%'") ? { rows: [
+      { key: 'consistency_audit_cursor', value: '10000' },
+      { key: 'consistency_audit_tip', value: '10010' },
+      { key: 'consistency_audit_count', value: '2' },
+      { key: 'consistency_audit_repairs', value: '[97,98]' },
+    ] } : { rows: [] };
+    stubRpc(Object.fromEntries([97, 98].flatMap(height => [
+      [`/block?height=${height}`, { block_id: { hash: 'repair' }, block: { header: { proposer_address: 'a', time: '2026-11-25T00:00:00Z' }, data: { txs: [] } } }],
+      [`/block_results?height=${height}`, { txs_results: [] }],
+    ])));
+    await restarted.auditConsistency();
+    expect(captured.some(q => q.sql.includes('FULL OUTER JOIN'))).toBe(false);
+    await restarted.commitPreparedRepair();
+    expect(captured.some(q => q.params?.[0] === 'consistency_audit_repairs' && q.params[1] === '[98]')).toBe(true);
+    await restarted.commitPreparedRepair();
+    expect(captured.some(q => q.params?.[0] === 'consistency_audit_repairs' && q.params[1] === '[]')).toBe(true);
+    expect(captured.some(q => q.sql.includes("VALUES ('last_indexed_block'"))).toBe(false);
+  });
+});
+
 describe('indexBlock', () => {
   it('prepares RPC data without database writes and consumes it without refetching', async () => {
     stubRpc({

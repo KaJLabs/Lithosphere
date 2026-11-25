@@ -4,6 +4,7 @@ import './tracing.js';
 import { createHash } from 'crypto';
 import { prefetchEvmTransactions, type EvmDetails } from './evm-prefetch.js';
 import { consumePrefetchedRange } from './block-pipeline.js';
+import { nativeTransferReceipt } from './cosmos-receipt.js';
 import { createMaintenanceScheduler, consistencyWindowSql, nextAuditWindow } from './maintenance.js';
 import { decodeTxMemo } from './tx-memo.js';
 import { discoverToken } from './token-discovery.js';
@@ -757,7 +758,11 @@ export async function prepareBlock(height: number): Promise<PreparedBlock> {
     .filter(result => (attr(result.events ?? [], 'message', 'action') || '').split('.').pop() === 'MsgEthereumTx')
     .map(result => attr(result.events ?? [], 'ethereum_tx', 'ethereumTxHash'))
     .filter(Boolean);
-  const evmDetails = await prefetchEvmTransactions<RpcEvmTx, RpcEvmReceipt>(hashes, evmRpc, 4, height, evmRpcBatch);
+  const executions = new Map(txResults.map(result => [
+    attr(result.events ?? [], 'ethereum_tx', 'ethereumTxHash').toLowerCase(), result,
+  ]));
+  const evmDetails = await prefetchEvmTransactions<RpcEvmTx, RpcEvmReceipt>(hashes, evmRpc, 4, height, evmRpcBatch,
+    tx => nativeTransferReceipt(tx, executions.get(tx.hash?.toLowerCase() ?? ''), height));
   return { height, blockData, rawTxs, txResults, totalGas, evmDetails };
 }
 
